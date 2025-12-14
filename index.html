@@ -16,17 +16,20 @@
     <!-- FontAwesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
+    <!-- html2pdf.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
                         brand: {
-                            dark: '#102024',    /* Ink Blue */
-                            light: '#F5EFE5',   /* Cream Bone */
-                            accent: '#D9CBB3',  /* Sandstone */
-                            grey: '#8C857F',    /* Taupe Grey */
-                            text: '#363636',    /* Iron Grey */
+                            dark: '#102024',
+                            light: '#F5EFE5',
+                            accent: '#D9CBB3',
+                            grey: '#8C857F',
+                            text: '#363636',
                             success: '#4CAF50',
                             danger: '#E53935'
                         }
@@ -40,18 +43,14 @@
     </script>
 
     <style>
-        body {
-            background-color: #F5EFE5; /* Fondo Crema suave */
-            color: #363636;
-        }
+        body { background-color: #F5EFE5; color: #363636; }
         
-        /* Estilos Inputs réplica exacta */
         .aum-input {
             width: 100%;
-            background-color: #F9FAFB; /* Un gris muy muy pálido, casi blanco */
+            background-color: #F9FAFB;
             border: 1px solid #E5E7EB;
             padding: 0.6rem 0.75rem;
-            border-radius: 0.5rem; /* Bordes más redondeados */
+            border-radius: 0.5rem;
             outline: none;
             transition: all 0.2s;
             font-size: 0.95rem;
@@ -62,94 +61,64 @@
             background-color: #FFFFFF;
             box-shadow: 0 0 0 3px rgba(217, 203, 179, 0.2);
         }
-        
-        /* Inputs de solo lectura */
-        .aum-input[readonly] {
-            background-color: #F3F4F6;
-            color: #6B7280;
-        }
+        .aum-input[readonly] { background-color: #F3F4F6; color: #6B7280; }
 
         .aum-label {
             display: block;
             font-size: 0.7rem;
             font-weight: 700;
-            color: #9CA3AF; /* Gris suave para etiquetas */
+            color: #9CA3AF;
             margin-bottom: 0.35rem;
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
 
-        /* Radio Buttons personalizados */
-        .radio-group {
-            display: flex;
-            gap: 1.5rem;
-            align-items: center;
-            height: 42px; /* Altura para alinear con inputs */
-        }
-        .radio-label {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            cursor: pointer;
-            font-size: 0.95rem;
-            color: #4B5563;
-        }
+        .radio-group { display: flex; gap: 1.5rem; align-items: center; height: 42px; }
+        .radio-label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.95rem; color: #4B5563; }
         .radio-input {
-            appearance: none;
-            width: 1.2rem;
-            height: 1.2rem;
-            border: 1px solid #D1D5DB;
-            border-radius: 50%;
-            display: grid;
-            place-content: center;
+            appearance: none; width: 1.2rem; height: 1.2rem;
+            border: 1px solid #D1D5DB; border-radius: 50%;
+            display: grid; place-content: center;
         }
         .radio-input::before {
-            content: "";
-            width: 0.65rem;
-            height: 0.65rem;
-            border-radius: 50%;
-            transform: scale(0);
-            transition: 120ms transform ease-in-out;
+            content: ""; width: 0.65rem; height: 0.65rem; border-radius: 50%;
+            transform: scale(0); transition: 120ms transform ease-in-out;
             box-shadow: inset 1em 1em #102024;
         }
-        .radio-input:checked::before {
-            transform: scale(1);
-        }
-        .radio-input:checked {
-            border-color: #102024;
-        }
+        .radio-input:checked::before { transform: scale(1); }
+        .radio-input:checked { border-color: #102024; }
 
-        /* Animación módulos */
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .module-entry {
-            animation: slideIn 0.4s ease-out forwards;
-        }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .module-entry { animation: slideIn 0.4s ease-out forwards; }
     </style>
 </head>
-<body class="min-h-screen flex flex-col pb-20">
+<body class="min-h-screen flex flex-col pb-20" id="main-body">
 
-    <!-- HEADER ESTILO DASHBOARD -->
-    <header class="pt-6 pb-2 px-4 sm:px-8 max-w-5xl mx-auto w-full">
-        <!-- Fila Superior: Logo y Botones Acción -->
+    <!-- INPUTS TÉCNICOS (Ocultos pero funcionales) -->
+    <!-- Usamos style display:none en lugar de hidden para asegurar compatibilidad -->
+    <input type="file" id="file-load-input" style="display:none;" accept=".aum" onchange="processLoadSession(this)">
+    <input type="file" id="media-upload-input" style="display:none;" multiple accept="image/*,video/*" onchange="processMediaUpload(this)">
+    <input type="file" id="doc-upload-input" style="display:none;" multiple accept=".pdf,.dicom,.doc,.docx" onchange="processDocUpload(this)">
+
+    <!-- HEADER -->
+    <header class="pt-6 pb-2 px-4 sm:px-8 max-w-5xl mx-auto w-full" id="app-header">
         <div class="flex justify-between items-start mb-6">
             <div>
                 <h1 class="font-bold text-3xl text-brand-dark tracking-tight">All u moves</h1>
                 <p class="text-sm text-brand-grey uppercase tracking-widest ml-1">Clinical Suite</p>
             </div>
-            <div class="flex gap-3">
-                <button class="bg-white border border-brand-accent text-brand-grey hover:text-brand-dark hover:border-brand-dark px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-sm flex items-center gap-2">
+            <div class="flex gap-3 hide-on-pdf-controls">
+                <!-- Botón Cargar -->
+                <button onclick="triggerFileInput('file-load-input')" class="bg-white border border-brand-accent text-brand-grey hover:text-brand-dark hover:border-brand-dark px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-sm flex items-center gap-2">
                     <i class="fa-solid fa-upload"></i> Cargar .aum
                 </button>
-                <button class="bg-brand-dark text-brand-light px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-800 transition-all shadow-md flex items-center gap-2">
+                <!-- Botón Guardar -->
+                <button onclick="saveSession()" class="bg-brand-dark text-brand-light px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-800 transition-all shadow-md flex items-center gap-2">
                     <i class="fa-solid fa-floppy-disk"></i> Guardar Sesión
                 </button>
             </div>
         </div>
 
-        <!-- Fila Inferior: Kinesiólogo y Fecha -->
         <div class="flex flex-col sm:flex-row gap-4 items-end justify-end border-b border-brand-accent/30 pb-6">
             <div class="relative w-full sm:w-64">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-brand-grey">
@@ -165,20 +134,16 @@
     </header>
 
     <!-- MAIN CONTENT -->
-    <main class="w-full max-w-5xl mx-auto px-4 sm:px-8 space-y-8">
+    <main class="w-full max-w-5xl mx-auto px-4 sm:px-8 space-y-8" id="content-area">
 
-        <!-- 1. IDENTIFICACIÓN Y CONSENTIMIENTO (Card Principal) -->
-        <section class="bg-white rounded-xl shadow-lg border border-white p-6 sm:p-8">
-            
-            <!-- Título Sección -->
+        <!-- 1. IDENTIFICACIÓN Y CONSENTIMIENTO -->
+        <section class="bg-white rounded-xl shadow-lg border border-white p-6 sm:p-8" id="section-identity">
             <div class="flex items-center gap-3 mb-6">
                 <div class="w-1.5 h-6 bg-brand-accent rounded-full"></div>
                 <h2 class="text-xl font-bold text-brand-dark">Identificación y Consentimiento</h2>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-12 gap-y-5 gap-x-6">
-                
-                <!-- Fila 1: Nombre, Rut, Fecha, Edad -->
                 <div class="md:col-span-5">
                     <label class="aum-label">Nombre Completo</label>
                     <input type="text" class="aum-input" placeholder="Apellidos, Nombres" id="patient-name">
@@ -196,7 +161,6 @@
                     <input type="text" class="aum-input text-center" readonly id="patient-age" placeholder="-">
                 </div>
 
-                <!-- Fila 2: Sexo, Dirección, Comuna -->
                 <div class="md:col-span-4">
                     <label class="aum-label">Sexo</label>
                     <div class="radio-group">
@@ -207,35 +171,33 @@
                 </div>
                 <div class="md:col-span-5">
                     <label class="aum-label">Dirección</label>
-                    <input type="text" class="aum-input" placeholder="Calle, Número, Depto">
+                    <input type="text" class="aum-input" placeholder="Calle, Número, Depto" id="patient-address">
                 </div>
                 <div class="md:col-span-3">
                     <label class="aum-label">Comuna</label>
-                    <input type="text" class="aum-input">
+                    <input type="text" class="aum-input" id="patient-commune">
                 </div>
 
-                <!-- Fila 3: Celular, Correo, Previsión -->
                 <div class="md:col-span-3">
                     <label class="aum-label">Celular</label>
-                    <input type="tel" class="aum-input" placeholder="+56 9...">
+                    <input type="tel" class="aum-input" placeholder="+56 9..." id="patient-phone">
                 </div>
                 <div class="md:col-span-5">
                     <label class="aum-label">Correo</label>
-                    <input type="email" class="aum-input" placeholder="email@ejemplo.com">
+                    <input type="email" class="aum-input" placeholder="email@ejemplo.com" id="patient-email">
                 </div>
                 <div class="md:col-span-4">
                     <label class="aum-label">Previsión</label>
-                    <input type="text" class="aum-input" placeholder="Isapre / Fonasa / Particular">
+                    <input type="text" class="aum-input" placeholder="Isapre / Fonasa / Particular" id="patient-insurance">
                 </div>
 
-                <!-- Fila 4: Emergencia y Dominancia -->
                 <div class="md:col-span-5">
-                    <label class="aum-label">Contacto Emergencia (Nombre/Parentesco)</label>
-                    <input type="text" class="aum-input bg-red-50/50 border-red-100 focus:border-red-200 focus:ring-red-100" placeholder="Ej: Juan Pérez (Padre)">
+                    <label class="aum-label">Contacto Emergencia</label>
+                    <input type="text" class="aum-input bg-red-50/50 border-red-100" placeholder="Ej: Juan Pérez (Padre)" id="patient-emergency-name">
                 </div>
                 <div class="md:col-span-3">
                     <label class="aum-label">Celular Emergencia</label>
-                    <input type="tel" class="aum-input bg-red-50/50 border-red-100 focus:border-red-200 focus:ring-red-100" placeholder="+56 9...">
+                    <input type="tel" class="aum-input bg-red-50/50 border-red-100" placeholder="+56 9..." id="patient-emergency-phone">
                 </div>
                 <div class="md:col-span-4 pl-4 border-l border-gray-100">
                     <label class="aum-label">Dominancia</label>
@@ -245,26 +207,24 @@
                     </div>
                 </div>
 
-                <!-- Fila 5: Trabajo -->
                 <div class="md:col-span-4">
                     <label class="aum-label">Ocupación Actual</label>
-                    <input type="text" class="aum-input">
+                    <input type="text" class="aum-input" id="patient-occupation">
                 </div>
                 <div class="md:col-span-8">
-                    <label class="aum-label">Trabajo (Puesto / Horas / Carga)</label>
-                    <input type="text" class="aum-input" placeholder="Ej: Oficina, 45hrs, Sedentario / Construcción, Carga pesada">
+                    <label class="aum-label">Trabajo (Detalle)</label>
+                    <input type="text" class="aum-input" placeholder="Ej: Oficina, 45hrs, Sedentario" id="patient-work-details">
                 </div>
 
-                <!-- Fila 6: Deporte -->
                 <div class="md:col-span-12">
-                    <label class="aum-label">Deporte (Nivel / Volumen Semanal / Próxima Competencia)</label>
-                    <input type="text" class="aum-input" placeholder="Ej: Running Amateur, 30km/sem, Maratón Stgo 2026">
+                    <label class="aum-label">Deporte</label>
+                    <input type="text" class="aum-input" placeholder="Ej: Running Amateur, 30km/sem" id="patient-sport">
                 </div>
 
-                <!-- Fila 7: Consentimiento Informado (BOX DESTACADO) -->
+                <!-- Consentimiento -->
                 <div class="md:col-span-12 mt-6">
                     <div class="bg-gray-50 border border-gray-200 rounded-xl p-6">
-                        <h3 class="font-bold text-sm text-brand-dark mb-3 uppercase tracking-wide">Consentimiento Informado y Privacidad</h3>
+                        <h3 class="font-bold text-sm text-brand-dark mb-3 uppercase">Consentimiento Informado y Privacidad</h3>
                         <p class="text-xs text-gray-600 leading-relaxed text-justify mb-6">
                             "Declaro haber recibido información verbal clara sobre la naturaleza de esta evaluación clínica. 
                             <strong class="text-gray-800">Autorizo voluntariamente la realización de pruebas físicas y la captura de fotografías/videos</strong> 
@@ -272,16 +232,14 @@
                             y registros visuales serán tratados con total confidencialidad según la Ley Nº 19.628 y no serán divulgados sin mi permiso explícito.
                             Asumo la responsabilidad de informar cualquier cambio en mi estado de salud durante el proceso."
                         </p>
-                        
                         <div class="flex flex-col sm:flex-row gap-4">
-                            <label class="flex items-center gap-3 px-5 py-3 bg-white border border-brand-success/30 rounded-lg cursor-pointer hover:bg-green-50 transition-colors shadow-sm w-full sm:w-auto">
-                                <input type="radio" name="consent" value="accepted" class="w-4 h-4 text-brand-success focus:ring-brand-success border-gray-300">
+                            <label class="flex items-center gap-3 px-5 py-3 bg-white border border-brand-success/30 rounded-lg cursor-pointer hover:bg-green-50 w-full sm:w-auto">
+                                <input type="radio" name="consent" value="accepted" class="w-4 h-4 text-brand-success focus:ring-brand-success">
                                 <span class="text-sm font-bold text-brand-text">Sí, Acepto y Autorizo</span>
                             </label>
-                            
-                            <label class="flex items-center gap-3 px-5 py-3 bg-white border border-brand-danger/30 rounded-lg cursor-pointer hover:bg-red-50 transition-colors shadow-sm w-full sm:w-auto">
-                                <input type="radio" name="consent" value="rejected" class="w-4 h-4 text-brand-danger focus:ring-brand-danger border-gray-300">
-                                <span class="text-sm font-bold text-brand-danger">No (Detener evaluación)</span>
+                            <label class="flex items-center gap-3 px-5 py-3 bg-white border border-brand-danger/30 rounded-lg cursor-pointer hover:bg-red-50 w-full sm:w-auto">
+                                <input type="radio" name="consent" value="rejected" class="w-4 h-4 text-brand-danger focus:ring-brand-danger">
+                                <span class="text-sm font-bold text-brand-danger">No (Detener)</span>
                             </label>
                         </div>
                     </div>
@@ -289,55 +247,51 @@
             </div>
         </section>
 
-        <!-- 2. SELECTOR DE MÓDULOS (MULTI-STACKING) -->
-        <section class="bg-brand-dark text-white rounded-xl p-5 shadow-lg sticky top-4 z-40 transition-all duration-300 ring-1 ring-white/10" id="module-bar">
+        <!-- 2. SELECTOR DE MÓDULOS -->
+        <section class="bg-brand-dark text-white rounded-xl p-5 shadow-lg sticky top-4 z-40 transition-all duration-300 ring-1 ring-white/10 hide-on-pdf-controls" id="module-bar">
             <div class="flex flex-col md:flex-row md:items-end gap-4">
                 <div class="flex-grow">
                     <label class="block text-xs text-brand-accent/80 mb-2 uppercase tracking-wider font-semibold">Añadir Evaluación Específica</label>
                     <div class="flex gap-2">
                         <div class="relative flex-grow">
-                            <select id="moduleSelector" class="w-full appearance-none bg-white/10 border border-white/20 text-white rounded-lg pl-4 pr-10 py-2.5 outline-none focus:bg-white/20 focus:border-brand-accent transition-colors cursor-pointer hover:bg-white/15">
-                                <option value="" class="text-gray-800">Seleccionar Zona...</option>
-                                <option value="hombro" class="text-gray-800">Hombro</option>
-                                <option value="codo" class="text-gray-800">Codo / Muñeca</option>
-                                <option value="columna" class="text-gray-800">Columna (Cerv/Tor/Lumb)</option>
-                                <option value="cadera" class="text-gray-800">Cadera</option>
-                                <option value="rodilla" class="text-gray-800">Rodilla</option>
-                                <option value="tobillo" class="text-gray-800">Tobillo / Pie</option>
-                                <option value="neuro" class="text-gray-800">Neurodinamia</option>
-                                <option value="piso" class="text-gray-800">Piso Pélvico</option>
+                            <select id="moduleSelector" class="w-full appearance-none bg-white/10 border border-white/20 text-white rounded-lg pl-4 pr-10 py-2.5 outline-none focus:bg-white/20 focus:border-brand-accent transition-colors cursor-pointer">
+                                <option value="">Seleccionar Zona...</option>
+                                <option value="hombro">Hombro</option>
+                                <option value="codo">Codo / Muñeca</option>
+                                <option value="columna">Columna</option>
+                                <option value="cadera">Cadera</option>
+                                <option value="rodilla">Rodilla</option>
+                                <option value="tobillo">Tobillo / Pie</option>
+                                <option value="neuro">Neurodinamia</option>
+                                <option value="piso">Piso Pélvico</option>
                             </select>
                             <div class="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-brand-accent">
                                 <i class="fa-solid fa-chevron-down text-xs"></i>
                             </div>
                         </div>
-                        <button onclick="addModuleFromSelect()" class="bg-brand-accent hover:bg-brand-light text-brand-dark px-6 py-2.5 rounded-lg font-bold shadow-lg shadow-black/20 transition-all transform active:scale-95 flex items-center gap-2">
+                        <button onclick="addModuleFromSelect()" class="bg-brand-accent hover:bg-brand-light text-brand-dark px-6 py-2.5 rounded-lg font-bold shadow-lg transition-all transform active:scale-95 flex items-center gap-2">
                             <i class="fa-solid fa-plus"></i> Añadir
                         </button>
                     </div>
                 </div>
             </div>
             
-            <!-- Área de Tags Activos -->
-            <div id="active-tags-container" class="flex flex-wrap gap-2 mt-4 min-h-[0px] transition-all">
-                <!-- Los tags se inyectan aquí -->
-            </div>
+            <div id="active-tags-container" class="flex flex-wrap gap-2 mt-4 min-h-[0px] transition-all"></div>
         </section>
 
-        <!-- 3. CLINICAL STACK (CONTENEDOR DE FICHAS) -->
-        <div id="clinical-stack" class="space-y-8 pb-12">
-            <!-- Estado Inicial: Mensaje vacío -->
+        <!-- 3. CLINICAL STACK -->
+        <div id="clinical-stack" class="space-y-8 pb-4">
             <div id="empty-state" class="text-center py-16 border-2 border-dashed border-brand-accent/30 rounded-xl bg-white/50">
                 <div class="w-16 h-16 bg-brand-accent/20 rounded-full flex items-center justify-center mx-auto mb-4">
                     <i class="fa-solid fa-layer-group text-3xl text-brand-accent"></i>
                 </div>
                 <h3 class="text-brand-dark font-semibold text-lg">Zona de Evaluación Vacía</h3>
-                <p class="text-brand-grey text-sm mt-1">Selecciona una zona en la barra oscura superior para comenzar.</p>
+                <p class="text-brand-grey text-sm mt-1">Selecciona una zona arriba para comenzar.</p>
             </div>
         </div>
 
-        <!-- 4. SECCIÓN NARRATIVA Y MULTIMEDIA (GLOBAL) -->
-        <section class="bg-white rounded-xl shadow-lg border border-white overflow-hidden">
+        <!-- 4. OBSERVACIONES Y ARCHIVOS -->
+        <section class="bg-white rounded-xl shadow-lg border border-white overflow-hidden mb-12">
             <div class="bg-brand-dark/5 px-6 py-4 border-b border-brand-accent/20 flex items-center gap-3">
                 <div class="w-1.5 h-5 bg-brand-text rounded-full"></div>
                 <h2 class="text-brand-text font-bold text-sm uppercase tracking-wide">Observaciones Generales & Archivos</h2>
@@ -345,214 +299,426 @@
             <div class="p-6 space-y-6">
                 <div>
                     <label class="aum-label">Anamnesis / Evolución Narrativa</label>
-                    <textarea class="aum-input h-32 resize-y shadow-inner" placeholder="Describa el motivo de consulta, mecanismo de lesión y evolución de los síntomas..."></textarea>
+                    <textarea class="aum-input h-32 resize-y shadow-inner" placeholder="Describa el motivo de consulta..." id="general-anamnesis"></textarea>
                 </div>
                 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="border-2 border-dashed border-brand-accent/60 rounded-xl p-6 text-center hover:bg-brand-light/50 hover:border-brand-dark transition-all cursor-pointer group">
+                <!-- Botones de Carga -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 hide-on-pdf-controls">
+                    <div onclick="triggerFileInput('media-upload-input')" class="border-2 border-dashed border-brand-accent/60 rounded-xl p-6 text-center hover:bg-brand-light/50 hover:border-brand-dark transition-all cursor-pointer group">
                         <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-brand-dark group-hover:text-white transition-colors">
                             <i class="fa-solid fa-camera text-xl text-brand-grey group-hover:text-white"></i>
                         </div>
                         <p class="text-sm font-medium text-brand-dark">Subir Fotos / Videos</p>
-                        <p class="text-xs text-brand-grey mt-1">Formatos: JPG, PNG, MP4</p>
                     </div>
-                    <div class="border-2 border-dashed border-brand-accent/60 rounded-xl p-6 text-center hover:bg-brand-light/50 hover:border-brand-dark transition-all cursor-pointer group">
+                    <div onclick="triggerFileInput('doc-upload-input')" class="border-2 border-dashed border-brand-accent/60 rounded-xl p-6 text-center hover:bg-brand-light/50 hover:border-brand-dark transition-all cursor-pointer group">
                         <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-brand-dark group-hover:text-white transition-colors">
                             <i class="fa-solid fa-file-pdf text-xl text-brand-grey group-hover:text-white"></i>
                         </div>
                         <p class="text-sm font-medium text-brand-dark">Adjuntar Exámenes</p>
-                        <p class="text-xs text-brand-grey mt-1">Formatos: PDF, DICOM</p>
                     </div>
                 </div>
+
+                <!-- Áreas de Previsualización -->
+                <div id="media-preview-area" class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 hidden"></div>
+                <div id="doc-preview-area" class="space-y-2 mt-4 hidden"></div>
+
             </div>
         </section>
 
     </main>
 
-    <!-- FOOTER FLOTANTE (Acciones Finales) -->
-    <div class="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
+    <!-- FOOTER FLOTANTE -->
+    <div class="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 hide-on-pdf-controls">
         <div class="bg-white/90 backdrop-blur-md border border-gray-200 shadow-2xl rounded-full px-6 py-3 flex items-center gap-4">
             <button onclick="resetStack()" class="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors" title="Limpiar todo">
                 <i class="fa-solid fa-trash-can"></i>
             </button>
             <div class="h-6 w-px bg-gray-300"></div>
-            <button onclick="alert('Generando PDF combinado de todas las zonas activas...')" class="bg-brand-dark text-white px-6 py-2 rounded-full font-bold shadow-lg hover:shadow-xl hover:bg-gray-800 transition-all transform hover:-translate-y-0.5 flex items-center gap-2">
+            <button onclick="exportToPDF()" class="bg-brand-dark text-white px-6 py-2 rounded-full font-bold shadow-lg hover:shadow-xl hover:bg-gray-800 transition-all transform hover:-translate-y-0.5 flex items-center gap-2">
                 Exportar PDF <i class="fa-solid fa-file-export"></i>
             </button>
         </div>
     </div>
 
-    <!-- TEMPLATES DE MÓDULOS -->
+    <!-- SCRIPTS DE LÓGICA -->
     <script>
-        // --- 1. CONFIGURACIÓN Y UTILIDADES ---
-        
-        // Fecha actual
-        document.getElementById('date-display').innerText = new Date().toLocaleDateString('es-CL');
+        // --- 1. UTILIDADES BÁSICAS ---
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('date-display').innerText = new Date().toLocaleDateString('es-CL');
+        });
 
-        // Calcular Edad
         function calculateAge() {
-            const dobInput = document.getElementById('patient-dob').value;
-            if(!dobInput) return;
-            const dob = new Date(dobInput);
-            const diff_ms = Date.now() - dob.getTime();
-            const age_dt = new Date(diff_ms); 
-            const age = Math.abs(age_dt.getUTCFullYear() - 1970);
-            document.getElementById('patient-age').value = age;
+            try {
+                const dobInput = document.getElementById('patient-dob').value;
+                if(!dobInput) return;
+                const dob = new Date(dobInput);
+                const age_dt = new Date(Date.now() - dob.getTime()); 
+                const age = Math.abs(age_dt.getUTCFullYear() - 1970);
+                document.getElementById('patient-age').value = age;
+            } catch(e) {
+                console.error("Error calculando edad", e);
+            }
         }
 
-        // --- 2. SISTEMA DE APILAMIENTO (STACK ENGINE) ---
+        function triggerFileInput(id) {
+            const input = document.getElementById(id);
+            if(input) {
+                input.click();
+            } else {
+                alert("Error: No se encontró el componente de carga (" + id + ")");
+            }
+        }
 
-        let moduleCounter = 0;
+        // --- 2. GESTIÓN DE ARCHIVOS Y MULTIMEDIA ---
+        
+        function processMediaUpload(input) {
+            const container = document.getElementById('media-preview-area');
+            container.classList.remove('hidden');
+            
+            if (input.files && input.files.length > 0) {
+                Array.from(input.files).forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const div = document.createElement('div');
+                        div.className = "relative group rounded-lg overflow-hidden shadow-sm border border-gray-200 aspect-square bg-gray-100";
+                        
+                        let content = '';
+                        if(file.type.startsWith('image/')) {
+                            content = `<img src="${e.target.result}" class="w-full h-full object-cover">`;
+                        } else if(file.type.startsWith('video/')) {
+                            content = `<video src="${e.target.result}" class="w-full h-full object-cover"></video><div class="absolute inset-0 flex items-center justify-center bg-black/30 text-white"><i class="fa-solid fa-play"></i></div>`;
+                        }
 
-        function addModuleFromSelect() {
-            const selector = document.getElementById('moduleSelector');
-            const moduleType = selector.value;
-            const moduleName = selector.options[selector.selectedIndex].text;
+                        div.innerHTML = `
+                            ${content}
+                            <div class="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] p-1 truncate">${file.name}</div>
+                            <button type="button" onclick="this.parentElement.remove()" class="absolute top-1 right-1 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity z-10 cursor-pointer"><i class="fa-solid fa-times"></i></button>
+                        `;
+                        container.appendChild(div);
+                    }
+                    reader.readAsDataURL(file);
+                });
+            }
+        }
 
-            if (!moduleType) {
-                alert("Por favor seleccione una zona primero.");
+        function processDocUpload(input) {
+            const container = document.getElementById('doc-preview-area');
+            container.classList.remove('hidden');
+
+            if (input.files && input.files.length > 0) {
+                Array.from(input.files).forEach(file => {
+                    const div = document.createElement('div');
+                    div.className = "flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200";
+                    div.innerHTML = `
+                        <div class="flex items-center gap-3 overflow-hidden">
+                            <i class="fa-solid fa-file-pdf text-red-500 text-xl flex-shrink-0"></i>
+                            <span class="text-sm text-gray-700 truncate font-medium">${file.name}</span>
+                            <span class="text-xs text-gray-400 flex-shrink-0">(${(file.size/1024/1024).toFixed(2)} MB)</span>
+                        </div>
+                        <button type="button" onclick="this.parentElement.remove()" class="text-gray-400 hover:text-red-500 cursor-pointer"><i class="fa-solid fa-trash"></i></button>
+                    `;
+                    container.appendChild(div);
+                });
+            }
+        }
+
+        // --- 3. EXPORTAR A PDF ---
+        function exportToPDF() {
+            if (typeof html2pdf === 'undefined') {
+                alert('Error: La librería de PDF no se ha cargado. Verifique su conexión a internet.');
                 return;
             }
 
-            // Ocultar estado vacío
-            const emptyState = document.getElementById('empty-state');
-            if(emptyState) emptyState.style.display = 'none';
+            // Ocultar controles
+            const controls = document.querySelectorAll('.hide-on-pdf-controls');
+            controls.forEach(el => el.style.display = 'none');
 
-            // Crear ID único para este módulo
-            const moduleId = `mod-${moduleType}-${moduleCounter++}`;
+            // Nombre del archivo
+            const nombrePaciente = document.getElementById('patient-name').value || "Paciente";
+            const fecha = new Date().toLocaleDateString('es-CL').replace(/\//g, '-');
+            const filename = `Ficha_${nombrePaciente.replace(/\s+/g, '_')}_${fecha}.pdf`;
+
+            // Elemento a exportar
+            const element = document.getElementById('content-area'); 
             
-            // Generar HTML
-            const htmlContent = getModuleHTML(moduleId, moduleType, moduleName);
+            // Clonar header para el PDF
+            const header = document.getElementById('app-header').cloneNode(true);
+            const container = document.createElement('div');
+            
+            // Limpiar header clonado
+            const headerControls = header.querySelector('.hide-on-pdf-controls');
+            if(headerControls) headerControls.remove();
+            
+            container.appendChild(header);
+            container.appendChild(element.cloneNode(true)); 
 
-            // Inyectar en el stack (al final)
-            const stackContainer = document.getElementById('clinical-stack');
-            stackContainer.insertAdjacentHTML('beforeend', htmlContent);
+            const opt = {
+                margin:       [10, 10],
+                filename:     filename,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, logging: true },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
 
-            // Agregar Tag Visual
-            addTag(moduleId, moduleName);
+            html2pdf().set(opt).from(container).save()
+                .then(() => {
+                    // Restaurar
+                    controls.forEach(el => el.style.display = '');
+                })
+                .catch(err => {
+                    alert("Error generando PDF: " + err);
+                    controls.forEach(el => el.style.display = '');
+                });
+        }
 
-            // Scroll suave hacia el nuevo módulo
-            setTimeout(() => {
-                document.getElementById(moduleId).scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }, 100);
+        // --- 4. LOGICA DE STACK Y MÓDULOS ---
+        
+        let moduleCounter = 0;
 
-            // Reset selector
-            selector.value = "";
+        function addModuleFromSelect(loadedType = null, loadedId = null) {
+            try {
+                const selector = document.getElementById('moduleSelector');
+                const moduleType = loadedType || selector.value;
+                
+                if (!moduleType) { 
+                    alert("Por favor seleccione una zona primero."); 
+                    return; 
+                }
+                
+                let moduleName = "";
+                // Buscar nombre del módulo
+                for(let i=0; i<selector.options.length; i++) {
+                    if(selector.options[i].value === moduleType) moduleName = selector.options[i].text;
+                }
+
+                const emptyState = document.getElementById('empty-state');
+                if(emptyState) emptyState.style.display = 'none';
+
+                const moduleId = loadedId || `mod-${moduleType}-${moduleCounter++}`;
+                const htmlContent = getModuleHTML(moduleId, moduleType, moduleName);
+
+                const stackContainer = document.getElementById('clinical-stack');
+                stackContainer.insertAdjacentHTML('beforeend', htmlContent);
+
+                addTag(moduleId, moduleName);
+
+                if(!loadedType) {
+                    setTimeout(() => { 
+                        const newMod = document.getElementById(moduleId);
+                        if(newMod) newMod.scrollIntoView({ behavior: 'smooth', block: 'center' }); 
+                    }, 100);
+                    selector.value = "";
+                }
+                return moduleId;
+            } catch (e) {
+                console.error("Error adding module:", e);
+                alert("Error al añadir módulo: " + e.message);
+            }
         }
 
         function removeModule(id) {
-            // Remover del DOM
             const element = document.getElementById(id);
-            if (element) {
-                element.style.opacity = '0';
-                element.style.transform = 'translateY(20px)';
-                setTimeout(() => element.remove(), 300);
-            }
-            
-            // Remover Tag
+            if (element) element.remove();
             const tag = document.getElementById(`tag-${id}`);
             if (tag) tag.remove();
-
-            // Verificar si queda vacío
-            setTimeout(() => {
-                if (document.getElementById('clinical-stack').children.length <= 1) { // 1 es el empty state
-                     const emptyState = document.getElementById('empty-state');
-                     if(emptyState) emptyState.style.display = 'block';
-                }
-            }, 350);
+            
+            const stack = document.getElementById('clinical-stack');
+            // Check if only empty state div remains (or nothing)
+            if (stack.children.length <= 1) {
+                 const emptyState = document.getElementById('empty-state');
+                 if(emptyState) emptyState.style.display = 'block';
+            }
         }
 
         function addTag(id, name) {
             const tagContainer = document.getElementById('active-tags-container');
             const tagHTML = `
-                <div id="tag-${id}" class="bg-brand-accent/20 text-white border border-brand-accent rounded-full px-3 py-1 text-xs flex items-center gap-2 animate-pulse-once shadow-sm">
+                <div id="tag-${id}" class="bg-brand-accent/20 text-white border border-brand-accent rounded-full px-3 py-1 text-xs flex items-center gap-2 shadow-sm animate-fade-in">
                     <span class="font-medium">${name}</span>
-                    <button onclick="removeModule('${id}')" class="text-brand-accent hover:text-white transition-colors w-4 h-4 flex items-center justify-center rounded-full hover:bg-brand-accent/30">
+                    <button onclick="removeModule('${id}')" class="text-brand-accent hover:text-white cursor-pointer">
                         <i class="fa-solid fa-times"></i>
                     </button>
-                </div>
-            `;
+                </div>`;
             tagContainer.insertAdjacentHTML('beforeend', tagHTML);
         }
 
         function resetStack() {
-            if(confirm("¿Estás seguro de borrar todas las evaluaciones activas?")) {
-                const stack = document.getElementById('clinical-stack');
-                stack.innerHTML = `
+            if(confirm("¿Estás seguro de borrar todas las evaluaciones y datos?")) {
+                document.getElementById('clinical-stack').innerHTML = `
                     <div id="empty-state" class="text-center py-16 border-2 border-dashed border-brand-accent/30 rounded-xl bg-white/50">
                         <div class="w-16 h-16 bg-brand-accent/20 rounded-full flex items-center justify-center mx-auto mb-4">
                             <i class="fa-solid fa-layer-group text-3xl text-brand-accent"></i>
                         </div>
                         <h3 class="text-brand-dark font-semibold text-lg">Zona de Evaluación Vacía</h3>
-                        <p class="text-brand-grey text-sm mt-1">Selecciona una zona en la barra oscura superior para comenzar.</p>
-                    </div>
-                `;
+                        <p class="text-brand-grey text-sm mt-1">Selecciona una zona arriba para comenzar.</p>
+                    </div>`;
                 document.getElementById('active-tags-container').innerHTML = '';
+                
+                // Limpiar inputs
+                const inputs = document.querySelectorAll('input:not([type="radio"]), textarea');
+                inputs.forEach(i => i.value = "");
+                document.querySelectorAll('input[type="radio"]').forEach(i => i.checked = false);
             }
         }
 
-        // --- 3. GENERADOR DE HTML POR MÓDULO ---
+        // --- 5. GUARDAR Y CARGAR SESIÓN ---
 
+        function saveSession() {
+            try {
+                const data = {
+                    static: {},
+                    modules: []
+                };
+
+                // IDs de campos estáticos
+                const staticIds = [
+                    'kine-name', 'patient-name', 'patient-rut', 'patient-dob', 'patient-age', 
+                    'patient-address', 'patient-commune', 'patient-phone', 'patient-email', 
+                    'patient-insurance', 'patient-emergency-name', 'patient-emergency-phone', 
+                    'patient-occupation', 'patient-work-details', 'patient-sport', 'general-anamnesis'
+                ];
+                
+                staticIds.forEach(id => {
+                    const el = document.getElementById(id);
+                    if(el) data.static[id] = el.value;
+                });
+
+                // Radios Estáticos
+                ['sex', 'dominance', 'consent'].forEach(name => {
+                    const checked = document.querySelector(`input[name="${name}"]:checked`);
+                    if(checked) data.static[name] = checked.value;
+                });
+
+                // Módulos Dinámicos
+                const stack = document.getElementById('clinical-stack');
+                const modules = stack.querySelectorAll('.module-entry');
+                
+                modules.forEach(mod => {
+                    const modData = {
+                        id: mod.id,
+                        type: mod.id.split('-')[1], 
+                        values: {}
+                    };
+                    
+                    const inputs = mod.querySelectorAll('input, select, textarea');
+                    inputs.forEach((input, index) => {
+                        const key = input.name || `field-${index}`;
+                        if(input.type === 'radio' || input.type === 'checkbox') {
+                            modData.values[key] = input.checked;
+                        } else {
+                            modData.values[key] = input.value;
+                        }
+                    });
+                    data.modules.push(modData);
+                });
+
+                const blob = new Blob([JSON.stringify(data)], {type: "application/json"});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Sesion_${data.static['patient-name'] || 'Paciente'}.aum`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            } catch(e) {
+                alert("Error al guardar sesión: " + e.message);
+            }
+        }
+
+        function processLoadSession(input) {
+            const file = input.files[0];
+            if(!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    
+                    // Restaurar Estáticos
+                    for (const [key, value] of Object.entries(data.static)) {
+                        const el = document.getElementById(key);
+                        if(el) el.value = value;
+                        
+                        const radio = document.querySelector(`input[name="${key}"][value="${value}"]`);
+                        if(radio) radio.checked = true;
+                    }
+
+                    // Restaurar Módulos
+                    document.getElementById('clinical-stack').innerHTML = `
+                    <div id="empty-state" class="text-center py-16 border-2 border-dashed border-brand-accent/30 rounded-xl bg-white/50" style="display:none">
+                        <!-- Hidden state -->
+                    </div>`;
+                    document.getElementById('active-tags-container').innerHTML = '';
+
+                    if(data.modules && data.modules.length > 0) {
+                        data.modules.forEach(mod => {
+                            addModuleFromSelect(mod.type, mod.id);
+                            
+                            const modEl = document.getElementById(mod.id);
+                            if(modEl) {
+                                const inputs = modEl.querySelectorAll('input, select, textarea');
+                                inputs.forEach((input, index) => {
+                                    const key = input.name || `field-${index}`;
+                                    if(mod.values.hasOwnProperty(key)) {
+                                        if(input.type === 'radio' || input.type === 'checkbox') {
+                                            input.checked = mod.values[key];
+                                        } else {
+                                            input.value = mod.values[key];
+                                            if(input.type === 'range') input.dispatchEvent(new Event('input'));
+                                        }
+                                    }
+                                });
+                            }
+                        });
+                    } else {
+                        // Si no hay modulos, mostrar empty state
+                        const empty = document.getElementById('empty-state');
+                        if(empty) empty.style.display = 'block';
+                    }
+
+                    alert("Sesión cargada exitosamente.");
+
+                } catch(err) {
+                    alert("Error al leer archivo .aum: " + err);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // --- 6. GENERADORES HTML (Templates Expandidos) ---
+        
         function getModuleHTML(id, type, name) {
             let icon = 'fa-file-medical';
             let specificContent = '';
-
+            
             switch (type) {
-                case 'cadera':
-                    icon = 'fa-bone';
-                    specificContent = getHipContent();
-                    break;
-                case 'tobillo':
-                    icon = 'fa-shoe-prints';
-                    specificContent = getAnkleContent();
-                    break;
-                case 'columna':
-                    icon = 'fa-arrows-up-down';
-                    specificContent = getSpineContent();
-                    break;
-                case 'rodilla':
-                    icon = 'fa-person-running';
-                    specificContent = getKneeContent();
-                    break;
-                default:
-                    specificContent = getGenericContent();
+                case 'cadera': icon = 'fa-bone'; specificContent = getHipContent(); break;
+                case 'tobillo': icon = 'fa-shoe-prints'; specificContent = getAnkleContent(); break;
+                case 'columna': icon = 'fa-arrows-up-down'; specificContent = getSpineContent(); break;
+                case 'rodilla': icon = 'fa-person-running'; specificContent = getKneeContent(); break;
+                default: specificContent = getGenericContent();
             }
-
+            
             return `
-            <div id="${id}" class="module-entry bg-white rounded-xl shadow-md overflow-hidden border border-brand-accent/20 relative mb-6">
-                <!-- Header del Módulo -->
-                <div class="bg-brand-dark px-6 py-4 flex justify-between items-center text-white relative overflow-hidden">
-                    <div class="absolute top-0 right-0 w-20 h-20 bg-brand-accent/10 rounded-full -mr-10 -mt-10 blur-xl"></div>
-                    
-                    <h3 class="font-bold flex items-center gap-3 uppercase tracking-wide text-sm z-10">
-                        <span class="w-8 h-8 bg-brand-accent rounded-full flex items-center justify-center text-brand-dark">
-                            <i class="fa-solid ${icon}"></i>
-                        </span>
+            <div id="${id}" class="module-entry bg-white rounded-xl shadow-md overflow-hidden border border-brand-accent/20 relative mb-6 break-inside-avoid">
+                <div class="bg-brand-dark px-6 py-4 flex justify-between items-center text-white relative">
+                    <h3 class="font-bold flex items-center gap-3 uppercase text-sm z-10">
+                        <span class="w-8 h-8 bg-brand-accent rounded-full flex items-center justify-center text-brand-dark"><i class="fa-solid ${icon}"></i></span>
                         Evaluación: ${name}
                     </h3>
-                    <button onclick="removeModule('${id}')" class="text-brand-grey hover:text-red-400 bg-white/5 hover:bg-white/10 w-8 h-8 rounded-full flex items-center justify-center transition-all z-10" title="Eliminar este módulo">
-                        <i class="fa-solid fa-trash-can text-xs"></i>
+                    <button onclick="removeModule('${id}')" class="text-brand-grey hover:text-red-400 hide-on-pdf-controls cursor-pointer z-20 bg-white/10 rounded-full w-8 h-8 flex items-center justify-center">
+                        <i class="fa-solid fa-trash-can"></i>
                     </button>
                 </div>
-
-                <!-- Contenido del Formulario -->
-                <div class="p-6 md:p-8">
-                    ${specificContent}
-                </div>
-            </div>
-            `;
+                <div class="p-6 md:p-8">${specificContent}</div>
+            </div>`;
         }
-
-        // --- 4. CONTENIDOS ESPECÍFICOS (Reutilizados del anterior pero con estilos mejorados) ---
 
         function getHipContent() {
             return `
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <!-- Columna Izquierda: ROM -->
                 <div class="bg-gray-50/50 p-5 rounded-xl border border-gray-100">
-                    <h4 class="text-brand-dark font-bold text-xs uppercase mb-4 flex items-center gap-2">
-                        <i class="fa-solid fa-ruler-combined text-brand-accent"></i> Rango de Movimiento (ROM)
-                    </h4>
+                    <h4 class="text-brand-dark font-bold text-xs uppercase mb-4 flex items-center gap-2"><i class="fa-solid fa-ruler-combined text-brand-accent"></i> Rango de Movimiento (ROM)</h4>
                     <div class="space-y-4">
                         ${createRangeInput('Flexión', 120, 140)}
                         ${createRangeInput('Rot. Interna', 45, 60)}
@@ -560,12 +726,8 @@
                         ${createRangeInput('Abducción', 45, 60)}
                     </div>
                 </div>
-                
-                <!-- Columna Derecha: Test Especiales -->
                 <div>
-                    <h4 class="text-brand-dark font-bold text-xs uppercase mb-4 flex items-center gap-2">
-                        <i class="fa-solid fa-stethoscope text-brand-accent"></i> Pruebas Especiales
-                    </h4>
+                    <h4 class="text-brand-dark font-bold text-xs uppercase mb-4 flex items-center gap-2"><i class="fa-solid fa-stethoscope text-brand-accent"></i> Pruebas Especiales</h4>
                     <div class="grid grid-cols-2 gap-3">
                         ${createCheckbox('Test FABER')}
                         ${createCheckbox('Test FADIR')}
@@ -574,172 +736,142 @@
                         ${createCheckbox('Trendelenburg')}
                         ${createCheckbox('Scour Test')}
                     </div>
-                    
                     <div class="mt-6">
-                         <label class="aum-label">Notas Específicas Cadera</label>
-                         <textarea class="aum-input h-24" placeholder="Observaciones sobre dolor inguinal, chasquidos, etc..."></textarea>
+                        <label class="aum-label">Notas Específicas Cadera</label>
+                        <textarea class="aum-input h-24" placeholder="Observaciones..."></textarea>
                     </div>
                 </div>
-            </div>
-            `;
+            </div>`;
         }
 
         function getAnkleContent() {
             return `
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div>
-                    <h4 class="text-brand-dark font-bold text-xs uppercase mb-4 border-b border-gray-100 pb-2">Evaluación Funcional</h4>
+                    <h4 class="text-brand-dark font-bold text-xs uppercase mb-4">Evaluación Funcional</h4>
                     <div class="space-y-4">
                         <div class="flex justify-between items-center">
-                            <span class="text-sm text-gray-700 font-medium">Knee to Wall (cm)</span>
-                            <div class="flex gap-2 items-center">
-                                <input type="number" class="w-16 h-9 text-center border border-gray-300 rounded-md focus:border-brand-dark outline-none" placeholder="Izq">
-                                <input type="number" class="w-16 h-9 text-center border border-gray-300 rounded-md focus:border-brand-dark outline-none" placeholder="Der">
+                            <span class="text-sm">Knee to Wall (cm)</span>
+                            <div class="flex gap-2">
+                                <input type="number" class="w-16 h-9 text-center border rounded" placeholder="Izq">
+                                <input type="number" class="w-16 h-9 text-center border rounded" placeholder="Der">
                             </div>
                         </div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-sm text-gray-700 font-medium">Single Leg Balance</span>
-                            <select class="text-sm border border-gray-300 rounded-md p-1.5 focus:border-brand-dark outline-none bg-white">
-                                <option>Estable</option>
-                                <option>Inestable</option>
-                                <option>Dolor</option>
-                            </select>
-                        </div>
                     </div>
                 </div>
-
                 <div>
-                    <h4 class="text-brand-dark font-bold text-xs uppercase mb-4 border-b border-gray-100 pb-2">Integridad Ligamentosa</h4>
+                    <h4 class="text-brand-dark font-bold text-xs uppercase mb-4">Integridad</h4>
                     <div class="space-y-3">
-                        ${createBinaryRadio('Cajón Anterior (ATFL)', 'cajon')}
-                        ${createBinaryRadio('Talar Tilt (CFL)', 'tilt')}
-                        ${createBinaryRadio('Squeeze Test', 'squeeze')}
+                        ${createBinaryRadio('Cajón Ant.', 'cajon')}
+                        ${createBinaryRadio('Talar Tilt', 'tilt')}
                     </div>
                 </div>
-            </div>
-            `;
+            </div>`;
         }
 
         function getSpineContent() {
-             return `
+            return `
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div>
-                     <h4 class="text-brand-dark font-bold text-xs uppercase mb-4">Movilidad Activa</h4>
-                     <div class="grid grid-cols-2 gap-3 text-sm">
+                    <h4 class="text-brand-dark font-bold text-xs uppercase mb-4">Movilidad</h4>
+                    <div class="grid grid-cols-2 gap-3 text-sm">
                         ${createSelectBox('Flexión')}
                         ${createSelectBox('Extensión')}
                         ${createSelectBox('Rot. Der')}
                         ${createSelectBox('Rot. Izq')}
-                     </div>
+                    </div>
                 </div>
-                 <div class="bg-red-50 p-5 rounded-xl border border-red-100">
-                     <h4 class="text-red-800 font-bold text-xs uppercase mb-4 flex items-center gap-2">
-                        <i class="fa-solid fa-triangle-exclamation"></i> Banderas Rojas / Neuro
-                     </h4>
-                     <div class="space-y-2">
-                        <label class="flex items-center gap-2 text-sm text-gray-700 hover:bg-white p-2 rounded cursor-pointer transition-colors"><input type="checkbox" class="accent-red-600 w-4 h-4"> Pérdida de fuerza progresiva</label>
-                        <label class="flex items-center gap-2 text-sm text-gray-700 hover:bg-white p-2 rounded cursor-pointer transition-colors"><input type="checkbox" class="accent-red-600 w-4 h-4"> Anestesia en silla de montar</label>
-                        
-                        <div class="mt-4">
-                             <span class="text-xs font-bold block mb-1 text-red-800/70">Dermatomas (Sensibilidad)</span>
-                             <input type="text" class="w-full border border-red-200 rounded p-2 text-sm focus:border-red-400 outline-none bg-white" placeholder="L4, L5, S1...">
-                        </div>
-                     </div>
+                <div class="bg-red-50 p-5 rounded-xl">
+                    <h4 class="text-red-800 font-bold text-xs uppercase">Banderas Rojas</h4>
+                    <div class="space-y-2 mt-2">
+                        ${createCheckbox('Pérdida fuerza')}
+                        ${createCheckbox('Cauda Equina')}
+                    </div>
                 </div>
             </div>`;
         }
 
         function getKneeContent() {
-             return `
+            return `
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div>
                     <h4 class="text-brand-dark font-bold text-xs uppercase mb-4">Ligamentos</h4>
-                     <div class="space-y-3 text-sm">
-                        ${createBinaryRadio('Lachman (LCA)', 'lach')}
-                        ${createBinaryRadio('Cajón Posterior (LCP)', 'lcp')}
-                        ${createBinaryRadio('Valgo (LCM)', 'valgo')}
-                        ${createBinaryRadio('Varo (LCL)', 'varo')}
-                     </div>
+                    <div class="space-y-3 text-sm">
+                        ${createBinaryRadio('Lachman', 'lach')}
+                        ${createBinaryRadio('Cajón Post.', 'lcp')}
+                        ${createBinaryRadio('Valgo', 'lcm')}
+                        ${createBinaryRadio('Varo', 'lcl')}
+                    </div>
                 </div>
                 <div>
-                     <h4 class="text-brand-dark font-bold text-xs uppercase mb-4">Meniscos & Rótula</h4>
-                     <div class="space-y-2 text-sm">
+                    <h4 class="text-brand-dark font-bold text-xs uppercase mb-4">Meniscos</h4>
+                    <div class="space-y-2 text-sm">
                         ${createCheckbox('McMurray')}
                         ${createCheckbox('Thessaly')}
-                        ${createCheckbox('Aprehensión Patelar')}
-                        ${createCheckbox('Signo de la J')}
-                     </div>
-                </div>
-            </div>`;
-        }
-        
-        function getGenericContent() {
-             return `
-            <div class="text-center p-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                <i class="fa-solid fa-notes-medical text-3xl text-brand-accent mb-3"></i>
-                <p class="text-brand-grey text-sm mb-6">Módulo estándar. Utilice los campos de texto libre.</p>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
-                    <div>
-                         <label class="aum-label">Observación Visual</label>
-                         <textarea class="aum-input h-24"></textarea>
-                    </div>
-                    <div>
-                         <label class="aum-label">Palpación</label>
-                         <textarea class="aum-input h-24"></textarea>
                     </div>
                 </div>
             </div>`;
         }
 
-        // Helpers de UI para limpiar el código de los templates
-        function createRangeInput(label, defaultVal, max) {
+        function getGenericContent() {
             return `
-            <div class="flex items-center gap-3 group">
-                <label class="w-24 text-xs font-semibold text-gray-600 group-hover:text-brand-dark transition-colors">${label}</label>
-                <input type="range" class="flex-grow h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-brand-dark" min="0" max="${max}" value="${defaultVal}" oninput="this.nextElementSibling.value = this.value + '°'">
-                <output class="text-xs font-mono w-10 text-right font-bold text-brand-dark">${defaultVal}°</output>
+            <div class="text-center p-8 bg-gray-50 border-dashed border-gray-200">
+                <p class="text-brand-grey text-sm">Módulo estándar.</p>
+                <div class="grid grid-cols-2 gap-4 mt-4">
+                    <textarea class="aum-input h-24" placeholder="Observación"></textarea>
+                    <textarea class="aum-input h-24" placeholder="Palpación"></textarea>
+                </div>
             </div>`;
         }
+
+        // --- Helpers UI ---
         
-        function createCheckbox(label) {
+        function createRangeInput(l, d, m) {
             return `
-            <label class="flex items-center p-2.5 border border-gray-200 rounded-lg hover:bg-brand-light hover:border-brand-accent cursor-pointer transition-all bg-white">
-                <input type="checkbox" class="mr-3 w-4 h-4 text-brand-dark rounded border-gray-300 focus:ring-brand-dark"> 
-                <span class="text-sm text-gray-700 font-medium">${label}</span>
+            <div class="flex items-center gap-3">
+                <label class="w-24 text-xs font-semibold text-gray-600">${l}</label>
+                <input type="range" class="flex-grow h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-brand-dark" min="0" max="${m}" value="${d}" oninput="this.nextElementSibling.value = this.value + '°'">
+                <output class="text-xs font-mono w-10 text-right font-bold text-brand-dark">${d}°</output>
+            </div>`;
+        }
+
+        function createCheckbox(l) {
+            return `
+            <label class="flex items-center p-2 border rounded bg-white cursor-pointer hover:bg-gray-50">
+                <input type="checkbox" class="mr-3 w-4 h-4 accent-brand-dark"> 
+                <span class="text-sm text-gray-700">${l}</span>
             </label>`;
         }
 
-        function createBinaryRadio(label, name) {
-            const id = Math.random().toString(36).substr(2, 9); 
+        function createBinaryRadio(l, n) {
+            const id = Math.random().toString(36).substr(2, 5);
             return `
-            <div class="flex items-center justify-between p-3 border border-gray-100 rounded-lg bg-gray-50/50">
-                <span class="text-sm font-medium text-gray-700">${label}</span>
-                <div class="flex gap-1 bg-white rounded border border-gray-200 p-0.5">
-                    <label class="cursor-pointer px-3 py-1 rounded hover:bg-red-50 text-xs font-bold text-gray-500 hover:text-red-500 transition-colors">
-                        <input type="radio" name="${name}-${id}" value="-" class="hidden peer">
-                        <span class="peer-checked:text-red-600">-</span>
+            <div class="flex justify-between p-2 border rounded bg-gray-50 items-center">
+                <span class="text-sm font-medium text-gray-700">${l}</span>
+                <div class="flex gap-1">
+                    <label class="cursor-pointer px-3 py-1 hover:bg-red-100 rounded border border-transparent hover:border-red-200 transition-all">
+                        <input type="radio" name="${n}-${id}" value="-" class="hidden peer">
+                        <span class="peer-checked:text-red-600 font-bold text-gray-400 peer-checked:scale-110 block">-</span>
                     </label>
-                    <div class="w-px bg-gray-200 my-1"></div>
-                    <label class="cursor-pointer px-3 py-1 rounded hover:bg-green-50 text-xs font-bold text-gray-500 hover:text-green-500 transition-colors">
-                        <input type="radio" name="${name}-${id}" value="+" class="hidden peer">
-                        <span class="peer-checked:text-green-600">+</span>
+                    <label class="cursor-pointer px-3 py-1 hover:bg-green-100 rounded border border-transparent hover:border-green-200 transition-all">
+                        <input type="radio" name="${n}-${id}" value="+" class="hidden peer">
+                        <span class="peer-checked:text-green-600 font-bold text-gray-400 peer-checked:scale-110 block">+</span>
                     </label>
                 </div>
             </div>`;
         }
 
-        function createSelectBox(label) {
+        function createSelectBox(l) {
             return `
-            <div class="p-2 bg-gray-50 rounded border border-gray-100 flex flex-col">
-                <span class="text-xs text-gray-500 mb-1">${label}</span>
-                <select class="bg-transparent font-bold text-brand-dark outline-none text-sm">
+            <div class="p-2 bg-gray-50 rounded border flex flex-col">
+                <span class="text-xs text-gray-500 mb-1">${l}</span>
+                <select class="bg-transparent font-bold text-sm outline-none cursor-pointer">
                     <option>Normal</option>
-                    <option class="text-red-500">Limitado</option>
-                    <option class="text-red-500">Dolor</option>
+                    <option>Limitado</option>
+                    <option>Dolor</option>
                 </select>
             </div>`;
         }
-
     </script>
 </body>
 </html>
