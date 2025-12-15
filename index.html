@@ -420,7 +420,7 @@
 
         // --- EXPORTACIÓN PDF UNIVERSAL 2.0 (DEFINITIVA) ---
         
-async function ensurePdfLibs() {
+async async function ensurePdfLibs() {
     // Prefer already-loaded globals
     const hasCanvas = typeof window.html2canvas !== 'undefined';
     const hasJsPDF = (typeof window.jspdf !== 'undefined' && typeof window.jspdf.jsPDF !== 'undefined') || typeof window.jsPDF !== 'undefined';
@@ -471,7 +471,7 @@ function loadScriptOnce(src) {
 }
 
 
-async function exportToPDF() {
+async async function exportToPDF() {
         // Asegura librerías (html2canvas + jsPDF) incluso en GitHub Pages
     const libsOk = await ensurePdfLibs();
     if (!libsOk) {
