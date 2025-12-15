@@ -76,7 +76,7 @@
         .pdf-break-avoid {
             page-break-inside: avoid !important;
             break-inside: avoid !important;
-            margin-bottom: 20px; /* Espacio seguro */
+            margin-bottom: 20px;
         }
 
         .radio-group { display: flex; gap: 1.5rem; align-items: center; height: 42px; }
@@ -418,91 +418,89 @@
             }
         }
 
-        // --- EXPORTACIÓN PDF INFALIBLE (FULLSCREEN OVERLAY) ---
+        // --- EXPORTACIÓN PDF DEFINITIVA (FORZANDO ANCHO DESKTOP) ---
         function exportToPDF() {
             if (typeof html2pdf === 'undefined') {
-                if(confirm("Librería PDF no cargada. ¿Usar impresión nativa?")) {
-                    window.print();
-                }
+                alert('Librería PDF no cargada.');
                 return;
             }
 
             const btn = document.querySelector('button[onclick="exportToPDF()"]');
             const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generando...';
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
             btn.disabled = true;
 
-            // 1. SCROLL AL TOPE (Evita captura en blanco)
             window.scrollTo(0, 0);
 
-            // 2. CREAR CONTENEDOR TIPO "HOJA DE PAPEL"
-            // No oculto, sino fijo encima de todo. Esto fuerza al navegador a renderizarlo.
+            // 1. CLONAR TODO Y PREPARAR
+            // Usamos un ancho FIJO grande (1100px) para que Tailwind use las clases de escritorio (md:grid-cols-12)
+            // Esto evita que se apilen las columnas como en móvil.
             const container = document.createElement('div');
-            container.id = 'export-container';
-            container.style.position = 'fixed';
+            
+            // Estilos para forzar renderizado de escritorio
+            container.style.position = 'absolute';
             container.style.top = '0';
             container.style.left = '0';
-            container.style.width = '100vw'; // Ancho pantalla completo
-            container.style.height = '100vh'; // Alto pantalla completo
-            container.style.backgroundColor = '#555'; // Fondo oscuro para resaltar la hoja
-            container.style.zIndex = '999999';
-            container.style.overflowY = 'scroll'; // Scroll interno para contenido largo
-            container.style.display = 'flex';
-            container.style.justifyContent = 'center';
-            container.style.padding = '40px 0';
+            container.style.zIndex = '99999'; // Visible
+            container.style.backgroundColor = 'white';
+            container.style.width = '1100px'; // ANCHO CRÍTICO
+            container.style.maxWidth = '1100px';
+            container.className = 'p-8 mx-auto bg-white'; 
 
-            // HOJA A4 FÍSICA
-            const sheet = document.createElement('div');
-            sheet.style.width = '800px'; // Ancho A4 web standard
-            sheet.style.backgroundColor = 'white';
-            sheet.style.padding = '40px';
-            sheet.style.boxShadow = '0 0 20px rgba(0,0,0,0.5)';
-            sheet.style.minHeight = '1000px';
+            // Clonar
+            const header = document.getElementById('app-header').cloneNode(true);
+            const content = document.getElementById('content-area').cloneNode(true);
             
-            // CLONAR CONTENIDO
-            const headerClone = document.getElementById('app-header').cloneNode(true);
-            const contentClone = document.getElementById('content-area').cloneNode(true);
+            // Wrapper
+            const inner = document.createElement('div');
+            inner.className = 'space-y-6';
+            inner.appendChild(header);
+            inner.appendChild(content);
+            container.appendChild(inner);
             
-            // Limpieza de clones
-            const wrapper = document.createElement('div');
-            wrapper.className = "space-y-6 text-black"; // Asegurar texto negro
-            wrapper.appendChild(headerClone);
-            wrapper.appendChild(contentClone);
-            
-            sheet.appendChild(wrapper);
-            container.appendChild(sheet);
+            // Agregar al DOM para que el CSS surta efecto
             document.body.appendChild(container);
 
-            // 3. APLANAR CONTENIDO (INPUTS -> TEXTO)
-            sheet.querySelectorAll('.hide-on-pdf').forEach(el => el.remove());
+            // 2. APLANAR INPUTS (Para que no se corte el texto)
+            container.querySelectorAll('.hide-on-pdf').forEach(el => el.remove());
 
-            // A) Inputs
-            sheet.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]), select').forEach(el => {
+            // Convertir Inputs a Texto
+            container.querySelectorAll('input, select').forEach(el => {
+                // Ignorar controles visuales
+                if(el.type === 'radio' || el.type === 'checkbox') return;
+
                 let val = el.value;
-                // Intentar recuperar valor real del DOM original por ID
+                // Intentar recuperar el valor real del original
                 if(el.id) {
                     const original = document.getElementById(el.id);
-                    if(original) val = original.value;
-                    if(original && original.tagName === 'SELECT' && original.options[original.selectedIndex]) {
-                        val = original.options[original.selectedIndex].text;
+                    if(original) {
+                        val = original.value;
+                        if(original.tagName === 'SELECT' && original.options[original.selectedIndex]) {
+                            val = original.options[original.selectedIndex].text;
+                        }
                     }
                 }
-                
+
                 const div = document.createElement('div');
+                // Copiamos todas las clases para mantener el Grid
                 div.className = el.className;
+                
+                // Sobrescribimos estilos conflictivos
                 div.style.border = 'none';
                 div.style.borderBottom = '1px solid #ccc';
-                div.style.padding = '2px 0';
+                div.style.borderRadius = '0';
+                div.style.padding = '4px 0';
                 div.style.background = 'transparent';
                 div.style.fontWeight = '600';
                 div.style.color = '#000';
-                div.style.minHeight = '20px';
+                div.style.minHeight = '24px';
+                div.style.width = '100%'; // Asegurar ancho completo en su celda
                 div.innerText = val || '-';
                 el.replaceWith(div);
             });
 
-            // B) Textareas
-            sheet.querySelectorAll('textarea').forEach(el => {
+            // Convertir Textareas
+            container.querySelectorAll('textarea').forEach(el => {
                 let val = el.value;
                 if(el.id) {
                     const original = document.getElementById(el.id);
@@ -513,68 +511,70 @@
                 div.style.height = 'auto';
                 div.style.minHeight = '80px';
                 div.style.whiteSpace = 'pre-wrap';
-                div.style.overflow = 'visible';
                 div.innerText = val || '';
                 el.replaceWith(div);
             });
 
-            // C) Checkboxes/Radios
-            sheet.querySelectorAll('input[type="radio"], input[type="checkbox"]').forEach(el => {
+            // Convertir Checks
+            container.querySelectorAll('input[type="checkbox"], input[type="radio"]').forEach(el => {
                 let isChecked = el.checked;
                 if(el.name && el.value) {
                     const original = document.querySelector(`input[name="${el.name}"][value="${el.value}"]`);
                     if(original) isChecked = original.checked;
                 }
-                const i = document.createElement('i');
-                i.className = isChecked ? "fa-solid fa-square-check text-brand-dark" : "fa-regular fa-square text-gray-300";
-                i.style.fontSize = '1.3em';
-                el.replaceWith(i);
+                
+                const icon = document.createElement('i');
+                icon.className = isChecked ? "fa-solid fa-square-check text-brand-dark" : "fa-regular fa-square text-gray-300";
+                icon.style.fontSize = '1.3em';
+                // Eliminar clases de layout del input original si interfieren
+                el.replaceWith(icon);
             });
 
-            // D) Imágenes
-            sheet.querySelectorAll('img').forEach(img => {
+            // Asegurar imágenes
+            container.querySelectorAll('img').forEach(img => {
                 img.style.display = 'block';
                 img.style.maxWidth = '100%';
             });
 
-            // 4. GENERAR PDF (CON TIMEOUT PARA RENDERIZADO)
+            // 3. GENERAR PDF
             const patientName = document.getElementById('patient-name').value || 'Paciente';
+            
+            // Detectar móvil para ajustar escala si es necesario, pero manteniendo ancho de ventana
+            const isMobile = window.innerWidth < 800;
+            const pdfScale = isMobile ? 1.5 : 2; 
+
             const opt = {
                 margin:       [10, 10, 10, 10],
                 filename:     `Ficha_${patientName.replace(/\s+/g, '_')}.pdf`,
                 image:        { type: 'jpeg', quality: 0.98 },
                 html2canvas:  { 
-                    scale: 1.5, // Escala segura
+                    scale: pdfScale, 
                     useCORS: true, 
                     logging: false,
-                    windowWidth: 800, // Coincide con la hoja
-                    scrollY: 0,
-                    x: 0,
-                    y: 0
+                    windowWidth: 1100, // IMPORTANTE: Forza a html2canvas a pensar que es una pantalla grande
+                    scrollX: 0,
+                    scrollY: 0
                 },
-                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                pagebreak:    { mode: ['css', 'legacy'] }
             };
 
-            // Esperar 1 segundo para que el navegador "pinte" el overlay
+            // Timeout para asegurar renderizado visual
             setTimeout(() => {
-                html2pdf().set(opt).from(sheet).save()
+                html2pdf().set(opt).from(container).save()
                 .then(() => {
                     document.body.removeChild(container);
                     btn.innerHTML = originalText;
                     btn.disabled = false;
                 })
                 .catch(err => {
-                    console.error(err);
-                    if(confirm("La generación automática falló. ¿Desea usar la impresión del sistema?")) {
-                        document.body.removeChild(container);
-                        window.print();
-                    } else {
-                        document.body.removeChild(container);
-                    }
+                    console.error("PDF Error:", err);
+                    alert("Error. Intente de nuevo.");
+                    document.body.removeChild(container);
                     btn.innerHTML = originalText;
                     btn.disabled = false;
                 });
-            }, 1000);
+            }, 800);
         }
 
         // --- LÓGICA DE STACK Y MÓDULOS ---
