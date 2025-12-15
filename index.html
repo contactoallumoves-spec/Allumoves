@@ -418,10 +418,12 @@
             }
         }
 
-        // --- EXPORTACIÓN PDF DEFINITIVA (MÓVIL FRIENDLY) ---
+        // --- EXPORTACIÓN PDF INFALIBLE (FULLSCREEN OVERLAY) ---
         function exportToPDF() {
             if (typeof html2pdf === 'undefined') {
-                alert('Librería PDF no cargada.');
+                if(confirm("Librería PDF no cargada. ¿Usar impresión nativa?")) {
+                    window.print();
+                }
                 return;
             }
 
@@ -430,57 +432,67 @@
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generando...';
             btn.disabled = true;
 
-            // 1. Reset Scroll (Crítico para iOS)
+            // 1. SCROLL AL TOPE (Evita captura en blanco)
             window.scrollTo(0, 0);
 
-            // 2. Clonación Segura:
-            // Creamos un clon temporal AL FINAL del body, no oculto por CSS, 
-            // sino fuera del flujo normal pero visible para el motor de render.
+            // 2. CREAR CONTENEDOR TIPO "HOJA DE PAPEL"
+            // No oculto, sino fijo encima de todo. Esto fuerza al navegador a renderizarlo.
             const container = document.createElement('div');
-            container.style.position = 'absolute';
+            container.id = 'export-container';
+            container.style.position = 'fixed';
             container.style.top = '0';
             container.style.left = '0';
-            container.style.zIndex = '9999'; // Visible encima de todo
-            container.style.backgroundColor = 'white';
-            container.style.width = '800px'; // Ancho A4 fijo para evitar cortes
-            container.style.maxWidth = '800px';
-            container.className = 'p-4 mx-auto bg-white'; // Tailwind classes
+            container.style.width = '100vw'; // Ancho pantalla completo
+            container.style.height = '100vh'; // Alto pantalla completo
+            container.style.backgroundColor = '#555'; // Fondo oscuro para resaltar la hoja
+            container.style.zIndex = '999999';
+            container.style.overflowY = 'scroll'; // Scroll interno para contenido largo
+            container.style.display = 'flex';
+            container.style.justifyContent = 'center';
+            container.style.padding = '40px 0';
 
-            // Clonar secciones relevantes
-            const header = document.getElementById('app-header').cloneNode(true);
-            const content = document.getElementById('content-area').cloneNode(true);
+            // HOJA A4 FÍSICA
+            const sheet = document.createElement('div');
+            sheet.style.width = '800px'; // Ancho A4 web standard
+            sheet.style.backgroundColor = 'white';
+            sheet.style.padding = '40px';
+            sheet.style.boxShadow = '0 0 20px rgba(0,0,0,0.5)';
+            sheet.style.minHeight = '1000px';
             
-            // Contenedor interno para margen
-            const inner = document.createElement('div');
-            inner.appendChild(header);
-            inner.appendChild(content);
-            container.appendChild(inner);
+            // CLONAR CONTENIDO
+            const headerClone = document.getElementById('app-header').cloneNode(true);
+            const contentClone = document.getElementById('content-area').cloneNode(true);
+            
+            // Limpieza de clones
+            const wrapper = document.createElement('div');
+            wrapper.className = "space-y-6 text-black"; // Asegurar texto negro
+            wrapper.appendChild(headerClone);
+            wrapper.appendChild(contentClone);
+            
+            sheet.appendChild(wrapper);
+            container.appendChild(sheet);
             document.body.appendChild(container);
 
-            // 3. Transformación de Datos (Flattening)
-            // Esto convierte inputs en texto plano para que no se corten
-            
-            // Eliminar controles de UI
-            container.querySelectorAll('.hide-on-pdf').forEach(el => el.remove());
+            // 3. APLANAR CONTENIDO (INPUTS -> TEXTO)
+            sheet.querySelectorAll('.hide-on-pdf').forEach(el => el.remove());
 
-            // A) Inputs Texto -> Divs Planos
-            container.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), select').forEach(el => {
+            // A) Inputs
+            sheet.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]), select').forEach(el => {
                 let val = el.value;
+                // Intentar recuperar valor real del DOM original por ID
                 if(el.id) {
-                    const real = document.getElementById(el.id);
-                    if(real) {
-                        val = real.value;
-                        if(real.tagName === 'SELECT' && real.options[real.selectedIndex]) {
-                            val = real.options[real.selectedIndex].text;
-                        }
+                    const original = document.getElementById(el.id);
+                    if(original) val = original.value;
+                    if(original && original.tagName === 'SELECT' && original.options[original.selectedIndex]) {
+                        val = original.options[original.selectedIndex].text;
                     }
                 }
+                
                 const div = document.createElement('div');
                 div.className = el.className;
                 div.style.border = 'none';
                 div.style.borderBottom = '1px solid #ccc';
-                div.style.borderRadius = '0';
-                div.style.padding = '0';
+                div.style.padding = '2px 0';
                 div.style.background = 'transparent';
                 div.style.fontWeight = '600';
                 div.style.color = '#000';
@@ -489,65 +501,63 @@
                 el.replaceWith(div);
             });
 
-            // B) Textareas -> Divs Auto-expandibles
-            container.querySelectorAll('textarea').forEach(el => {
+            // B) Textareas
+            sheet.querySelectorAll('textarea').forEach(el => {
                 let val = el.value;
                 if(el.id) {
-                    const real = document.getElementById(el.id);
-                    if(real) val = real.value;
+                    const original = document.getElementById(el.id);
+                    if(original) val = original.value;
                 }
                 const div = document.createElement('div');
                 div.className = el.className;
-                div.style.height = 'auto'; // Clave para que no se corte
-                div.style.minHeight = '50px';
+                div.style.height = 'auto';
+                div.style.minHeight = '80px';
                 div.style.whiteSpace = 'pre-wrap';
+                div.style.overflow = 'visible';
                 div.innerText = val || '';
                 el.replaceWith(div);
             });
 
-            // C) Checkboxes/Radios -> Iconos
-            container.querySelectorAll('input[type="checkbox"], input[type="radio"]').forEach(el => {
+            // C) Checkboxes/Radios
+            sheet.querySelectorAll('input[type="radio"], input[type="checkbox"]').forEach(el => {
                 let isChecked = el.checked;
-                if(el.id) {
-                    const real = document.getElementById(el.id);
-                    if(real) isChecked = real.checked;
-                } else if(el.name && el.value) {
-                    const real = document.querySelector(`input[name="${el.name}"][value="${el.value}"]`);
-                    if(real) isChecked = real.checked;
+                if(el.name && el.value) {
+                    const original = document.querySelector(`input[name="${el.name}"][value="${el.value}"]`);
+                    if(original) isChecked = original.checked;
                 }
-                
-                const icon = document.createElement('i');
-                icon.className = isChecked ? "fa-solid fa-square-check text-brand-dark" : "fa-regular fa-square text-gray-300";
-                icon.style.fontSize = '1.2em';
-                el.replaceWith(icon);
+                const i = document.createElement('i');
+                i.className = isChecked ? "fa-solid fa-square-check text-brand-dark" : "fa-regular fa-square text-gray-300";
+                i.style.fontSize = '1.3em';
+                el.replaceWith(i);
             });
 
-            // Asegurar imágenes
-            container.querySelectorAll('img').forEach(img => {
+            // D) Imágenes
+            sheet.querySelectorAll('img').forEach(img => {
                 img.style.display = 'block';
                 img.style.maxWidth = '100%';
             });
 
-            // 4. Configuración PDF Robusta
+            // 4. GENERAR PDF (CON TIMEOUT PARA RENDERIZADO)
             const patientName = document.getElementById('patient-name').value || 'Paciente';
             const opt = {
                 margin:       [10, 10, 10, 10],
                 filename:     `Ficha_${patientName.replace(/\s+/g, '_')}.pdf`,
                 image:        { type: 'jpeg', quality: 0.98 },
                 html2canvas:  { 
-                    scale: 1.5, // Escala segura para móviles (evita crash por memoria)
+                    scale: 1.5, // Escala segura
                     useCORS: true, 
                     logging: false,
-                    windowWidth: 800, // Coincide con el contenedor
-                    scrollY: 0
+                    windowWidth: 800, // Coincide con la hoja
+                    scrollY: 0,
+                    x: 0,
+                    y: 0
                 },
-                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                pagebreak:    { mode: ['css', 'legacy'] }
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
 
-            // Esperar un momento para que el DOM se pinte
+            // Esperar 1 segundo para que el navegador "pinte" el overlay
             setTimeout(() => {
-                html2pdf().set(opt).from(container).save()
+                html2pdf().set(opt).from(sheet).save()
                 .then(() => {
                     document.body.removeChild(container);
                     btn.innerHTML = originalText;
@@ -555,12 +565,16 @@
                 })
                 .catch(err => {
                     console.error(err);
-                    alert("Error generando PDF. Intente con menos contenido.");
-                    document.body.removeChild(container);
+                    if(confirm("La generación automática falló. ¿Desea usar la impresión del sistema?")) {
+                        document.body.removeChild(container);
+                        window.print();
+                    } else {
+                        document.body.removeChild(container);
+                    }
                     btn.innerHTML = originalText;
                     btn.disabled = false;
                 });
-            }, 1000); // 1 segundo de espera para asegurar renderizado
+            }, 1000);
         }
 
         // --- LÓGICA DE STACK Y MÓDULOS ---
