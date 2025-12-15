@@ -72,10 +72,11 @@
             margin-bottom: 0.35rem;
         }
         
-        /* Estilos específicos para evitar cortes en PDF */
+        /* Estilos CRÍTICOS para evitar cortes en PDF */
         .pdf-break-avoid {
-            page-break-inside: avoid;
-            break-inside: avoid;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            margin-bottom: 20px; /* Espacio seguro */
         }
 
         .radio-group { display: flex; gap: 1.5rem; align-items: center; height: 42px; }
@@ -417,7 +418,7 @@
             }
         }
 
-        // --- EXPORTACIÓN PDF INFALIBLE (OVERLAY METHOD) ---
+        // --- EXPORTACIÓN PDF UNIVERSAL (PC + MÓVIL) ---
         function exportToPDF() {
             if (typeof html2pdf === 'undefined') {
                 alert('Librería PDF no cargada.');
@@ -426,28 +427,28 @@
 
             const btn = document.querySelector('button[onclick="exportToPDF()"]');
             const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generando...';
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
             btn.disabled = true;
 
-            // 1. Crear SUPERPOSICIÓN (Overlay)
-            // En lugar de ocultarlo, lo ponemos encima de todo.
-            // Esto garantiza que el navegador lo renderice sí o sí.
+            // 1. Resetear Scroll (Crítico para que no salga en blanco en iOS/Android)
+            window.scrollTo(0, 0);
+
+            // 2. Crear Superposición "Visible" pero en capa superior
             const overlay = document.createElement('div');
-            overlay.style.position = 'fixed';
+            overlay.style.position = 'absolute'; // Usar absolute vs fixed para evitar cortes de scroll
             overlay.style.top = '0';
             overlay.style.left = '0';
-            overlay.style.width = '100vw';
-            overlay.style.height = '100vh';
-            overlay.style.backgroundColor = '#ffffff'; // Blanco puro
-            overlay.style.zIndex = '99999'; // Encima de todo
-            overlay.style.overflowY = 'auto'; // Scrollable si es necesario para el motor
+            overlay.style.zIndex = '99999'; 
+            overlay.style.backgroundColor = '#ffffff';
             overlay.id = 'pdf-export-overlay';
 
-            // Contenedor interno con ancho fijo (Desktop Layout)
+            // CONFIGURACIÓN CRÍTICA: ANCHO FIJO DE 800px (Ancho A4 aprox en px)
+            // Esto asegura que el layout no se rompa y que la escala sea 1:1, evitando sobrecarga de memoria
+            const containerWidth = 794; 
             const innerContainer = document.createElement('div');
-            innerContainer.style.width = '1024px';
-            innerContainer.style.margin = '0 auto'; // Centrado
-            innerContainer.style.padding = '40px';
+            innerContainer.style.width = `${containerWidth}px`;
+            innerContainer.style.margin = '0 auto';
+            innerContainer.style.padding = '20px';
             innerContainer.style.backgroundColor = 'white';
             
             // Clonar contenido
@@ -459,10 +460,10 @@
             overlay.appendChild(innerContainer);
             document.body.appendChild(overlay);
 
-            // 2. Limpieza y Transformación (Sin romper layout)
+            // 3. Transformación de Datos (Inputs -> Texto Limpio)
             innerContainer.querySelectorAll('.hide-on-pdf').forEach(el => el.remove());
 
-            // A) Inputs -> Texto Plano (Respetando Grid de Tailwind)
+            // A) Inputs Texto
             innerContainer.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), select').forEach(el => {
                 let val = el.value;
                 if(el.id) {
@@ -474,23 +475,21 @@
                         }
                     }
                 }
-
                 const div = document.createElement('div');
                 div.className = el.className;
-                // Estilos de lectura
                 div.style.border = 'none';
-                div.style.borderBottom = '1px solid #ddd';
+                div.style.borderBottom = '1px solid #ccc';
                 div.style.borderRadius = '0';
-                div.style.padding = '5px 0';
+                div.style.padding = '0';
                 div.style.backgroundColor = 'transparent';
                 div.style.fontWeight = '600';
-                div.style.minHeight = '24px';
                 div.style.color = '#000';
+                div.style.minHeight = '20px';
                 div.innerText = val || '-';
                 el.replaceWith(div);
             });
 
-            // B) Textareas
+            // B) Textareas (Expansión automática)
             innerContainer.querySelectorAll('textarea').forEach(el => {
                 let val = el.value;
                 if(el.id) {
@@ -500,14 +499,13 @@
                 const div = document.createElement('div');
                 div.className = el.className;
                 div.style.height = 'auto';
-                div.style.minHeight = '100px';
-                div.style.whiteSpace = 'pre-wrap';
-                div.style.overflow = 'visible';
+                div.style.minHeight = '80px';
+                div.style.whiteSpace = 'pre-wrap'; // Respetar saltos de línea
                 div.innerText = val || '';
                 el.replaceWith(div);
             });
 
-            // C) Checkboxes/Radios -> Íconos
+            // C) Checkboxes/Radios
             innerContainer.querySelectorAll('input[type="checkbox"], input[type="radio"]').forEach(el => {
                 let isChecked = el.checked;
                 if(el.id) {
@@ -524,30 +522,33 @@
                 el.replaceWith(icon);
             });
 
-            // D) Imágenes
             innerContainer.querySelectorAll('img').forEach(img => {
                 img.style.display = 'block';
                 img.style.maxWidth = '100%';
             });
 
-            // 3. Generar PDF
+            // 4. Configuración Inteligente (Detectar Móvil)
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            // En móvil bajamos la escala para no saturar la memoria RAM del navegador
+            const renderScale = isMobile ? 1.5 : 2; 
+
             const patientName = document.getElementById('patient-name').value || 'Paciente';
             const opt = {
-                margin:       [10, 10, 10, 10],
+                margin:       [5, 5, 5, 5], // Márgenes pequeños para maximizar espacio
                 filename:     `Ficha_${patientName.replace(/\s+/g, '_')}.pdf`,
                 image:        { type: 'jpeg', quality: 0.98 },
                 html2canvas:  { 
-                    scale: 2, 
+                    scale: renderScale, 
                     useCORS: true, 
                     logging: false,
-                    windowWidth: 1024, // Fuerza el layout de escritorio
+                    windowWidth: containerWidth, // Coincide con el ancho físico del div
                     scrollY: 0
                 },
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
                 pagebreak:    { mode: ['css', 'legacy'] }
             };
 
-            // Pequeño timeout para asegurar que el DOM se pintó en el overlay
+            // Pequeño retardo para asegurar renderizado en pantalla
             setTimeout(() => {
                 html2pdf().set(opt).from(innerContainer).save()
                 .then(() => {
@@ -557,12 +558,12 @@
                 })
                 .catch(err => {
                     console.error("PDF Error:", err);
-                    alert("Error generando PDF. Revisa consola.");
+                    alert("Hubo un error al generar. Intente con menos imágenes o recargue.");
                     document.body.removeChild(overlay);
                     btn.innerHTML = originalText;
                     btn.disabled = false;
                 });
-            }, 500);
+            }, 800);
         }
 
         // --- LÓGICA DE STACK Y MÓDULOS ---
