@@ -417,91 +417,99 @@
             }
         }
 
-        // --- EXPORTACIÓN PDF PROFESIONAL REPARADA ---
+        // --- EXPORTACIÓN PDF INFALIBLE (OVERLAY METHOD) ---
         function exportToPDF() {
             if (typeof html2pdf === 'undefined') {
                 alert('Librería PDF no cargada.');
                 return;
             }
 
-            // Indicador de carga visual
             const btn = document.querySelector('button[onclick="exportToPDF()"]');
             const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generando PDF...';
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generando...';
             btn.disabled = true;
 
-            // 1. CLONAR CONTENEDOR TEMPORAL
-            const tempContainer = document.createElement('div');
+            // 1. Crear SUPERPOSICIÓN (Overlay)
+            // En lugar de ocultarlo, lo ponemos encima de todo.
+            // Esto garantiza que el navegador lo renderice sí o sí.
+            const overlay = document.createElement('div');
+            overlay.style.position = 'fixed';
+            overlay.style.top = '0';
+            overlay.style.left = '0';
+            overlay.style.width = '100vw';
+            overlay.style.height = '100vh';
+            overlay.style.backgroundColor = '#ffffff'; // Blanco puro
+            overlay.style.zIndex = '99999'; // Encima de todo
+            overlay.style.overflowY = 'auto'; // Scrollable si es necesario para el motor
+            overlay.id = 'pdf-export-overlay';
+
+            // Contenedor interno con ancho fijo (Desktop Layout)
+            const innerContainer = document.createElement('div');
+            innerContainer.style.width = '1024px';
+            innerContainer.style.margin = '0 auto'; // Centrado
+            innerContainer.style.padding = '40px';
+            innerContainer.style.backgroundColor = 'white';
             
-            // CONFIGURACIÓN CRÍTICA DE LAYOUT:
-            // Usamos un ancho fijo de 1024px para emular un escritorio.
-            // Esto asegura que el Grid de 12 columnas NO se colapse a móvil.
-            tempContainer.style.width = '1024px'; 
-            tempContainer.style.maxWidth = '1024px';
-            tempContainer.style.position = 'absolute';
-            tempContainer.style.left = '0'; // Se renderiza en pantalla
-            tempContainer.style.top = '0';
-            tempContainer.style.zIndex = '-9999'; // Pero detrás de todo
-            tempContainer.className = 'bg-white p-8'; // Fondo blanco puro y padding
-            
-            // Clonamos Header y Contenido
+            // Clonar contenido
             const headerClone = document.getElementById('app-header').cloneNode(true);
             const mainClone = document.getElementById('content-area').cloneNode(true);
             
-            // Wrapper para espaciado correcto
-            const wrapper = document.createElement('div');
-            wrapper.className = "space-y-6";
-            wrapper.appendChild(headerClone);
-            wrapper.appendChild(mainClone);
-            
-            tempContainer.appendChild(wrapper);
-            
-            // IMPORTANTE: Adjuntar al body para que el navegador calcule el Grid
-            document.body.appendChild(tempContainer);
+            innerContainer.appendChild(headerClone);
+            innerContainer.appendChild(mainClone);
+            overlay.appendChild(innerContainer);
+            document.body.appendChild(overlay);
 
-            // 2. LIMPIEZA Y TRANSFORMACIÓN
-            tempContainer.querySelectorAll('.hide-on-pdf').forEach(el => el.remove());
+            // 2. Limpieza y Transformación (Sin romper layout)
+            innerContainer.querySelectorAll('.hide-on-pdf').forEach(el => el.remove());
 
-            // Transformar Inputs a Texto Estático (Flat)
-            tempContainer.querySelectorAll('input, select, textarea').forEach(el => {
-                // Ignorar controles que manejamos aparte
-                if(el.type === 'radio' || el.type === 'checkbox' || el.type === 'file') return;
-                
-                // Obtener valor real
+            // A) Inputs -> Texto Plano (Respetando Grid de Tailwind)
+            innerContainer.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), select').forEach(el => {
                 let val = el.value;
                 if(el.id) {
-                    const realEl = document.getElementById(el.id);
-                    if(realEl) {
-                        val = realEl.value;
-                        if(realEl.tagName === 'SELECT' && realEl.options[realEl.selectedIndex]) {
-                            val = realEl.options[realEl.selectedIndex].text;
+                    const real = document.getElementById(el.id);
+                    if(real) {
+                        val = real.value;
+                        if(real.tagName === 'SELECT' && real.options[real.selectedIndex]) {
+                            val = real.options[real.selectedIndex].text;
                         }
                     }
                 }
 
                 const div = document.createElement('div');
-                div.className = el.className; // Mantiene Grid y Spans
-                
-                // Estilos de "Impresión"
+                div.className = el.className;
+                // Estilos de lectura
                 div.style.border = 'none';
-                div.style.borderBottom = '1px solid #ccc';
+                div.style.borderBottom = '1px solid #ddd';
                 div.style.borderRadius = '0';
-                div.style.background = 'transparent';
-                div.style.padding = '4px 0';
-                div.style.minHeight = '24px';
-                div.style.height = 'auto'; // Permitir crecimiento
-                div.style.whiteSpace = 'pre-wrap'; // Respetar saltos de línea
+                div.style.padding = '5px 0';
+                div.style.backgroundColor = 'transparent';
                 div.style.fontWeight = '600';
+                div.style.minHeight = '24px';
                 div.style.color = '#000';
                 div.innerText = val || '-';
-                
                 el.replaceWith(div);
             });
 
-            // Transformar Checkboxes/Radios a Íconos FontAwesome
-            tempContainer.querySelectorAll('input[type="radio"], input[type="checkbox"]').forEach(el => {
+            // B) Textareas
+            innerContainer.querySelectorAll('textarea').forEach(el => {
+                let val = el.value;
+                if(el.id) {
+                    const real = document.getElementById(el.id);
+                    if(real) val = real.value;
+                }
+                const div = document.createElement('div');
+                div.className = el.className;
+                div.style.height = 'auto';
+                div.style.minHeight = '100px';
+                div.style.whiteSpace = 'pre-wrap';
+                div.style.overflow = 'visible';
+                div.innerText = val || '';
+                el.replaceWith(div);
+            });
+
+            // C) Checkboxes/Radios -> Íconos
+            innerContainer.querySelectorAll('input[type="checkbox"], input[type="radio"]').forEach(el => {
                 let isChecked = el.checked;
-                // Verificar estado real
                 if(el.id) {
                     const real = document.getElementById(el.id);
                     if(real) isChecked = real.checked;
@@ -509,49 +517,52 @@
                     const real = document.querySelector(`input[name="${el.name}"][value="${el.value}"]`);
                     if(real) isChecked = real.checked;
                 }
-
+                
                 const icon = document.createElement('i');
-                // Usamos íconos sólidos vs regulares para contraste claro
                 icon.className = isChecked ? "fa-solid fa-square-check text-brand-dark" : "fa-regular fa-square text-gray-300";
-                icon.style.fontSize = '1.3em'; // Tamaño legible
+                icon.style.fontSize = '1.2em';
                 el.replaceWith(icon);
             });
 
-            // Asegurar imágenes visibles
-            tempContainer.querySelectorAll('img').forEach(img => {
+            // D) Imágenes
+            innerContainer.querySelectorAll('img').forEach(img => {
                 img.style.display = 'block';
                 img.style.maxWidth = '100%';
             });
 
-            // 3. GENERAR PDF
+            // 3. Generar PDF
             const patientName = document.getElementById('patient-name').value || 'Paciente';
             const opt = {
-                margin:       [10, 10, 10, 10], // Márgenes seguros
+                margin:       [10, 10, 10, 10],
                 filename:     `Ficha_${patientName.replace(/\s+/g, '_')}.pdf`,
                 image:        { type: 'jpeg', quality: 0.98 },
                 html2canvas:  { 
                     scale: 2, 
                     useCORS: true, 
                     logging: false,
-                    windowWidth: 1024 // COINCIDE con el ancho del contenedor
+                    windowWidth: 1024, // Fuerza el layout de escritorio
+                    scrollY: 0
                 },
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
                 pagebreak:    { mode: ['css', 'legacy'] }
             };
 
-            html2pdf().set(opt).from(tempContainer).save()
+            // Pequeño timeout para asegurar que el DOM se pintó en el overlay
+            setTimeout(() => {
+                html2pdf().set(opt).from(innerContainer).save()
                 .then(() => {
-                    document.body.removeChild(tempContainer);
+                    document.body.removeChild(overlay);
                     btn.innerHTML = originalText;
                     btn.disabled = false;
                 })
                 .catch(err => {
-                    console.error(err);
-                    alert('Error al generar PDF. Intente de nuevo.');
-                    document.body.removeChild(tempContainer);
+                    console.error("PDF Error:", err);
+                    alert("Error generando PDF. Revisa consola.");
+                    document.body.removeChild(overlay);
                     btn.innerHTML = originalText;
                     btn.disabled = false;
                 });
+            }, 500);
         }
 
         // --- LÓGICA DE STACK Y MÓDULOS ---
