@@ -471,7 +471,7 @@ function loadScriptOnce(src) {
 }
 
 
-async async function exportToPDF() {
+async function exportToPDF() {
         // Asegura librerías (html2canvas + jsPDF) incluso en GitHub Pages
     const libsOk = await ensurePdfLibs();
     if (!libsOk) {
