@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>All u moves - Suite Clínica</title>
+    <title>All u moves - Suite Clínica Pro</title>
     
     <!-- Google Fonts: Montserrat -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -43,7 +43,7 @@
     </script>
 
     <style>
-        body { background-color: #F5EFE5; color: #363636; }
+        body { background-color: #F5EFE5; color: #363636; -webkit-print-color-adjust: exact; }
         
         .aum-input {
             width: 100%;
@@ -61,16 +61,11 @@
             background-color: #FFFFFF;
             box-shadow: 0 0 0 3px rgba(217, 203, 179, 0.2);
         }
-        .aum-input[readonly] { background-color: #F3F4F6; color: #6B7280; }
-
-        .aum-label {
-            display: block;
-            font-size: 0.7rem;
-            font-weight: 700;
-            color: #9CA3AF;
-            margin-bottom: 0.35rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
+        
+        /* Estilos específicos para evitar cortes en PDF */
+        .pdf-break-avoid {
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
 
         .radio-group { display: flex; gap: 1.5rem; align-items: center; height: 42px; }
@@ -94,25 +89,22 @@
 </head>
 <body class="min-h-screen flex flex-col pb-20" id="main-body">
 
-    <!-- INPUTS TÉCNICOS (Ocultos pero funcionales) -->
-    <!-- Usamos style display:none en lugar de hidden para asegurar compatibilidad -->
+    <!-- INPUTS TÉCNICOS (Ocultos) -->
     <input type="file" id="file-load-input" style="display:none;" accept=".aum" onchange="processLoadSession(this)">
     <input type="file" id="media-upload-input" style="display:none;" multiple accept="image/*,video/*" onchange="processMediaUpload(this)">
     <input type="file" id="doc-upload-input" style="display:none;" multiple accept=".pdf,.dicom,.doc,.docx" onchange="processDocUpload(this)">
 
     <!-- HEADER -->
-    <header class="pt-6 pb-2 px-4 sm:px-8 max-w-5xl mx-auto w-full" id="app-header">
+    <header class="pt-6 pb-2 px-4 sm:px-8 max-w-5xl mx-auto w-full pdf-break-avoid" id="app-header">
         <div class="flex justify-between items-start mb-6">
             <div>
                 <h1 class="font-bold text-3xl text-brand-dark tracking-tight">All u moves</h1>
                 <p class="text-sm text-brand-grey uppercase tracking-widest ml-1">Clinical Suite</p>
             </div>
-            <div class="flex gap-3 hide-on-pdf-controls">
-                <!-- Botón Cargar -->
+            <div class="flex gap-3 hide-on-pdf">
                 <button onclick="triggerFileInput('file-load-input')" class="bg-white border border-brand-accent text-brand-grey hover:text-brand-dark hover:border-brand-dark px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-sm flex items-center gap-2">
                     <i class="fa-solid fa-upload"></i> Cargar .aum
                 </button>
-                <!-- Botón Guardar -->
                 <button onclick="saveSession()" class="bg-brand-dark text-brand-light px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-800 transition-all shadow-md flex items-center gap-2">
                     <i class="fa-solid fa-floppy-disk"></i> Guardar Sesión
                 </button>
@@ -137,7 +129,7 @@
     <main class="w-full max-w-5xl mx-auto px-4 sm:px-8 space-y-8" id="content-area">
 
         <!-- 1. IDENTIFICACIÓN Y CONSENTIMIENTO -->
-        <section class="bg-white rounded-xl shadow-lg border border-white p-6 sm:p-8" id="section-identity">
+        <section class="bg-white rounded-xl shadow-lg border border-white p-6 sm:p-8 pdf-break-avoid" id="section-identity">
             <div class="flex items-center gap-3 mb-6">
                 <div class="w-1.5 h-6 bg-brand-accent rounded-full"></div>
                 <h2 class="text-xl font-bold text-brand-dark">Identificación y Consentimiento</h2>
@@ -248,7 +240,7 @@
         </section>
 
         <!-- 2. SELECTOR DE MÓDULOS -->
-        <section class="bg-brand-dark text-white rounded-xl p-5 shadow-lg sticky top-4 z-40 transition-all duration-300 ring-1 ring-white/10 hide-on-pdf-controls" id="module-bar">
+        <section class="bg-brand-dark text-white rounded-xl p-5 shadow-lg sticky top-4 z-40 transition-all duration-300 ring-1 ring-white/10 hide-on-pdf" id="module-bar">
             <div class="flex flex-col md:flex-row md:items-end gap-4">
                 <div class="flex-grow">
                     <label class="block text-xs text-brand-accent/80 mb-2 uppercase tracking-wider font-semibold">Añadir Evaluación Específica</label>
@@ -291,7 +283,7 @@
         </div>
 
         <!-- 4. OBSERVACIONES Y ARCHIVOS -->
-        <section class="bg-white rounded-xl shadow-lg border border-white overflow-hidden mb-12">
+        <section class="bg-white rounded-xl shadow-lg border border-white overflow-hidden mb-12 pdf-break-avoid">
             <div class="bg-brand-dark/5 px-6 py-4 border-b border-brand-accent/20 flex items-center gap-3">
                 <div class="w-1.5 h-5 bg-brand-text rounded-full"></div>
                 <h2 class="text-brand-text font-bold text-sm uppercase tracking-wide">Observaciones Generales & Archivos</h2>
@@ -302,8 +294,8 @@
                     <textarea class="aum-input h-32 resize-y shadow-inner" placeholder="Describa el motivo de consulta..." id="general-anamnesis"></textarea>
                 </div>
                 
-                <!-- Botones de Carga -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 hide-on-pdf-controls">
+                <!-- Botones de Carga (Se ocultan en PDF) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 hide-on-pdf">
                     <div onclick="triggerFileInput('media-upload-input')" class="border-2 border-dashed border-brand-accent/60 rounded-xl p-6 text-center hover:bg-brand-light/50 hover:border-brand-dark transition-all cursor-pointer group">
                         <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-brand-dark group-hover:text-white transition-colors">
                             <i class="fa-solid fa-camera text-xl text-brand-grey group-hover:text-white"></i>
@@ -318,8 +310,10 @@
                     </div>
                 </div>
 
-                <!-- Áreas de Previsualización -->
-                <div id="media-preview-area" class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 hidden"></div>
+                <!-- Áreas de Previsualización (Siempre visibles si tienen contenido) -->
+                <div id="media-preview-area" class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 hidden">
+                    <!-- Las imágenes se inyectan aquí -->
+                </div>
                 <div id="doc-preview-area" class="space-y-2 mt-4 hidden"></div>
 
             </div>
@@ -328,7 +322,7 @@
     </main>
 
     <!-- FOOTER FLOTANTE -->
-    <div class="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 hide-on-pdf-controls">
+    <div class="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 hide-on-pdf">
         <div class="bg-white/90 backdrop-blur-md border border-gray-200 shadow-2xl rounded-full px-6 py-3 flex items-center gap-4">
             <button onclick="resetStack()" class="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors" title="Limpiar todo">
                 <i class="fa-solid fa-trash-can"></i>
@@ -340,9 +334,8 @@
         </div>
     </div>
 
-    <!-- SCRIPTS DE LÓGICA -->
+    <!-- SCRIPTS -->
     <script>
-        // --- 1. UTILIDADES BÁSICAS ---
         document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('date-display').innerText = new Date().toLocaleDateString('es-CL');
         });
@@ -355,21 +348,14 @@
                 const age_dt = new Date(Date.now() - dob.getTime()); 
                 const age = Math.abs(age_dt.getUTCFullYear() - 1970);
                 document.getElementById('patient-age').value = age;
-            } catch(e) {
-                console.error("Error calculando edad", e);
-            }
+            } catch(e) {}
         }
 
         function triggerFileInput(id) {
-            const input = document.getElementById(id);
-            if(input) {
-                input.click();
-            } else {
-                alert("Error: No se encontró el componente de carga (" + id + ")");
-            }
+            document.getElementById(id).click();
         }
 
-        // --- 2. GESTIÓN DE ARCHIVOS Y MULTIMEDIA ---
+        // --- GESTIÓN DE ARCHIVOS ---
         
         function processMediaUpload(input) {
             const container = document.getElementById('media-preview-area');
@@ -380,7 +366,8 @@
                     const reader = new FileReader();
                     reader.onload = function(e) {
                         const div = document.createElement('div');
-                        div.className = "relative group rounded-lg overflow-hidden shadow-sm border border-gray-200 aspect-square bg-gray-100";
+                        // Importante: pdf-break-avoid en las imágenes
+                        div.className = "relative group rounded-lg overflow-hidden shadow-sm border border-gray-200 aspect-square bg-gray-100 pdf-break-avoid";
                         
                         let content = '';
                         if(file.type.startsWith('image/')) {
@@ -391,8 +378,8 @@
 
                         div.innerHTML = `
                             ${content}
-                            <div class="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] p-1 truncate">${file.name}</div>
-                            <button type="button" onclick="this.parentElement.remove()" class="absolute top-1 right-1 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity z-10 cursor-pointer"><i class="fa-solid fa-times"></i></button>
+                            <div class="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] p-1 truncate hide-on-pdf">${file.name}</div>
+                            <button type="button" onclick="this.parentElement.remove()" class="absolute top-1 right-1 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity z-10 cursor-pointer hide-on-pdf"><i class="fa-solid fa-times"></i></button>
                         `;
                         container.appendChild(div);
                     }
@@ -408,70 +395,96 @@
             if (input.files && input.files.length > 0) {
                 Array.from(input.files).forEach(file => {
                     const div = document.createElement('div');
-                    div.className = "flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200";
+                    div.className = "flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 pdf-break-avoid";
                     div.innerHTML = `
                         <div class="flex items-center gap-3 overflow-hidden">
                             <i class="fa-solid fa-file-pdf text-red-500 text-xl flex-shrink-0"></i>
                             <span class="text-sm text-gray-700 truncate font-medium">${file.name}</span>
-                            <span class="text-xs text-gray-400 flex-shrink-0">(${(file.size/1024/1024).toFixed(2)} MB)</span>
                         </div>
-                        <button type="button" onclick="this.parentElement.remove()" class="text-gray-400 hover:text-red-500 cursor-pointer"><i class="fa-solid fa-trash"></i></button>
+                        <button type="button" onclick="this.parentElement.remove()" class="text-gray-400 hover:text-red-500 cursor-pointer hide-on-pdf"><i class="fa-solid fa-trash"></i></button>
                     `;
                     container.appendChild(div);
                 });
             }
         }
 
-        // --- 3. EXPORTAR A PDF ---
+        // --- EXPORTACIÓN PDF AVANZADA ---
         function exportToPDF() {
             if (typeof html2pdf === 'undefined') {
-                alert('Error: La librería de PDF no se ha cargado. Verifique su conexión a internet.');
+                alert('Librería PDF no cargada.');
                 return;
             }
 
-            // Ocultar controles
-            const controls = document.querySelectorAll('.hide-on-pdf-controls');
-            controls.forEach(el => el.style.display = 'none');
-
-            // Nombre del archivo
-            const nombrePaciente = document.getElementById('patient-name').value || "Paciente";
-            const fecha = new Date().toLocaleDateString('es-CL').replace(/\//g, '-');
-            const filename = `Ficha_${nombrePaciente.replace(/\s+/g, '_')}_${fecha}.pdf`;
-
-            // Elemento a exportar
-            const element = document.getElementById('content-area'); 
+            const element = document.getElementById('main-body').cloneNode(true);
             
-            // Clonar header para el PDF
-            const header = document.getElementById('app-header').cloneNode(true);
-            const container = document.createElement('div');
-            
-            // Limpiar header clonado
-            const headerControls = header.querySelector('.hide-on-pdf-controls');
-            if(headerControls) headerControls.remove();
-            
-            container.appendChild(header);
-            container.appendChild(element.cloneNode(true)); 
+            // 1. Limpieza del clon
+            const toHide = element.querySelectorAll('.hide-on-pdf');
+            toHide.forEach(el => el.remove());
 
+            // 2. Transferencia de VALORES (Crucial para inputs)
+            const originalInputs = document.querySelectorAll('input, textarea, select');
+            const clonedInputs = element.querySelectorAll('input, textarea, select');
+
+            for (let i = 0; i < originalInputs.length; i++) {
+                const original = originalInputs[i];
+                const cloned = clonedInputs[i];
+
+                if (!original || !cloned) continue;
+
+                if (original.type === 'checkbox' || original.type === 'radio') {
+                    if (original.checked) {
+                        cloned.setAttribute('checked', 'checked');
+                        cloned.checked = true;
+                    }
+                } else if (original.tagName === 'TEXTAREA') {
+                    cloned.innerHTML = original.value;
+                    cloned.textContent = original.value;
+                } else if (original.tagName === 'SELECT') {
+                    const idx = original.selectedIndex;
+                    if(idx >= 0) {
+                         const options = cloned.querySelectorAll('option');
+                         if(options[idx]) options[idx].setAttribute('selected', 'selected');
+                    }
+                    cloned.value = original.value;
+                } else {
+                    cloned.setAttribute('value', original.value);
+                    cloned.value = original.value;
+                }
+                
+                // Estilos de alto contraste para PDF
+                cloned.style.borderColor = "#999";
+                cloned.style.color = "#000";
+            }
+
+            // 3. Forzar imágenes
+            const imgs = element.querySelectorAll('img');
+            imgs.forEach(img => {
+                img.style.display = 'block'; 
+                img.style.maxWidth = '100%';
+            });
+
+            // 4. Configuración
+            const nombre = document.getElementById('patient-name').value || "Paciente";
             const opt = {
-                margin:       [10, 10],
-                filename:     filename,
+                margin:       [10, 10, 10, 10], // Márgenes [top, left, bottom, right]
+                filename:     `Ficha_${nombre.replace(/\s+/g, '_')}.pdf`,
                 image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true, logging: true },
-                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                html2canvas:  { 
+                    scale: 2, 
+                    useCORS: true, 
+                    logging: false,
+                    scrollY: 0,
+                    windowWidth: document.documentElement.offsetWidth 
+                },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                pagebreak:    { mode: ['css', 'legacy'] }
             };
 
-            html2pdf().set(opt).from(container).save()
-                .then(() => {
-                    // Restaurar
-                    controls.forEach(el => el.style.display = '');
-                })
-                .catch(err => {
-                    alert("Error generando PDF: " + err);
-                    controls.forEach(el => el.style.display = '');
-                });
+            // Generar
+            html2pdf().set(opt).from(element).save();
         }
 
-        // --- 4. LOGICA DE STACK Y MÓDULOS ---
+        // --- LÓGICA DE STACK Y MÓDULOS ---
         
         let moduleCounter = 0;
 
@@ -480,13 +493,9 @@
                 const selector = document.getElementById('moduleSelector');
                 const moduleType = loadedType || selector.value;
                 
-                if (!moduleType) { 
-                    alert("Por favor seleccione una zona primero."); 
-                    return; 
-                }
+                if (!moduleType) { alert("Seleccione una zona."); return; }
                 
                 let moduleName = "";
-                // Buscar nombre del módulo
                 for(let i=0; i<selector.options.length; i++) {
                     if(selector.options[i].value === moduleType) moduleName = selector.options[i].text;
                 }
@@ -511,8 +520,7 @@
                 }
                 return moduleId;
             } catch (e) {
-                console.error("Error adding module:", e);
-                alert("Error al añadir módulo: " + e.message);
+                alert("Error: " + e.message);
             }
         }
 
@@ -523,7 +531,6 @@
             if (tag) tag.remove();
             
             const stack = document.getElementById('clinical-stack');
-            // Check if only empty state div remains (or nothing)
             if (stack.children.length <= 1) {
                  const emptyState = document.getElementById('empty-state');
                  if(emptyState) emptyState.style.display = 'block';
@@ -543,7 +550,7 @@
         }
 
         function resetStack() {
-            if(confirm("¿Estás seguro de borrar todas las evaluaciones y datos?")) {
+            if(confirm("¿Borrar todo?")) {
                 document.getElementById('clinical-stack').innerHTML = `
                     <div id="empty-state" class="text-center py-16 border-2 border-dashed border-brand-accent/30 rounded-xl bg-white/50">
                         <div class="w-16 h-16 bg-brand-accent/20 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -554,14 +561,13 @@
                     </div>`;
                 document.getElementById('active-tags-container').innerHTML = '';
                 
-                // Limpiar inputs
                 const inputs = document.querySelectorAll('input:not([type="radio"]), textarea');
                 inputs.forEach(i => i.value = "");
                 document.querySelectorAll('input[type="radio"]').forEach(i => i.checked = false);
             }
         }
 
-        // --- 5. GUARDAR Y CARGAR SESIÓN ---
+        // --- GUARDAR Y CARGAR SESIÓN ---
 
         function saveSession() {
             try {
@@ -570,7 +576,6 @@
                     modules: []
                 };
 
-                // IDs de campos estáticos
                 const staticIds = [
                     'kine-name', 'patient-name', 'patient-rut', 'patient-dob', 'patient-age', 
                     'patient-address', 'patient-commune', 'patient-phone', 'patient-email', 
@@ -583,13 +588,11 @@
                     if(el) data.static[id] = el.value;
                 });
 
-                // Radios Estáticos
                 ['sex', 'dominance', 'consent'].forEach(name => {
                     const checked = document.querySelector(`input[name="${name}"]:checked`);
                     if(checked) data.static[name] = checked.value;
                 });
 
-                // Módulos Dinámicos
                 const stack = document.getElementById('clinical-stack');
                 const modules = stack.querySelectorAll('.module-entry');
                 
@@ -621,7 +624,7 @@
                 a.click();
                 document.body.removeChild(a);
             } catch(e) {
-                alert("Error al guardar sesión: " + e.message);
+                alert("Error al guardar: " + e.message);
             }
         }
 
@@ -634,26 +637,19 @@
                 try {
                     const data = JSON.parse(e.target.result);
                     
-                    // Restaurar Estáticos
                     for (const [key, value] of Object.entries(data.static)) {
                         const el = document.getElementById(key);
                         if(el) el.value = value;
-                        
                         const radio = document.querySelector(`input[name="${key}"][value="${value}"]`);
                         if(radio) radio.checked = true;
                     }
 
-                    // Restaurar Módulos
-                    document.getElementById('clinical-stack').innerHTML = `
-                    <div id="empty-state" class="text-center py-16 border-2 border-dashed border-brand-accent/30 rounded-xl bg-white/50" style="display:none">
-                        <!-- Hidden state -->
-                    </div>`;
+                    document.getElementById('clinical-stack').innerHTML = `<div id="empty-state" style="display:none"></div>`;
                     document.getElementById('active-tags-container').innerHTML = '';
 
                     if(data.modules && data.modules.length > 0) {
                         data.modules.forEach(mod => {
                             addModuleFromSelect(mod.type, mod.id);
-                            
                             const modEl = document.getElementById(mod.id);
                             if(modEl) {
                                 const inputs = modEl.querySelectorAll('input, select, textarea');
@@ -671,21 +667,18 @@
                             }
                         });
                     } else {
-                        // Si no hay modulos, mostrar empty state
                         const empty = document.getElementById('empty-state');
                         if(empty) empty.style.display = 'block';
                     }
-
-                    alert("Sesión cargada exitosamente.");
-
+                    alert("Sesión cargada.");
                 } catch(err) {
-                    alert("Error al leer archivo .aum: " + err);
+                    alert("Error al leer archivo: " + err);
                 }
             };
             reader.readAsText(file);
         }
 
-        // --- 6. GENERADORES HTML (Templates Expandidos) ---
+        // --- TEMPLATES ---
         
         function getModuleHTML(id, type, name) {
             let icon = 'fa-file-medical';
@@ -699,14 +692,15 @@
                 default: specificContent = getGenericContent();
             }
             
+            // Agregamos clase pdf-break-avoid al contenedor del módulo
             return `
-            <div id="${id}" class="module-entry bg-white rounded-xl shadow-md overflow-hidden border border-brand-accent/20 relative mb-6 break-inside-avoid">
+            <div id="${id}" class="module-entry bg-white rounded-xl shadow-md overflow-hidden border border-brand-accent/20 relative mb-6 pdf-break-avoid">
                 <div class="bg-brand-dark px-6 py-4 flex justify-between items-center text-white relative">
                     <h3 class="font-bold flex items-center gap-3 uppercase text-sm z-10">
                         <span class="w-8 h-8 bg-brand-accent rounded-full flex items-center justify-center text-brand-dark"><i class="fa-solid ${icon}"></i></span>
                         Evaluación: ${name}
                     </h3>
-                    <button onclick="removeModule('${id}')" class="text-brand-grey hover:text-red-400 hide-on-pdf-controls cursor-pointer z-20 bg-white/10 rounded-full w-8 h-8 flex items-center justify-center">
+                    <button onclick="removeModule('${id}')" class="text-brand-grey hover:text-red-400 hide-on-pdf cursor-pointer z-20 bg-white/10 rounded-full w-8 h-8 flex items-center justify-center">
                         <i class="fa-solid fa-trash-can"></i>
                     </button>
                 </div>
