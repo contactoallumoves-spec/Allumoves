@@ -418,7 +418,7 @@
             }
         }
 
-        // --- EXPORTACIÓN PDF UNIVERSAL (PC + MÓVIL) ---
+        // --- EXPORTACIÓN PDF DEFINITIVA (MÓVIL FRIENDLY) ---
         function exportToPDF() {
             if (typeof html2pdf === 'undefined') {
                 alert('Librería PDF no cargada.');
@@ -427,44 +427,44 @@
 
             const btn = document.querySelector('button[onclick="exportToPDF()"]');
             const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generando...';
             btn.disabled = true;
 
-            // 1. Resetear Scroll (Crítico para que no salga en blanco en iOS/Android)
+            // 1. Reset Scroll (Crítico para iOS)
             window.scrollTo(0, 0);
 
-            // 2. Crear Superposición "Visible" pero en capa superior
-            const overlay = document.createElement('div');
-            overlay.style.position = 'absolute'; // Usar absolute vs fixed para evitar cortes de scroll
-            overlay.style.top = '0';
-            overlay.style.left = '0';
-            overlay.style.zIndex = '99999'; 
-            overlay.style.backgroundColor = '#ffffff';
-            overlay.id = 'pdf-export-overlay';
+            // 2. Clonación Segura:
+            // Creamos un clon temporal AL FINAL del body, no oculto por CSS, 
+            // sino fuera del flujo normal pero visible para el motor de render.
+            const container = document.createElement('div');
+            container.style.position = 'absolute';
+            container.style.top = '0';
+            container.style.left = '0';
+            container.style.zIndex = '9999'; // Visible encima de todo
+            container.style.backgroundColor = 'white';
+            container.style.width = '800px'; // Ancho A4 fijo para evitar cortes
+            container.style.maxWidth = '800px';
+            container.className = 'p-4 mx-auto bg-white'; // Tailwind classes
 
-            // CONFIGURACIÓN CRÍTICA: ANCHO FIJO DE 800px (Ancho A4 aprox en px)
-            // Esto asegura que el layout no se rompa y que la escala sea 1:1, evitando sobrecarga de memoria
-            const containerWidth = 794; 
-            const innerContainer = document.createElement('div');
-            innerContainer.style.width = `${containerWidth}px`;
-            innerContainer.style.margin = '0 auto';
-            innerContainer.style.padding = '20px';
-            innerContainer.style.backgroundColor = 'white';
+            // Clonar secciones relevantes
+            const header = document.getElementById('app-header').cloneNode(true);
+            const content = document.getElementById('content-area').cloneNode(true);
             
-            // Clonar contenido
-            const headerClone = document.getElementById('app-header').cloneNode(true);
-            const mainClone = document.getElementById('content-area').cloneNode(true);
+            // Contenedor interno para margen
+            const inner = document.createElement('div');
+            inner.appendChild(header);
+            inner.appendChild(content);
+            container.appendChild(inner);
+            document.body.appendChild(container);
+
+            // 3. Transformación de Datos (Flattening)
+            // Esto convierte inputs en texto plano para que no se corten
             
-            innerContainer.appendChild(headerClone);
-            innerContainer.appendChild(mainClone);
-            overlay.appendChild(innerContainer);
-            document.body.appendChild(overlay);
+            // Eliminar controles de UI
+            container.querySelectorAll('.hide-on-pdf').forEach(el => el.remove());
 
-            // 3. Transformación de Datos (Inputs -> Texto Limpio)
-            innerContainer.querySelectorAll('.hide-on-pdf').forEach(el => el.remove());
-
-            // A) Inputs Texto
-            innerContainer.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), select').forEach(el => {
+            // A) Inputs Texto -> Divs Planos
+            container.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), select').forEach(el => {
                 let val = el.value;
                 if(el.id) {
                     const real = document.getElementById(el.id);
@@ -481,7 +481,7 @@
                 div.style.borderBottom = '1px solid #ccc';
                 div.style.borderRadius = '0';
                 div.style.padding = '0';
-                div.style.backgroundColor = 'transparent';
+                div.style.background = 'transparent';
                 div.style.fontWeight = '600';
                 div.style.color = '#000';
                 div.style.minHeight = '20px';
@@ -489,8 +489,8 @@
                 el.replaceWith(div);
             });
 
-            // B) Textareas (Expansión automática)
-            innerContainer.querySelectorAll('textarea').forEach(el => {
+            // B) Textareas -> Divs Auto-expandibles
+            container.querySelectorAll('textarea').forEach(el => {
                 let val = el.value;
                 if(el.id) {
                     const real = document.getElementById(el.id);
@@ -498,15 +498,15 @@
                 }
                 const div = document.createElement('div');
                 div.className = el.className;
-                div.style.height = 'auto';
-                div.style.minHeight = '80px';
-                div.style.whiteSpace = 'pre-wrap'; // Respetar saltos de línea
+                div.style.height = 'auto'; // Clave para que no se corte
+                div.style.minHeight = '50px';
+                div.style.whiteSpace = 'pre-wrap';
                 div.innerText = val || '';
                 el.replaceWith(div);
             });
 
-            // C) Checkboxes/Radios
-            innerContainer.querySelectorAll('input[type="checkbox"], input[type="radio"]').forEach(el => {
+            // C) Checkboxes/Radios -> Iconos
+            container.querySelectorAll('input[type="checkbox"], input[type="radio"]').forEach(el => {
                 let isChecked = el.checked;
                 if(el.id) {
                     const real = document.getElementById(el.id);
@@ -522,48 +522,45 @@
                 el.replaceWith(icon);
             });
 
-            innerContainer.querySelectorAll('img').forEach(img => {
+            // Asegurar imágenes
+            container.querySelectorAll('img').forEach(img => {
                 img.style.display = 'block';
                 img.style.maxWidth = '100%';
             });
 
-            // 4. Configuración Inteligente (Detectar Móvil)
-            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-            // En móvil bajamos la escala para no saturar la memoria RAM del navegador
-            const renderScale = isMobile ? 1.5 : 2; 
-
+            // 4. Configuración PDF Robusta
             const patientName = document.getElementById('patient-name').value || 'Paciente';
             const opt = {
-                margin:       [5, 5, 5, 5], // Márgenes pequeños para maximizar espacio
+                margin:       [10, 10, 10, 10],
                 filename:     `Ficha_${patientName.replace(/\s+/g, '_')}.pdf`,
                 image:        { type: 'jpeg', quality: 0.98 },
                 html2canvas:  { 
-                    scale: renderScale, 
+                    scale: 1.5, // Escala segura para móviles (evita crash por memoria)
                     useCORS: true, 
                     logging: false,
-                    windowWidth: containerWidth, // Coincide con el ancho físico del div
+                    windowWidth: 800, // Coincide con el contenedor
                     scrollY: 0
                 },
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
                 pagebreak:    { mode: ['css', 'legacy'] }
             };
 
-            // Pequeño retardo para asegurar renderizado en pantalla
+            // Esperar un momento para que el DOM se pinte
             setTimeout(() => {
-                html2pdf().set(opt).from(innerContainer).save()
+                html2pdf().set(opt).from(container).save()
                 .then(() => {
-                    document.body.removeChild(overlay);
+                    document.body.removeChild(container);
                     btn.innerHTML = originalText;
                     btn.disabled = false;
                 })
                 .catch(err => {
-                    console.error("PDF Error:", err);
-                    alert("Hubo un error al generar. Intente con menos imágenes o recargue.");
-                    document.body.removeChild(overlay);
+                    console.error(err);
+                    alert("Error generando PDF. Intente con menos contenido.");
+                    document.body.removeChild(container);
                     btn.innerHTML = originalText;
                     btn.disabled = false;
                 });
-            }, 800);
+            }, 1000); // 1 segundo de espera para asegurar renderizado
         }
 
         // --- LÓGICA DE STACK Y MÓDULOS ---
