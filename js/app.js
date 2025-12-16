@@ -73,8 +73,6 @@
     if (typeof cfg === "string" || typeof cfg === "number" || typeof cfg === "boolean") {
       return document.createTextNode(String(cfg));
     }
-    // Allow passing already-built DOM nodes as children
-    if (cfg instanceof Node) return cfg;
     if (!isObject(cfg)) throw new Error("renderComponent: config must be an object, string, number, or boolean.");
 
     const el = document.createElement(cfg.tag || "div");
@@ -359,14 +357,15 @@
   };
 
   const mockData = {
-    hombro: mockHombroData,
     cadera: mockCaderaData,
   };
 
   function getModuleTemplate(type) {
-    // Prefer data.js modules if available (window.clinicalModules)
-    const registry = (typeof window !== "undefined" && window.clinicalModules) ? window.clinicalModules : null;
-    if (registry && registry[type]) return registry[type];
+    // Prefer external clinicalModules (js/data.js)
+    try {
+      const cm = window.clinicalModules;
+      if (cm && cm[type]) return cm[type];
+    } catch {}
     if (mockData[type]) return mockData[type];
 
     // Fallback simple (sin HTML hardcode) para tipos aún no modelados
@@ -1627,7 +1626,7 @@
   const mockHombroData = {
     key: "hombro",
     title: "Hombro",
-    icon: "fa-dumbbell",
+    icon: "fa-person-rays",
     sections: [
       {
         title: "Rango de Movimiento (ROM)",
@@ -1654,7 +1653,6 @@
         fields: [
           { id: "neer", label: "Test de Neer", type: "boolean" },
           { id: "hawkins", label: "Hawkins-Kennedy", type: "boolean" },
-          { id: "emptyCan", label: "Jobe / Empty Can", type: "boolean" },
         ],
       },
     ],
@@ -1666,14 +1664,6 @@
         description:
           "Neer + Hawkins positivos aumentan sospecha de irritación subacromial. Correlaciona con dolor, fuerza (rotadores) y patrón de carga.",
         when: (s) => Boolean(s.tests?.neer) && Boolean(s.tests?.hawkins),
-      },
-          {
-        id: "supraspinoso-note",
-        severity: "info",
-        title: "Nota: Empty Can positivo",
-        description:
-          "Empty Can positivo puede sugerir participación del supraespinoso (dolor y/o debilidad) según el contexto. Compara fuerza L/R, dolor nocturno y respuesta a carga graduada.",
-        when: (s) => Boolean(s.tests?.emptyCan),
       },
     ],
   };
@@ -1699,5 +1689,9 @@
     evaluateLogic();
   }
 
-  document.addEventListener("DOMContentLoaded", init);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
 })();
