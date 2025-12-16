@@ -73,6 +73,8 @@
     if (typeof cfg === "string" || typeof cfg === "number" || typeof cfg === "boolean") {
       return document.createTextNode(String(cfg));
     }
+    // Allow passing already-built DOM nodes as children
+    if (cfg instanceof Node) return cfg;
     if (!isObject(cfg)) throw new Error("renderComponent: config must be an object, string, number, or boolean.");
 
     const el = document.createElement(cfg.tag || "div");
@@ -1621,7 +1623,7 @@
   const mockHombroData = {
     key: "hombro",
     title: "Hombro",
-    icon: "fa-person-rays",
+    icon: "fa-dumbbell",
     sections: [
       {
         title: "Rango de Movimiento (ROM)",
@@ -1648,6 +1650,7 @@
         fields: [
           { id: "neer", label: "Test de Neer", type: "boolean" },
           { id: "hawkins", label: "Hawkins-Kennedy", type: "boolean" },
+          { id: "emptyCan", label: "Jobe / Empty Can", type: "boolean" },
         ],
       },
     ],
@@ -1659,6 +1662,14 @@
         description:
           "Neer + Hawkins positivos aumentan sospecha de irritación subacromial. Correlaciona con dolor, fuerza (rotadores) y patrón de carga.",
         when: (s) => Boolean(s.tests?.neer) && Boolean(s.tests?.hawkins),
+      },
+          {
+        id: "supraspinoso-note",
+        severity: "info",
+        title: "Nota: Empty Can positivo",
+        description:
+          "Empty Can positivo puede sugerir participación del supraespinoso (dolor y/o debilidad) según el contexto. Compara fuerza L/R, dolor nocturno y respuesta a carga graduada.",
+        when: (s) => Boolean(s.tests?.emptyCan),
       },
     ],
   };
