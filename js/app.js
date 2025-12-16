@@ -70,6 +70,8 @@
    */
   function renderComponent(cfg) {
     if (cfg === null || cfg === undefined) return document.createTextNode("");
+    // Allow passing real DOM nodes as children (avoid losing rendered subtrees)
+    if (cfg instanceof Node) return cfg;
     if (typeof cfg === "string" || typeof cfg === "number" || typeof cfg === "boolean") {
       return document.createTextNode(String(cfg));
     }
@@ -361,7 +363,7 @@
   };
 
   function getModuleTemplate(type) {
-    // Prefer external clinicalModules (js/data.js)
+    // Prefer js/data.js modules
     try {
       const cm = window.clinicalModules;
       if (cm && cm[type]) return cm[type];
