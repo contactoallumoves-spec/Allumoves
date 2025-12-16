@@ -359,10 +359,14 @@
   };
 
   const mockData = {
+    hombro: mockHombroData,
     cadera: mockCaderaData,
   };
 
   function getModuleTemplate(type) {
+    // Prefer data.js modules if available (window.clinicalModules)
+    const registry = (typeof window !== "undefined" && window.clinicalModules) ? window.clinicalModules : null;
+    if (registry && registry[type]) return registry[type];
     if (mockData[type]) return mockData[type];
 
     // Fallback simple (sin HTML hardcode) para tipos aún no modelados
