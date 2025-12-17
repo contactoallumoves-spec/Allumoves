@@ -121,9 +121,10 @@
 <body class="min-h-screen flex flex-col pb-20" id="main-body">
 
     <!-- INPUTS TÉCNICOS (Ocultos) -->
-    <input type="file" id="file-load-input" style="display:none;" accept=".aum" onchange="processLoadSession(this)">
-    <input type="file" id="media-upload-input" style="display:none;" multiple accept="image/*,video/*" onchange="processMediaUpload(this)">
-    <input type="file" id="doc-upload-input" style="display:none;" multiple accept=".pdf,.dicom,.doc,.docx" onchange="processDocUpload(this)">
+<input type="file" id="file-load-input" style="display:none;" accept=".aum">
+<input type="file" id="media-upload-input" style="display:none;" multiple accept="image/*,video/*">
+<input type="file" id="doc-upload-input" style="display:none;" multiple accept=".pdf,.dicom,.doc,.docx">
+
 
     <!-- HEADER -->
     <header class="pt-6 pb-2 px-4 sm:px-8 max-w-5xl mx-auto w-full pdf-break-avoid" id="app-header">
@@ -133,12 +134,14 @@
                 <p class="text-sm text-brand-grey uppercase tracking-widest ml-1">Clinical Suite</p>
             </div>
             <div class="flex gap-3 hide-on-pdf">
-                <button onclick="triggerFileInput('file-load-input')" class="bg-white border border-brand-accent text-brand-grey hover:text-brand-dark hover:border-brand-dark px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-sm flex items-center gap-2">
-                    <i class="fa-solid fa-upload"></i> Cargar .aum
+                <button id="btn-load-aum" type="button" class="bg-white border border-brand-accent text-brand-grey hover:text-brand-dark hover:border-brand-dark px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-sm flex items-center gap-2">
+                  <i class="fa-solid fa-upload"></i> Cargar .aum
                 </button>
-                <button onclick="saveSession()" class="bg-brand-dark text-brand-light px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-800 transition-all shadow-md flex items-center gap-2">
-                    <i class="fa-solid fa-floppy-disk"></i> Guardar Sesión
+
+                <button id="btn-save-aum" type="button" class="bg-brand-dark text-brand-light px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-800 transition-all shadow-md flex items-center gap-2">
+                  <i class="fa-solid fa-floppy-disk"></i> Guardar Sesión
                 </button>
+
             </div>
         </div>
 
@@ -292,8 +295,8 @@
                                 <i class="fa-solid fa-chevron-down text-xs"></i>
                             </div>
                         </div>
-                        <button onclick="addModuleFromSelect()" class="bg-brand-accent hover:bg-brand-light text-brand-dark px-6 py-2.5 rounded-lg font-bold shadow-lg transition-all transform active:scale-95 flex items-center gap-2">
-                            <i class="fa-solid fa-plus"></i> Añadir
+                        <button id="btn-add-module" type="button" class="bg-brand-accent hover:bg-brand-light text-brand-dark px-6 py-2.5 rounded-lg font-bold shadow-lg transition-all transform active:scale-95 flex items-center gap-2">
+                          <i class="fa-solid fa-plus"></i> Añadir
                         </button>
                     </div>
                 </div>
@@ -327,13 +330,13 @@
                 
                 <!-- Botones de Carga (Se ocultan en PDF) -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 hide-on-pdf">
-                    <div onclick="triggerFileInput('media-upload-input')" class="border-2 border-dashed border-brand-accent/60 rounded-xl p-6 text-center hover:bg-brand-light/50 hover:border-brand-dark transition-all cursor-pointer group">
+                    <div id="btn-upload-media" role="button" tabindex="0" class="border-2 border-dashed border-brand-accent/60 rounded-xl p-6 text-center hover:bg-brand-light/50 hover:border-brand-dark transition-all cursor-pointer group">
                         <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-brand-dark group-hover:text-white transition-colors">
                             <i class="fa-solid fa-camera text-xl text-brand-grey group-hover:text-white"></i>
                         </div>
                         <p class="text-sm font-medium text-brand-dark">Subir Fotos / Videos</p>
                     </div>
-                    <div onclick="triggerFileInput('doc-upload-input')" class="border-2 border-dashed border-brand-accent/60 rounded-xl p-6 text-center hover:bg-brand-light/50 hover:border-brand-dark transition-all cursor-pointer group">
+                        <div id="btn-upload-docs" role="button" tabindex="0" class="border-2 border-dashed border-brand-accent/60 rounded-xl p-6 text-center hover:bg-brand-light/50 hover:border-brand-dark transition-all cursor-pointer group">
                         <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-brand-dark group-hover:text-white transition-colors">
                             <i class="fa-solid fa-file-pdf text-xl text-brand-grey group-hover:text-white"></i>
                         </div>
@@ -355,13 +358,13 @@
     <!-- FOOTER FLOTANTE -->
     <div class="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 hide-on-pdf">
         <div class="bg-white/90 backdrop-blur-md border border-gray-200 shadow-2xl rounded-full px-6 py-3 flex items-center gap-4">
-            <button onclick="resetStack()" class="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors" title="Limpiar todo">
-                <i class="fa-solid fa-trash-can"></i>
+            <button id="btn-reset-stack" type="button" class="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors" title="Limpiar todo">
+              <i class="fa-solid fa-trash-can"></i>
             </button>
             <div class="h-6 w-px bg-gray-300"></div>
-            <button onclick="exportToPDF()" class="bg-brand-dark text-white px-6 py-2 rounded-full font-bold shadow-lg hover:shadow-xl hover:bg-gray-800 transition-all transform hover:-translate-y-0.5 flex items-center gap-2">
-                Exportar PDF <i class="fa-solid fa-file-export"></i>
-            </button>
+            <button id="btn-export-pdf" type="button" class="bg-brand-dark text-white px-6 py-2 rounded-full font-bold shadow-lg hover:shadow-xl hover:bg-gray-800 transition-all transform hover:-translate-y-0.5 flex items-center gap-2">
+              Exportar PDF <i class="fa-solid fa-file-export"></i>
+            </button><script src="js/data.js"></script>
         </div>
     </div>
 
@@ -863,6 +866,6 @@
         }
     </script>
     <script src="js/data.js" defer></script>
-    <script src="js/app.js" defer></script>
+    <script src="js/app.js" defer></script>   
 </body>
 </html>
