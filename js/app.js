@@ -1,29 +1,26 @@
-// All u moves — Clinical Suite Engine (app.js)
-// This file is designed to "take control" of the existing index.html by overriding the global
-// functions referenced by inline onclick/onchange attributes.
-// No HTML strings are hardcoded; DOM is built via renderComponent(config).
-
+/* All u moves — js/app.js
+   Frontend Stack Engine + Clinical Reasoning
+   - No hardcoded HTML strings: DOM is built via renderComponent()
+   - Real event listeners + global state
+   - Modules from window.clinicalModules (js/data.js)
+   - Autosave to localStorage (asks to restore)
+*/
 (() => {
   "use strict";
 
   // -----------------------------
-  // Global State
+  // Globals / State
   // -----------------------------
-  const appState = {
+  const APP_VERSION = "aum-app-v4.0.0";
+
+  const state = {
     patientData: {},
-    ui: {
-      printing: {
-        textareaSnapshots: new Map(), // textarea -> {height, overflow}
-        buttonSnapshots: new Map(),   // button -> childNodes clones + disabled
-      },
-    },
+    activeModules: [], // [{instanceId, key, title, icon, tests, numeric, text, ui, computed}]
+    meta: { version: APP_VERSION, updatedAt: null },
   };
 
-  // Required by spec
-  const activeModules = [];
-  window.activeModules = activeModules; // helpful for debugging
-
-  let moduleCounter = 0;
+  const AUTOSAVE_KEY = "aum_autosave_v1";
+  let autosaveTimer = null;
 
   // -----------------------------
   // DOM helpers
@@ -31,111 +28,98 @@
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
-  const isObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
-
-  function clamp(n, min, max) {
-    const x = Number(n);
-    if (!Number.isFinite(x)) return min;
-    return Math.min(max, Math.max(min, x));
+  function safeText(v) {
+    if (v === null || v === undefined) return "";
+    return String(v);
   }
 
-  function safeNumber(v) {
-    const n = typeof v === "number" ? v : Number(String(v).replace(",", "."));
-    return Number.isFinite(n) ? n : null;
-  }
-
-  function percentDiff(a, b) {
-    const A = safeNumber(a);
-    const B = safeNumber(b);
-    if (A === null || B === null) return null;
-    const denom = Math.max(Math.abs(A), Math.abs(B), 1e-9);
-    return (Math.abs(A - B) / denom) * 100;
-  }
-
-  // -----------------------------
-  // Render Engine (NO hardcoded HTML)
-  // -----------------------------
-  /**
-   * renderComponent(config)
-   * Config schema (minimal):
-   * {
-   *   tag: 'div',
-   *   id, className,
-   *   attrs: { ... },
-   *   dataset: { ... },
-   *   text: '...',
-   *   children: [ ...config | string | number ],
-   *   on: { click: (e)=>{}, input: (e)=>{} },
-   * }
-   */
   function renderComponent(cfg) {
-    if (cfg === null || cfg === undefined) return document.createTextNode("");
-    // Allow passing real DOM nodes as children (avoid losing rendered subtrees)
     if (cfg instanceof Node) return cfg;
-    if (typeof cfg === "string" || typeof cfg === "number" || typeof cfg === "boolean") {
-      return document.createTextNode(String(cfg));
-    }
-    if (!isObject(cfg)) throw new Error("renderComponent: config must be an object, string, number, or boolean.");
 
-    const el = document.createElement(cfg.tag || "div");
+    const tag = cfg?.tag || "div";
+    const el = document.createElement(tag);
 
-    if (cfg.id) el.id = String(cfg.id);
-    if (cfg.className) el.className = String(cfg.className);
+    // className / classes
+    const cls = cfg?.className || cfg?.class || cfg?.classes;
+    if (cls) el.className = cls;
 
-    if (cfg.attrs && isObject(cfg.attrs)) {
-      Object.entries(cfg.attrs).forEach(([k, v]) => {
-        if (v === null || v === undefined) return;
-        if (k in el) {
-          // Prefer properties when available
-          try {
-            el[k] = v;
-          } catch {
-            el.setAttribute(k, String(v));
-          }
-        } else {
-          el.setAttribute(k, String(v));
-        }
-      });
+    // attrs
+    if (cfg?.attrs) {
+      for (const [k, v] of Object.entries(cfg.attrs)) {
+        if (v === null || v === undefined) continue;
+        el.setAttribute(k, String(v));
+      }
     }
 
-    if (cfg.dataset && isObject(cfg.dataset)) {
-      Object.entries(cfg.dataset).forEach(([k, v]) => {
-        if (v === null || v === undefined) return;
+    // dataset
+    if (cfg?.dataset) {
+      for (const [k, v] of Object.entries(cfg.dataset)) {
         el.dataset[k] = String(v);
-      });
+      }
     }
 
-    if (cfg.text !== undefined && cfg.text !== null) {
-      el.textContent = String(cfg.text);
+    // text
+    if (cfg?.text !== undefined) {
+      el.textContent = safeText(cfg.text);
     }
 
-    if (cfg.on && isObject(cfg.on)) {
-      Object.entries(cfg.on).forEach(([evt, handler]) => {
-        if (typeof handler === "function") el.addEventListener(evt, handler);
-      });
+    // children
+    if (cfg?.children && Array.isArray(cfg.children)) {
+      for (const child of cfg.children) {
+        if (child === null || child === undefined) continue;
+        if (child instanceof Node) {
+          el.appendChild(child);
+        } else if (typeof child === "string" || typeof child === "number") {
+          el.appendChild(document.createTextNode(String(child)));
+        } else {
+          el.appendChild(renderComponent(child));
+        }
+      }
     }
 
-    if (Array.isArray(cfg.children)) {
-      cfg.children.forEach((child) => el.appendChild(renderComponent(child)));
+    // events
+    if (cfg?.on) {
+      for (const [evt, handler] of Object.entries(cfg.on)) {
+        el.addEventListener(evt, handler);
+      }
     }
 
     return el;
   }
 
-  function clearNode(node) {
-    while (node.firstChild) node.removeChild(node.firstChild);
-  }
-
-  function mount(parent, cfg) {
-    const el = renderComponent(cfg);
-    parent.appendChild(el);
-    return el;
+  function iconEl(faClass, extraClass = "") {
+    return renderComponent({
+      tag: "i",
+      className: `fa-solid ${faClass} ${extraClass}`.trim(),
+      attrs: { "aria-hidden": "true" },
+    });
   }
 
   // -----------------------------
-  // Patient Data Binding
+  // Time / download helpers
   // -----------------------------
-  const PATIENT_TEXT_IDS = [
+  function todayStamp() {
+    const d = new Date();
+    const yyyy = String(d.getFullYear());
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  function downloadTextFile(filename, text) {
+    const blob = new Blob([text], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = renderComponent({ tag: "a", attrs: { href: url, download: filename } });
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  // -----------------------------
+  // Patient inputs + BMI injection
+  // -----------------------------
+  const patientInputIds = [
     "kine-name",
     "patient-name",
     "patient-rut",
@@ -151,236 +135,175 @@
     "patient-occupation",
     "patient-work-details",
     "patient-sport",
-    "general-anamnesis",
-
-    // injected
-    "patient-weight",
-    "patient-height",
-    "patient-bmi",
   ];
 
-  const PATIENT_RADIO_NAMES = ["sex", "dominance", "consent"];
+  function getPatientEl(id) {
+    return document.getElementById(id);
+  }
 
-  function updatePatientField(key, value) {
-    appState.patientData[key] = value;
-    evaluateLogic();
+  function ensureWeightHeightBMI() {
+    // Insert after Edad field (patient-age) inside the same grid row
+    const ageInput = getPatientEl("patient-age");
+    if (!ageInput) return;
+
+    if (getPatientEl("patient-weight") && getPatientEl("patient-height") && getPatientEl("patient-bmi")) return;
+
+    const ageCol = ageInput.closest("div");
+    const grid = ageCol?.parentElement;
+    if (!grid) return;
+
+    const weightCol = renderComponent({
+      tag: "div",
+      className: "md:col-span-2",
+      children: [
+        renderComponent({ tag: "label", className: "aum-label", text: "Peso" }),
+        renderComponent({
+          tag: "input",
+          className: "aum-input text-center",
+          attrs: { type: "number", id: "patient-weight", placeholder: "kg", min: "0", step: "0.1" },
+        }),
+      ],
+    });
+
+    const heightCol = renderComponent({
+      tag: "div",
+      className: "md:col-span-2",
+      children: [
+        renderComponent({ tag: "label", className: "aum-label", text: "Estatura" }),
+        renderComponent({
+          tag: "input",
+          className: "aum-input text-center",
+          attrs: { type: "number", id: "patient-height", placeholder: "cm", min: "0", step: "0.1" },
+        }),
+      ],
+    });
+
+    const bmiCol = renderComponent({
+      tag: "div",
+      className: "md:col-span-2",
+      children: [
+        renderComponent({ tag: "label", className: "aum-label", text: "IMC" }),
+        renderComponent({
+          tag: "input",
+          className: "aum-input text-center",
+          attrs: { type: "text", id: "patient-bmi", placeholder: "-", readonly: "readonly" },
+        }),
+      ],
+    });
+
+    // Insert right after age column
+    grid.insertBefore(weightCol, ageCol.nextSibling);
+    grid.insertBefore(heightCol, weightCol.nextSibling);
+    grid.insertBefore(bmiCol, heightCol.nextSibling);
+
+    // Attach listeners
+    const weight = getPatientEl("patient-weight");
+    const height = getPatientEl("patient-height");
+    const bmi = getPatientEl("patient-bmi");
+    const onChange = () => {
+      const w = Number(weight.value);
+      const hCm = Number(height.value);
+      if (Number.isFinite(w) && w > 0 && Number.isFinite(hCm) && hCm > 0) {
+        const h = hCm / 100;
+        const bmiVal = w / (h * h);
+        bmi.value = Number.isFinite(bmiVal) ? bmiVal.toFixed(1) : "-";
+        setPatientData("patient-weight", w);
+        setPatientData("patient-height", hCm);
+        setPatientData("patient-bmi", bmi.value);
+      } else {
+        bmi.value = "-";
+        setPatientData("patient-weight", weight.value ? w : "");
+        setPatientData("patient-height", height.value ? hCm : "");
+        setPatientData("patient-bmi", "");
+      }
+    };
+    weight.addEventListener("input", onChange);
+    height.addEventListener("input", onChange);
+  }
+
+  function computeAgeFromDOB(dobStr) {
+    if (!dobStr) return "";
+    const dob = new Date(dobStr);
+    if (Number.isNaN(dob.getTime())) return "";
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const m = today.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+    return age >= 0 ? String(age) : "";
+  }
+
+  function setPatientData(id, value) {
+    state.patientData[id] = value;
+    scheduleAutosave();
   }
 
   function bindPatientInputs() {
-    // Text-ish fields
-    PATIENT_TEXT_IDS.forEach((id) => {
-      const el = document.getElementById(id);
-      if (!el) return;
+    // Fill state from DOM initial values
+    for (const id of patientInputIds) {
+      const el = getPatientEl(id);
+      if (!el) continue;
+      state.patientData[id] = el.value ?? "";
+    }
 
-      const handler = () => {
-        updatePatientField(id, el.value);
-        if (id === "patient-dob") calculateAge();
-        if (id === "patient-weight" || id === "patient-height") updateBMI();
-      };
+    // Attach listeners
+    for (const id of patientInputIds) {
+      const el = getPatientEl(id);
+      if (!el) continue;
 
-      // Keep it responsive
-      el.addEventListener("input", handler);
-      el.addEventListener("change", handler);
-
-      // Initialize state from DOM (if any)
-      updatePatientField(id, el.value);
-    });
-
-    // Radios
-    PATIENT_RADIO_NAMES.forEach((name) => {
-      $$(`input[name="${name}"]`).forEach((radio) => {
-        radio.addEventListener("change", () => {
-          const checked = $(`input[name="${name}"]:checked`);
-          if (checked) updatePatientField(name, checked.value);
+      if (id === "patient-dob") {
+        el.addEventListener("change", () => {
+          const age = computeAgeFromDOB(el.value);
+          const ageEl = getPatientEl("patient-age");
+          if (ageEl) ageEl.value = age || "-";
+          setPatientData("patient-dob", el.value);
+          setPatientData("patient-age", age || "");
+          // re-evaluate logic where age matters
+          evaluateAllLogic();
         });
+        continue;
+      }
 
-        // Initialize
-        if (radio.checked) updatePatientField(name, radio.value);
-      });
-    });
-  }
+      if (id === "patient-age") {
+        // read-only - keep in state
+        continue;
+      }
 
-  // Age calculation – keeps the existing ID contract from index.html
-  function calculateAge() {
-    const dobInput = $("#patient-dob");
-    const ageInput = $("#patient-age");
-    if (!dobInput || !ageInput) return;
-
-    const iso = String(dobInput.value || "");
-    if (!iso) return;
-
-    const dob = new Date(iso);
-    if (Number.isNaN(dob.getTime())) return;
-
-    const now = new Date();
-    let age = now.getFullYear() - dob.getFullYear();
-    const m = now.getMonth() - dob.getMonth();
-    if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age -= 1;
-
-    ageInput.value = String(age);
-    updatePatientField("patient-age", ageInput.value);
-  }
-
-  // BMI (IMC) based on kg + cm (or meters if user inputs small number)
-  function updateBMI() {
-    const wEl = $("#patient-weight");
-    const hEl = $("#patient-height");
-    const bmiEl = $("#patient-bmi");
-    if (!wEl || !hEl || !bmiEl) return;
-
-    const w = safeNumber(wEl.value);
-    const hRaw = safeNumber(hEl.value);
-
-    if (w === null || hRaw === null || w <= 0 || hRaw <= 0) {
-      bmiEl.value = "";
-      updatePatientField("patient-bmi", "");
-      return;
+      el.addEventListener("input", () => setPatientData(id, el.value));
     }
 
-    const hMeters = hRaw > 3 ? hRaw / 100 : hRaw; // assume cm if >3
-    const bmi = w / (hMeters * hMeters);
-    const bmiRounded = Number.isFinite(bmi) ? bmi.toFixed(1) : "";
-    bmiEl.value = bmiRounded;
-    updatePatientField("patient-bmi", bmiRounded);
-  }
-
-  // Inject "Peso" and "Estatura" (and show BMI) into Identificación section
-  function injectAnthropometrics() {
-    const grid = $("#section-identity .grid");
-    if (!grid) return;
-
-    // Avoid double-inject
-    if ($("#patient-weight") || $("#patient-height")) return;
-
-    const insuranceInput = $("#patient-insurance");
-    const anchor = insuranceInput ? insuranceInput.closest("div") : null;
-
-    const weightBlock = renderComponent({
-      tag: "div",
-      className: "md:col-span-4",
-      children: [
-        { tag: "label", className: "aum-label", text: "Peso (kg)" },
-        {
-          tag: "input",
-          id: "patient-weight",
-          className: "aum-input",
-          attrs: { type: "number", inputMode: "decimal", min: "0", step: "0.1", placeholder: "Ej: 80.5" },
-        },
-      ],
-    });
-
-    const heightBlock = renderComponent({
-      tag: "div",
-      className: "md:col-span-4",
-      children: [
-        { tag: "label", className: "aum-label", text: "Estatura (cm)" },
-        {
-          tag: "input",
-          id: "patient-height",
-          className: "aum-input",
-          attrs: { type: "number", inputMode: "decimal", min: "0", step: "0.1", placeholder: "Ej: 175" },
-        },
-      ],
-    });
-
-    const bmiBlock = renderComponent({
-      tag: "div",
-      className: "md:col-span-4",
-      children: [
-        { tag: "label", className: "aum-label", text: "IMC (auto)" },
-        {
-          tag: "input",
-          id: "patient-bmi",
-          className: "aum-input text-center bg-gray-50",
-          attrs: { type: "text", readOnly: true, placeholder: "-" },
-        },
-      ],
-    });
-
-    if (anchor && anchor.parentElement === grid) {
-      // Insert right after insurance block
-      const next = anchor.nextSibling;
-      grid.insertBefore(weightBlock, next);
-      grid.insertBefore(heightBlock, next);
-      grid.insertBefore(bmiBlock, next);
-    } else {
-      grid.appendChild(weightBlock);
-      grid.appendChild(heightBlock);
-      grid.appendChild(bmiBlock);
-    }
+    // Backward-compat for inline onchange="calculateAge()"
+    window.calculateAge = () => {
+      const dob = getPatientEl("patient-dob")?.value || "";
+      const age = computeAgeFromDOB(dob);
+      const ageEl = getPatientEl("patient-age");
+      if (ageEl) ageEl.value = age || "-";
+      setPatientData("patient-dob", dob);
+      setPatientData("patient-age", age || "");
+      evaluateAllLogic();
+    };
   }
 
   // -----------------------------
-  // Module Data + Mock DB
+  // Module templates
   // -----------------------------
-
-
-  // (Opcional) Cadera demo para probar múltiples módulos abiertos
-  const mockCaderaData = {
-    key: "cadera",
-    title: "Cadera",
-    icon: "fa-bone",
-    sections: [
-      {
-        title: "ROM",
-        icon: "fa-ruler-combined",
-        style: "card",
-        fields: [
-          {
-            id: "flexion",
-            label: "Flexión",
-            type: "numeric",
-            unit: "°",
-            min: 0,
-            max: 140,
-            bilateral: true,
-            normal: 120,
-            default: { L: 120, R: 120 },
-          },
-        ],
-      },
-      {
-        title: "Pruebas",
-        icon: "fa-stethoscope",
-        style: "grid2",
-        fields: [{ id: "fadir", label: "FADIR", type: "boolean" }],
-      },
-    ],
-    logicRules: [
-      {
-        id: "cadera-fadir",
-        severity: "info",
-        title: "Nota: FADIR positivo",
-        description:
-          "FADIR positivo puede asociarse a irritación anterior/FAI en el contexto correcto. Verifica ROM rotación interna, dolor inguinal y tolerancia a carga.",
-        when: (s) => Boolean(s.tests?.fadir),
-      },
-    ],
-  };
-
-  const mockData = {
-    cadera: mockCaderaData,
-  };
-
-  function getModuleTemplate(type) {
-    // Prefer js/data.js modules
+  function getModuleTemplate(typeKey) {
+    // Prefer external modules (js/data.js)
     try {
       const cm = window.clinicalModules;
-      if (cm && cm[type]) return cm[type];
-    } catch {}
-    if (mockData[type]) return mockData[type];
+      if (cm && cm[typeKey]) return cm[typeKey];
+    } catch (_) {}
 
-    // Fallback simple (sin HTML hardcode) para tipos aún no modelados
+    // Fallback: allow a minimal notes module
     return {
-      key: type,
-      title: String(type || "Módulo"),
-      icon: "fa-file-medical",
+      key: typeKey,
+      title: typeKey,
+      icon: "fa-notes-medical",
       sections: [
         {
           title: "Notas",
-          icon: "fa-pen",
+          icon: "fa-pen-to-square",
           style: "card",
-          fields: [{ id: "nota", label: "Observación", type: "textarea" }],
+          fields: [{ id: "notas", label: "Notas", type: "textarea" }],
         },
       ],
       logicRules: [],
@@ -388,1307 +311,1271 @@
   }
 
   // -----------------------------
-  // Stack Engine (Modules)
+  // Stack Engine: add/remove modules
   // -----------------------------
-  function getModuleLabelFromSelect(value) {
-    const sel = $("#moduleSelector");
-    if (!sel) return value;
-    const opt = Array.from(sel.options).find((o) => o.value === value);
-    return opt ? opt.text : value;
+  function makeInstanceId(baseKey) {
+    const rnd = Math.random().toString(16).slice(2, 8);
+    return `${baseKey}-${Date.now().toString(36)}-${rnd}`;
   }
 
-  function ensureEmptyStateHidden() {
-    const empty = $("#empty-state");
-    if (empty) empty.style.display = "none";
-  }
-
-  function ensureEmptyStateShownIfNeeded() {
-    const stack = $("#clinical-stack");
-    const empty = $("#empty-state");
-    if (!stack || !empty) return;
-
-    const anyModules = stack.querySelector(".module-entry");
-    empty.style.display = anyModules ? "none" : "block";
-  }
-
-  function initModuleState(template) {
-    const state = {
-      numeric: {},
+  function ensureModuleState(template) {
+    const moduleState = {
+      instanceId: makeInstanceId(template.key),
+      key: template.key,
+      title: template.title,
+      icon: template.icon || "fa-notes-medical",
       tests: {},
+      numeric: {},
       text: {},
-      ui: {
-        modes: {}, // fieldId -> "slider" | "exact" | "quick"
-      },
+      ui: { collapsed: {} }, // {sectionIndex:true/false}
+      computed: { spadi: null, dash: null },
     };
 
-    (template.sections || []).forEach((sec) => {
+    // Seed defaults from fields
+    (template.sections || []).forEach((sec, secIndex) => {
+      // Default collapse: SPADI/DASH collapsed, others expanded
+      const t = (sec.title || "").toLowerCase();
+      const isOutcomes = t.includes("spadi") || t.includes("dash") || t.includes("outcome");
+      moduleState.ui.collapsed[secIndex] = isOutcomes ? true : false;
+
       (sec.fields || []).forEach((f) => {
-        if (f.type === "numeric") {
+        if (!f || !f.id) return;
+        if (f.type === "boolean") {
+          moduleState.tests[f.id] = f.default ?? null; // tri-state: null/true/false
+        } else if (f.type === "numeric") {
           if (f.bilateral) {
-            state.numeric[f.id] = {
-              L: safeNumber(f.default?.L) ?? safeNumber(f.normal) ?? safeNumber(f.max) ?? 0,
-              R: safeNumber(f.default?.R) ?? safeNumber(f.normal) ?? safeNumber(f.max) ?? 0,
-            };
+            moduleState.numeric[f.id] = f.default && typeof f.default === "object" ? { ...f.default } : { L: null, R: null };
           } else {
-            state.numeric[f.id] = safeNumber(f.default) ?? safeNumber(f.normal) ?? safeNumber(f.max) ?? 0;
+            moduleState.numeric[f.id] = f.default ?? null;
           }
-          state.ui.modes[f.id] = "slider";
+        } else {
+          moduleState.text[f.id] = f.default ?? "";
         }
-        if (f.type === "boolean") state.tests[f.id] = Boolean(f.default) || false;
-        if (f.type === "textarea" || f.type === "text") state.text[f.id] = String(f.default ?? "");
       });
     });
 
-    return state;
+    return moduleState;
   }
 
-  function addModuleFromSelect(loadedType = null, loadedId = null, loadedState = null) {
-    const selector = $("#moduleSelector");
-    const type = loadedType || (selector ? selector.value : "");
-    if (!type) {
-      alert("Seleccione una zona.");
-      return null;
-    }
+  function addModule(typeKey) {
+    const tpl = getModuleTemplate(typeKey);
+    const m = ensureModuleState(tpl);
 
-    const template = getModuleTemplate(type);
-    const moduleId = loadedId || `mod-${type}-${moduleCounter++}`;
-    const moduleName = loadedType ? template.title : getModuleLabelFromSelect(type);
+    state.activeModules.push(m);
 
-    const module = {
-      id: moduleId,
-      type,
-      name: moduleName,
-      template,
-      state: initModuleState(template),
-      refs: {
-        alertContainer: null,
-        root: null,
-      },
-    };
-
-    if (loadedState && isObject(loadedState)) {
-      module.state = deepMerge(module.state, loadedState);
-    }
-
-    activeModules.push(module);
-    renderModule(module);
-
-    if (!loadedType && selector) selector.value = "";
-    return moduleId;
+    // Render tag + module card
+    renderActiveTags();
+    renderModuleCard(m, tpl);
+    setEmptyStateVisibility();
+    evaluateModuleLogic(m, tpl);
+    updateModuleScores(m, tpl);
+    scheduleAutosave();
   }
 
-  function deepMerge(base, patch) {
-    if (!isObject(base) || !isObject(patch)) return patch;
-    const out = { ...base };
-    Object.entries(patch).forEach(([k, v]) => {
-      if (isObject(v) && isObject(out[k])) out[k] = deepMerge(out[k], v);
-      else out[k] = v;
-    });
-    return out;
-  }
+  function removeModule(instanceId) {
+    const idx = state.activeModules.findIndex((m) => m.instanceId === instanceId);
+    if (idx === -1) return;
 
-  function removeModule(id) {
-    const idx = activeModules.findIndex((m) => m.id === id);
-    if (idx >= 0) activeModules.splice(idx, 1);
+    // Remove DOM card
+    const card = $(`[data-module-instance="${instanceId}"]`);
+    if (card) card.remove();
 
-    const modEl = document.getElementById(id);
-    if (modEl) modEl.remove();
-
-    const tag = document.getElementById(`tag-${id}`);
-    if (tag) tag.remove();
-
-    ensureEmptyStateShownIfNeeded();
-    evaluateLogic();
+    state.activeModules.splice(idx, 1);
+    renderActiveTags();
+    setEmptyStateVisibility();
+    scheduleAutosave();
   }
 
   function resetStack() {
-    if (!confirm("¿Borrar todo?")) return;
+    if (state.activeModules.length === 0) return;
+    const ok = window.confirm("¿Seguro que quieres limpiar todas las evaluaciones del Stack?");
+    if (!ok) return;
 
-    // Clear modules
-    activeModules.length = 0;
-
-    // Remove module DOM nodes (keep empty-state)
+    state.activeModules = [];
     const stack = $("#clinical-stack");
     if (stack) {
-      $$(".module-entry", stack).forEach((n) => n.remove());
-      ensureEmptyStateShownIfNeeded();
+      $$(".module-card", stack).forEach((n) => n.remove());
     }
-
-    // Clear tags
-    const tags = $("#active-tags-container");
-    if (tags) clearNode(tags);
-
-    // Clear patient inputs
-    PATIENT_TEXT_IDS.forEach((id) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.value = "";
-      appState.patientData[id] = "";
-    });
-
-    PATIENT_RADIO_NAMES.forEach((name) => {
-      $$(`input[name="${name}"]`).forEach((r) => (r.checked = false));
-      appState.patientData[name] = "";
-    });
-
-    // Clear previews (optional)
-    const media = $("#media-preview-area");
-    if (media) {
-      clearNode(media);
-      media.classList.add("hidden");
-    }
-    const docs = $("#doc-preview-area");
-    if (docs) {
-      clearNode(docs);
-      docs.classList.add("hidden");
-    }
-
-    evaluateLogic();
+    renderActiveTags();
+    setEmptyStateVisibility();
+    scheduleAutosave();
   }
-
-  // Expose required global hooks used by index.html onclick attributes
-  window.addModuleFromSelect = addModuleFromSelect;
-  window.removeModule = removeModule;
-  window.resetStack = resetStack;
-  window.calculateAge = calculateAge;
 
   // -----------------------------
-  // Module Rendering
+  // Collapsible Sections UI
   // -----------------------------
-  function renderModule(module) {
-    const stack = $("#clinical-stack");
-    if (!stack) return;
+  function toggleSection(instanceId, secIndex) {
+    const m = state.activeModules.find((x) => x.instanceId === instanceId);
+    if (!m) return;
+    m.ui.collapsed[secIndex] = !m.ui.collapsed[secIndex];
+    const content = $(`[data-section-content="${instanceId}:${secIndex}"]`);
+    const chevron = $(`[data-section-chevron="${instanceId}:${secIndex}"]`);
+    if (content) content.hidden = !!m.ui.collapsed[secIndex];
+    if (chevron) chevron.classList.toggle("rotate-180", !m.ui.collapsed[secIndex]);
+    scheduleAutosave();
+  }
 
-    ensureEmptyStateHidden();
+  // -----------------------------
+  // Field rendering
+  // -----------------------------
+  function setTriButtonState(container, value) {
+    const btns = $$("button[data-tri]", container);
+    btns.forEach((b) => {
+      const v = b.dataset.tri;
+      const active =
+        (v === "null" && value === null) ||
+        (v === "true" && value === true) ||
+        (v === "false" && value === false);
+      b.classList.toggle("bg-brand-dark", active);
+      b.classList.toggle("text-white", active);
+      b.classList.toggle("bg-white", !active);
+      b.classList.toggle("text-gray-500", !active);
+    });
+  }
 
-    // Tag
-    upsertModuleTag(module);
-
-    // Card skeleton
-    const card = renderComponent({
+  function triBoolField({ module, field, onChange }) {
+    const container = renderComponent({
       tag: "div",
-      id: module.id,
-      className:
-        "module-entry bg-white rounded-xl shadow-md overflow-hidden border border-brand-accent/20 relative mb-6 pdf-break-avoid",
+      className: "flex items-center justify-between gap-4 p-3 bg-gray-50 rounded-xl border border-gray-100",
       children: [
-        {
+        renderComponent({
           tag: "div",
-          className: "bg-brand-dark px-6 py-4 flex justify-between items-center text-white relative",
+          className: "min-w-0",
           children: [
-            {
-              tag: "h3",
-              className: "font-bold flex items-center gap-3 uppercase text-sm z-10",
-              children: [
-                {
-                  tag: "span",
-                  className:
-                    "w-8 h-8 bg-brand-accent rounded-full flex items-center justify-center text-brand-dark",
-                  children: [{ tag: "i", className: `fa-solid ${module.template.icon || "fa-file-medical"}` }],
-                },
-                { tag: "span", text: `Evaluación: ${module.name}` },
-              ],
-            },
-            {
-              tag: "button",
-              className:
-                "text-brand-grey hover:text-red-400 hide-on-pdf cursor-pointer z-20 bg-white/10 rounded-full w-8 h-8 flex items-center justify-center",
-              attrs: { type: "button", title: "Eliminar módulo" },
-              on: { click: () => removeModule(module.id) },
-              children: [{ tag: "i", className: "fa-solid fa-trash-can" }],
-            },
+            renderComponent({ tag: "div", className: "text-sm font-semibold text-brand-dark", text: field.label }),
+            field.help
+              ? renderComponent({ tag: "div", className: "text-xs text-gray-500 mt-0.5", text: field.help })
+              : null,
           ],
-        },
-        {
+        }),
+        renderComponent({
           tag: "div",
-          className: "p-6 md:p-8 space-y-6",
+          className: "flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-1",
           children: [
-            // alerts placeholder
-            {
-              tag: "div",
-              className: "space-y-2",
-              dataset: { role: "alerts" },
-            },
-            // content
-            ...renderModuleContent(module),
+            { tag: "button", className: "px-2.5 py-1 rounded-md text-sm font-bold", attrs: { type: "button", "data-tri": "null", title: "No evaluado" }, text: "—" },
+            { tag: "button", className: "px-2.5 py-1 rounded-md text-sm font-bold", attrs: { type: "button", "data-tri": "false", title: "Negativo" }, text: "−" },
+            { tag: "button", className: "px-2.5 py-1 rounded-md text-sm font-bold", attrs: { type: "button", "data-tri": "true", title: "Positivo" }, text: "+" },
           ],
-        },
-      ],
-    });
-
-    stack.appendChild(card);
-    module.refs.root = card;
-    module.refs.alertContainer = $('[data-role="alerts"]', card);
-
-    // Sync UI from state (important for loaded sessions)
-    syncModuleUIFromState(module);
-    evaluateLogic();
-
-    // Auto scroll for user added modules (not for loaded sessions)
-    if (!module.__loaded) {
-      setTimeout(() => {
-        const el = document.getElementById(module.id);
-        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 100);
-    }
-  }
-
-  function upsertModuleTag(module) {
-    const tagContainer = $("#active-tags-container");
-    if (!tagContainer) return;
-
-    const existing = document.getElementById(`tag-${module.id}`);
-    if (existing) return;
-
-    const tag = renderComponent({
-      tag: "div",
-      id: `tag-${module.id}`,
-      className:
-        "bg-brand-accent/20 text-white border border-brand-accent rounded-full px-3 py-1 text-xs flex items-center gap-2 shadow-sm",
-      children: [
-        { tag: "span", className: "font-medium", text: module.name },
-        {
-          tag: "button",
-          className: "text-brand-accent hover:text-white cursor-pointer hide-on-pdf",
-          attrs: { type: "button", title: "Cerrar" },
-          on: { click: () => removeModule(module.id) },
-          children: [{ tag: "i", className: "fa-solid fa-times" }],
-        },
-      ],
-    });
-
-    tagContainer.appendChild(tag);
-  }
-
-  function renderModuleContent(module) {
-    const content = [];
-    const sections = module.template.sections || [];
-
-    sections.forEach((section) => {
-      content.push(renderSection(module, section));
-    });
-
-    return content;
-  }
-
-  function renderSection(module, section) {
-    const header = renderComponent({
-      tag: "h4",
-      className: "text-brand-dark font-bold text-xs uppercase mb-4 flex items-center gap-2",
-      children: [
-        { tag: "i", className: `fa-solid ${section.icon || "fa-circle"} text-brand-accent` },
-        { tag: "span", text: section.title || "Sección" },
-      ],
-    });
-
-    const bodyChildren = (section.fields || []).map((field) => renderField(module, field));
-
-    let bodyClass = "space-y-4";
-    if (section.style === "grid2") bodyClass = "grid grid-cols-1 sm:grid-cols-2 gap-3";
-
-    const wrapperClass =
-      section.style === "card"
-        ? "bg-gray-50/50 p-5 rounded-xl border border-gray-100"
-        : "bg-white p-0";
-
-    return renderComponent({
-      tag: "div",
-      className: wrapperClass,
-      children: [
-        header,
-        {
-          tag: "div",
-          className: bodyClass,
-          children: bodyChildren,
-        },
-      ],
-    });
-  }
-
-  function renderField(module, field) {
-    switch (field.type) {
-      case "numeric":
-        return field.bilateral ? renderNumericBilateral(module, field) : renderNumericSingle(module, field);
-      case "boolean":
-        return renderBooleanField(module, field);
-      case "textarea":
-        return renderTextareaField(module, field);
-      case "text":
-        return renderTextField(module, field);
-      default:
-        return renderComponent({
-          tag: "div",
-          className: "text-sm text-brand-grey",
-          text: `Campo no soportado: ${String(field.type)}`,
-        });
-    }
-  }
-
-  // -------- Boolean field
-  function renderBooleanField(module, field) {
-    const inputId = `${module.id}__bool__${field.id}`;
-    const cfg = {
-      tag: "label",
-      className: "flex items-center p-2 border rounded bg-white cursor-pointer hover:bg-gray-50",
-      children: [
-        {
-          tag: "input",
-          id: inputId,
-          className: "mr-3 w-4 h-4 accent-brand-dark",
-          attrs: { type: "checkbox" },
-          dataset: { moduleId: module.id, fieldId: field.id, fieldType: "boolean" },
           on: {
-            change: (e) => {
-              const checked = Boolean(e.currentTarget.checked);
-              module.state.tests[field.id] = checked;
-              evaluateLogic();
+            click: (e) => {
+              const btn = e.target.closest("button[data-tri]");
+              if (!btn) return;
+              const v = btn.dataset.tri;
+              const next = v === "true" ? true : v === "false" ? false : null;
+              onChange(next);
+              setTriButtonState(container, next);
             },
           },
-        },
-        { tag: "span", className: "text-sm text-gray-700", text: field.label || field.id },
-      ],
-    };
-
-    return renderComponent(cfg);
-  }
-
-  // -------- Text fields
-  function renderTextareaField(module, field) {
-    const inputId = `${module.id}__txt__${field.id}`;
-    return renderComponent({
-      tag: "div",
-      className: "flex flex-col",
-      children: [
-        { tag: "label", className: "aum-label", attrs: { for: inputId }, text: field.label || field.id },
-        {
-          tag: "textarea",
-          id: inputId,
-          className: "aum-input h-24 resize-y shadow-inner",
-          dataset: { moduleId: module.id, fieldId: field.id, fieldType: "text" },
-          attrs: { placeholder: field.placeholder || "Escribe..." },
-          on: {
-            input: (e) => {
-              module.state.text[field.id] = e.currentTarget.value;
-              evaluateLogic();
-            },
-          },
-        },
-      ],
-    });
-  }
-
-  function renderTextField(module, field) {
-    const inputId = `${module.id}__txt__${field.id}`;
-    return renderComponent({
-      tag: "div",
-      className: "flex flex-col",
-      children: [
-        { tag: "label", className: "aum-label", attrs: { for: inputId }, text: field.label || field.id },
-        {
-          tag: "input",
-          id: inputId,
-          className: "aum-input",
-          dataset: { moduleId: module.id, fieldId: field.id, fieldType: "text" },
-          attrs: { type: "text", placeholder: field.placeholder || "" },
-          on: {
-            input: (e) => {
-              module.state.text[field.id] = e.currentTarget.value;
-              evaluateLogic();
-            },
-          },
-        },
-      ],
-    });
-  }
-
-  // -------- Numeric: mode toggles
-  function renderModeToggle(module, field) {
-    const modes = [
-      { id: "slider", label: "Barra" },
-      { id: "exact", label: "Exacto" },
-      { id: "quick", label: "Rápido" },
-    ];
-
-    const buttonCfgs = modes.map((m) => ({
-      tag: "button",
-      className:
-        "px-3 py-1 rounded-md text-xs font-bold border border-gray-200 bg-white hover:bg-gray-50 transition-all",
-      attrs: { type: "button" },
-      dataset: { moduleId: module.id, fieldId: field.id, mode: m.id, role: "mode-btn" },
-      text: m.label,
-      on: {
-        click: (e) => {
-          e.preventDefault();
-          module.state.ui.modes[field.id] = m.id;
-          syncNumericModeUI(module, field.id);
-        },
-      },
-    }));
-
-    return renderComponent({
-      tag: "div",
-      className: "flex items-center gap-2",
-      children: buttonCfgs,
-    });
-  }
-
-  function syncNumericModeUI(module, fieldId) {
-    const root = document.getElementById(module.id);
-    if (!root) return;
-
-    const mode = module.state.ui.modes[fieldId] || "slider";
-
-    // highlight active button
-    $$(`[data-role="mode-btn"][data-field-id="${fieldId}"]`, root).forEach((btn) => {
-      const isActive = btn.dataset.mode === mode;
-      btn.classList.toggle("bg-brand-dark", isActive);
-      btn.classList.toggle("text-white", isActive);
-      btn.classList.toggle("border-brand-dark", isActive);
-    });
-
-    // show relevant panel
-    $$(`[data-role="mode-panel"][data-field-id="${fieldId}"]`, root).forEach((panel) => {
-      const isPanel = panel.dataset.mode === mode;
-      panel.classList.toggle("hidden", !isPanel);
-    });
-  }
-
-  function renderNumericSingle(module, field) {
-    const label = field.label || field.id;
-    const unit = field.unit || "";
-    const min = safeNumber(field.min) ?? 0;
-    const max = safeNumber(field.max) ?? 100;
-
-    const wrapper = renderComponent({
-      tag: "div",
-      className: "space-y-2",
-      children: [
-        {
-          tag: "div",
-          className: "flex items-center justify-between gap-3",
-          children: [
-            { tag: "div", className: "text-sm font-semibold text-gray-700", text: label },
-            renderModeToggle(module, field),
-          ],
-        },
-        // Panels
-        renderNumericPanels({
-          module,
-          field,
-          unit,
-          min,
-          max,
-          side: null,
         }),
       ],
     });
 
-    return wrapper;
+    // Initialize
+    setTriButtonState(container, module.tests[field.id]);
+
+    return container;
   }
 
-  function renderNumericBilateral(module, field) {
-    const label = field.label || field.id;
-    const unit = field.unit || "";
-    const min = safeNumber(field.min) ?? 0;
-    const max = safeNumber(field.max) ?? 100;
-
-    const diffElId = `${module.id}__diff__${field.id}`;
-
-    const wrapper = renderComponent({
+  function textareaField({ value, field, onChange }) {
+    const ta = renderComponent({
+      tag: "textarea",
+      className: "aum-input min-h-[96px] resize-y",
+      attrs: { id: field.id, placeholder: field.placeholder || "" },
+    });
+    ta.value = value || "";
+    ta.addEventListener("input", () => onChange(ta.value));
+    return renderComponent({
       tag: "div",
-      className: "space-y-2",
+      className: "p-3 bg-white rounded-xl border border-gray-100",
       children: [
-        {
-          tag: "div",
-          className: "flex items-center justify-between gap-3",
-          children: [
-            { tag: "div", className: "text-sm font-semibold text-gray-700", text: label },
-            renderModeToggle(module, field),
-          ],
+        renderComponent({ tag: "div", className: "text-sm font-semibold text-brand-dark mb-2", text: field.label }),
+        ta,
+      ],
+    });
+  }
+
+  function textField({ value, field, onChange }) {
+    const input = renderComponent({
+      tag: "input",
+      className: "aum-input",
+      attrs: { type: "text", id: field.id, placeholder: field.placeholder || "" },
+    });
+    input.value = value || "";
+    input.addEventListener("input", () => onChange(input.value));
+    return renderComponent({
+      tag: "div",
+      className: "p-3 bg-white rounded-xl border border-gray-100",
+      children: [
+        renderComponent({ tag: "div", className: "text-sm font-semibold text-brand-dark mb-2", text: field.label }),
+        input,
+      ],
+    });
+  }
+
+  function selectField({ value, field, options, onChange }) {
+    const select = renderComponent({
+      tag: "select",
+      className: "aum-input cursor-pointer font-semibold",
+      attrs: { id: field.id },
+      children: options.map((o) => renderComponent({ tag: "option", attrs: { value: o.value }, text: o.label })),
+    });
+    select.value = value || "";
+    select.addEventListener("change", () => onChange(select.value));
+    return renderComponent({
+      tag: "div",
+      className: "p-3 bg-white rounded-xl border border-gray-100",
+      children: [
+        renderComponent({ tag: "div", className: "text-sm font-semibold text-brand-dark mb-2", text: field.label }),
+        select,
+      ],
+    });
+  }
+
+  function numericTriple({ module, field, value, side, onValueChange, onAfterChange, diffRef }) {
+    // Local UI mode per field/side
+    const modeKey = `${field.id}:${side || "S"}`;
+    module.ui.modes = module.ui.modes || {};
+    if (!module.ui.modes[modeKey]) module.ui.modes[modeKey] = "slider"; // slider | exact | quick
+
+    const valLabel = renderComponent({
+      tag: "span",
+      className: "text-sm font-bold text-brand-dark",
+      text: value === null || value === "" || value === undefined ? "—" : String(value),
+    });
+
+    const unitLabel = renderComponent({ tag: "span", className: "text-xs text-gray-500 ml-1", text: field.unit || "" });
+
+    const modeBtn = (k, label) =>
+      renderComponent({
+        tag: "button",
+        className: "px-2 py-1 rounded-md text-xs font-bold border border-gray-200",
+        attrs: { type: "button", "data-mode": k },
+        text: label,
+      });
+
+    const modeBar = renderComponent({
+      tag: "div",
+      className: "flex items-center gap-1",
+      children: [modeBtn("slider", "Barra"), modeBtn("exact", "Exacto"), modeBtn("quick", "Rápido")],
+      on: {
+        click: (e) => {
+          const b = e.target.closest("button[data-mode]");
+          if (!b) return;
+          module.ui.modes[modeKey] = b.dataset.mode;
+          updateModeUI();
+          scheduleAutosave();
         },
-        {
+      },
+    });
+
+    const slider = renderComponent({
+      tag: "input",
+      className: "w-full",
+      attrs: { type: "range", min: String(field.min ?? 0), max: String(field.max ?? 100), step: "1" },
+    });
+    slider.value = value ?? 0;
+
+    const exact = renderComponent({
+      tag: "input",
+      className: "aum-input text-center",
+      attrs: { type: "number", min: String(field.min ?? 0), max: String(field.max ?? 9999), step: "1" },
+    });
+    exact.value = value ?? "";
+
+    const quickWrap = renderComponent({
+      tag: "div",
+      className: "flex items-center gap-2",
+      children: [
+        renderComponent({ tag: "button", className: "px-3 py-2 rounded-lg bg-white border border-gray-200 text-sm font-bold", attrs: { type: "button", "data-quick": "normal" }, text: "Normal" }),
+        renderComponent({ tag: "button", className: "px-3 py-2 rounded-lg bg-white border border-gray-200 text-sm font-bold", attrs: { type: "button", "data-quick": "limited" }, text: "Limitado" }),
+        renderComponent({ tag: "button", className: "px-3 py-2 rounded-lg bg-white border border-gray-200 text-sm font-bold", attrs: { type: "button", "data-quick": "clear" }, text: "Vaciar" }),
+      ],
+      on: {
+        click: (e) => {
+          const b = e.target.closest("button[data-quick]");
+          if (!b) return;
+          const q = b.dataset.quick;
+          let next = null;
+          if (q === "normal") next = field.normal ?? null;
+          if (q === "limited") next = field.limited ?? (field.normal != null ? Math.round(field.normal * 0.7) : null);
+          if (q === "clear") next = null;
+          onValueChange(next);
+          onAfterChange?.();
+        },
+      },
+    });
+
+    const modeArea = renderComponent({
+      tag: "div",
+      className: "mt-2",
+      children: [slider, exact, quickWrap],
+    });
+
+    const headerLine = renderComponent({
+      tag: "div",
+      className: "flex items-center justify-between gap-3",
+      children: [
+        renderComponent({
           tag: "div",
-          className: "grid grid-cols-1 sm:grid-cols-2 gap-3",
+          className: "min-w-0",
           children: [
             renderComponent({
               tag: "div",
-              className: "bg-white rounded-lg border border-gray-200 p-3",
-              children: [
-                { tag: "div", className: "text-xs font-bold text-brand-grey uppercase mb-2", text: "Izq" },
-                renderNumericPanels({ module, field, unit, min, max, side: "L" }),
-              ],
+              className: "text-sm font-semibold text-brand-dark",
+              text: side ? `${field.label} (${side})` : field.label,
             }),
-            renderComponent({
-              tag: "div",
-              className: "bg-white rounded-lg border border-gray-200 p-3",
-              children: [
-                { tag: "div", className: "text-xs font-bold text-brand-grey uppercase mb-2", text: "Der" },
-                renderNumericPanels({ module, field, unit, min, max, side: "R" }),
-              ],
-            }),
+            field.help ? renderComponent({ tag: "div", className: "text-xs text-gray-500", text: field.help }) : null,
           ],
-        },
-        {
+        }),
+        renderComponent({
           tag: "div",
-          className: "text-xs flex items-center gap-2",
+          className: "flex items-center gap-2 shrink-0",
           children: [
-            { tag: "span", className: "text-brand-grey font-semibold", text: "Δ" },
-            {
-              tag: "span",
-              id: diffElId,
-              className: "font-mono font-bold text-gray-700",
-              text: "-",
-              dataset: { moduleId: module.id, fieldId: field.id, role: "diff" },
-            },
+            renderComponent({ tag: "div", className: "flex items-center", children: [valLabel, unitLabel] }),
+            modeBar,
           ],
-        },
+        }),
       ],
     });
 
-    return wrapper;
-  }
+    function setValue(next) {
+      // reflect in controls
+      valLabel.textContent = next === null || next === "" || next === undefined ? "—" : String(next);
+      if (module.ui.modes[modeKey] === "slider") slider.value = String(next ?? 0);
+      if (module.ui.modes[modeKey] === "exact") exact.value = next ?? "";
+      onValueChange(next);
+      if (diffRef) diffRef();
+      scheduleAutosave();
+    }
 
-  function renderNumericPanels({ module, field, unit, min, max, side }) {
-    const fieldId = field.id;
-    const normal = safeNumber(field.normal) ?? safeNumber(max) ?? 0;
-    const limited = safeNumber(field.limited) ?? Math.round(normal * 0.7);
+    slider.addEventListener("input", () => setValue(Number(slider.value)));
+    slider.addEventListener("change", () => onAfterChange?.());
+    exact.addEventListener("input", () => {
+      const v = exact.value === "" ? null : Number(exact.value);
+      setValue(Number.isFinite(v) ? v : null);
+    });
+    exact.addEventListener("change", () => onAfterChange?.());
 
-    const mk = (mode, children) =>
-      renderComponent({
-        tag: "div",
-        className: "space-y-2",
-        dataset: { role: "mode-panel", fieldId: fieldId, mode: mode },
-        children,
+    function setActiveModeButtons() {
+      $$("button[data-mode]", modeBar).forEach((b) => {
+        const active = b.dataset.mode === module.ui.modes[modeKey];
+        b.classList.toggle("bg-brand-dark", active);
+        b.classList.toggle("text-white", active);
+        b.classList.toggle("bg-white", !active);
+        b.classList.toggle("text-gray-600", !active);
       });
+    }
 
-    // Slider
-    const slider = mk("slider", [
-      {
-        tag: "div",
-        className: "flex items-center gap-3",
-        children: [
-          {
-            tag: "input",
-            className:
-              "flex-grow h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-brand-dark",
-            attrs: { type: "range", min: String(min), max: String(max), step: "1" },
-            dataset: { moduleId: module.id, fieldId, side: side || "", kind: "slider" },
-            on: {
-              input: (e) => {
-                const v = clamp(e.currentTarget.value, min, max);
-                setNumericValue(module, fieldId, side, v);
-              },
-            },
-          },
-          {
-            tag: "output",
-            className: "text-xs font-mono w-12 text-right font-bold text-brand-dark",
-            dataset: { moduleId: module.id, fieldId, side: side || "", kind: "out" },
-            text: "-",
-          },
-        ],
-      },
-    ]);
+    function updateModeUI() {
+      setActiveModeButtons();
+      const mode = module.ui.modes[modeKey];
+      slider.hidden = mode !== "slider";
+      exact.hidden = mode !== "exact";
+      quickWrap.hidden = mode !== "quick";
+      // keep controls synced
+      slider.value = String(value ?? 0);
+      exact.value = value ?? "";
+    }
 
-    // Exact number
-    const exact = mk("exact", [
-      {
-        tag: "div",
-        className: "flex items-center gap-3",
-        children: [
-          {
-            tag: "input",
-            className: "aum-input text-center",
-            attrs: { type: "number", min: String(min), max: String(max), step: "1", inputMode: "numeric" },
-            dataset: { moduleId: module.id, fieldId, side: side || "", kind: "number" },
-            on: {
-              input: (e) => {
-                const v = clamp(e.currentTarget.value, min, max);
-                setNumericValue(module, fieldId, side, v);
-              },
-            },
-          },
-          { tag: "span", className: "text-xs font-bold text-brand-grey", text: unit },
-        ],
-      },
-    ]);
-
-    // Quick buttons
-    const quick = mk("quick", [
-      {
-        tag: "div",
-        className: "flex gap-2",
-        children: [
-          {
-            tag: "button",
-            className:
-              "flex-1 px-3 py-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 text-xs font-bold transition-all",
-            attrs: { type: "button" },
-            dataset: { moduleId: module.id, fieldId, side: side || "", kind: "quick-normal" },
-            children: [{ tag: "span", text: "Normal" }],
-            on: {
-              click: () => setNumericValue(module, fieldId, side, normal),
-            },
-          },
-          {
-            tag: "button",
-            className:
-              "flex-1 px-3 py-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 text-xs font-bold transition-all",
-            attrs: { type: "button" },
-            dataset: { moduleId: module.id, fieldId, side: side || "", kind: "quick-limited" },
-            children: [{ tag: "span", text: "Limitado" }],
-            on: {
-              click: () => setNumericValue(module, fieldId, side, limited),
-            },
-          },
-        ],
-      },
-      {
-        tag: "div",
-        className: "text-[11px] text-brand-grey",
-        text: `Normal≈${normal}${unit} · Limitado≈${limited}${unit}`,
-      },
-    ]);
+    // init
+    updateModeUI();
+    setActiveModeButtons();
 
     return renderComponent({
       tag: "div",
-      children: [slider, exact, quick],
+      className: "p-3 bg-gray-50 rounded-xl border border-gray-100",
+      children: [headerLine, modeArea],
     });
   }
 
-  function getNumericState(module, fieldId) {
-    return module.state.numeric[fieldId];
-  }
+  function numericField({ module, field, onAfterChange }) {
+    const wrap = renderComponent({ tag: "div", className: "space-y-3" });
 
-  function setNumericValue(module, fieldId, side, value) {
-    const min = safeNumber(findField(module, fieldId)?.min) ?? 0;
-    const max = safeNumber(findField(module, fieldId)?.max) ?? 100;
-    const v = clamp(value, min, max);
+    if (field.bilateral) {
+      const diffText = renderComponent({ tag: "div", className: "text-xs text-gray-500 font-semibold", text: "Δ%: —" });
 
-    const cur = getNumericState(module, fieldId);
+      const refreshDiff = () => {
+        const v = module.numeric[field.id] || { L: null, R: null };
+        const L = typeof v.L === "number" ? v.L : null;
+        const R = typeof v.R === "number" ? v.R : null;
+        const denom = Math.max(L || 0, R || 0);
+        if (!denom) {
+          diffText.textContent = "Δ%: —";
+          diffText.classList.remove("text-red-600");
+          diffText.classList.add("text-gray-500");
+          return;
+        }
+        const diff = Math.abs((L || 0) - (R || 0));
+        const pct = (diff / denom) * 100;
+        diffText.textContent = `Δ%: ${pct.toFixed(0)}%`;
+        if (pct > 10) {
+          diffText.classList.add("text-red-600");
+          diffText.classList.remove("text-gray-500");
+        } else {
+          diffText.classList.remove("text-red-600");
+          diffText.classList.add("text-gray-500");
+        }
+      };
 
-    if (side === "L" || side === "R") {
-      if (!isObject(cur)) module.state.numeric[fieldId] = { L: v, R: v };
-      else module.state.numeric[fieldId][side] = v;
-    } else {
-      module.state.numeric[fieldId] = v;
+      const cols = renderComponent({
+        tag: "div",
+        className: "grid grid-cols-1 md:grid-cols-2 gap-3",
+        children: [
+          numericTriple({
+            module,
+            field,
+            value: module.numeric[field.id]?.L ?? null,
+            side: "L",
+            onValueChange: (next) => {
+              module.numeric[field.id] = module.numeric[field.id] || { L: null, R: null };
+              module.numeric[field.id].L = next;
+              refreshDiff();
+              onAfterChange?.();
+            },
+            onAfterChange,
+            diffRef: refreshDiff,
+          }),
+          numericTriple({
+            module,
+            field,
+            value: module.numeric[field.id]?.R ?? null,
+            side: "R",
+            onValueChange: (next) => {
+              module.numeric[field.id] = module.numeric[field.id] || { L: null, R: null };
+              module.numeric[field.id].R = next;
+              refreshDiff();
+              onAfterChange?.();
+            },
+            onAfterChange,
+            diffRef: refreshDiff,
+          }),
+        ],
+      });
+
+      wrap.appendChild(
+        renderComponent({
+          tag: "div",
+          className: "flex items-center justify-between",
+          children: [
+            renderComponent({ tag: "div", className: "text-sm font-bold text-brand-dark", text: field.label }),
+            diffText,
+          ],
+        })
+      );
+      wrap.appendChild(cols);
+      refreshDiff();
+      return wrap;
     }
 
-    syncNumericValueUI(module, fieldId);
-    evaluateLogic();
+    // unilateral
+    return numericTriple({
+      module,
+      field,
+      value: module.numeric[field.id] ?? null,
+      onValueChange: (next) => {
+        module.numeric[field.id] = next;
+        onAfterChange?.();
+      },
+      onAfterChange,
+    });
   }
 
-  function findField(module, fieldId) {
-    const sections = module.template.sections || [];
-    for (const sec of sections) {
-      for (const f of sec.fields || []) {
-        if (f.id === fieldId) return f;
-      }
+  // -----------------------------
+  // Module scoring (SPADI / DASH)
+  // -----------------------------
+  function isNum(v) {
+    return typeof v === "number" && Number.isFinite(v);
+  }
+
+  function calcSPADI(module) {
+    const painIds = Object.keys(module.numeric).filter((id) => id.startsWith("spadi_p"));
+    const disIds = Object.keys(module.numeric).filter((id) => id.startsWith("spadi_d"));
+
+    const painVals = painIds.map((id) => module.numeric[id]).filter(isNum);
+    const disVals = disIds.map((id) => module.numeric[id]).filter(isNum);
+
+    const painPct = painVals.length ? (painVals.reduce((a, b) => a + b, 0) / (painVals.length * 10)) * 100 : null;
+    const disPct = disVals.length ? (disVals.reduce((a, b) => a + b, 0) / (disVals.length * 10)) * 100 : null;
+
+    let total = null;
+    if (painPct !== null && disPct !== null) total = (painPct + disPct) / 2;
+    else total = painPct ?? disPct ?? null;
+
+    return { painPct, disPct, totalPct: total };
+  }
+
+  function calcDASH(module) {
+    const coreIds = Object.keys(module.numeric).filter((id) => id.startsWith("dash_q"));
+    // In data.js, 0 = N/A. Compute using answered values 1-5.
+    const vals = coreIds
+      .map((id) => module.numeric[id])
+      .filter((v) => isNum(v) && v >= 1 && v <= 5);
+
+    if (vals.length < 10) return { total: null, n: vals.length };
+
+    const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+    const score = (mean - 1) * 25; // 0–100
+    return { total: score, n: vals.length };
+  }
+
+  function updateModuleScores(module, tpl) {
+    // SPADI
+    const sp = calcSPADI(module);
+    module.computed.spadi = sp;
+    if ("spadi_total_pct" in module.numeric) {
+      module.numeric.spadi_total_pct = sp.totalPct !== null ? Number(sp.totalPct.toFixed(1)) : null;
     }
-    return null;
+
+    // DASH
+    const da = calcDASH(module);
+    module.computed.dash = da;
+    if ("dash_total" in module.numeric) {
+      module.numeric.dash_total = da.total !== null ? Number(da.total.toFixed(1)) : null;
+    }
+
+    // Update header chips in accordion titles (if present)
+    const card = $(`[data-module-instance="${module.instanceId}"]`);
+    if (!card) return;
+    const spBadge = $(`[data-badge-spadi="${module.instanceId}"]`, card);
+    const daBadge = $(`[data-badge-dash="${module.instanceId}"]`, card);
+
+    if (spBadge) spBadge.textContent = sp.totalPct !== null ? `SPADI ${sp.totalPct.toFixed(0)}%` : "SPADI —";
+    if (daBadge) daBadge.textContent = da.total !== null ? `DASH ${da.total.toFixed(0)}` : `DASH —`;
   }
 
-  function syncNumericValueUI(module, fieldId) {
-    const root = document.getElementById(module.id);
-    if (!root) return;
-    const field = findField(module, fieldId);
-    const unit = field?.unit || "";
-    const cur = getNumericState(module, fieldId);
+  // -----------------------------
+  // Clinical reasoning: alerts + plan suggestions
+  // -----------------------------
+  function getIrritability(module) {
+    // Prefer dedicated select field id "irritabilidad"
+    const v = (module.text.irritabilidad || "").toLowerCase().trim();
+    if (v.includes("alta")) return "alta";
+    if (v.includes("media")) return "media";
+    if (v.includes("baja")) return "baja";
+    // If empty: unknown
+    return "";
+  }
 
-    const applySide = (sideKey) => {
-      const v = sideKey ? cur?.[sideKey] : cur;
-      // slider
-      const slider = root.querySelector(
-        `input[type="range"][data-field-id="${fieldId}"][data-kind="slider"][data-side="${sideKey || ""}"]`
-      );
-      if (slider) slider.value = String(v ?? "");
-      // number
-      const num = root.querySelector(
-        `input[type="number"][data-field-id="${fieldId}"][data-kind="number"][data-side="${sideKey || ""}"]`
-      );
-      if (num) num.value = String(v ?? "");
-      // output
-      const out = root.querySelector(
-        `output[data-field-id="${fieldId}"][data-kind="out"][data-side="${sideKey || ""}"]`
-      );
-      if (out) out.textContent = v === null || v === undefined || v === "" ? "-" : `${v}${unit}`;
+  function getAge() {
+    const a = Number(state.patientData["patient-age"]);
+    return Number.isFinite(a) ? a : null;
+  }
+
+  function derivePhase(module) {
+    const ir = getIrritability(module);
+    if (ir === "alta") return "Fase 1 (analgesia / control de síntomas)";
+    if (ir === "media") return "Fase 2 (capacidad y control motor / carga progresiva)";
+    if (ir === "baja") return "Fase 3–4 (fuerza, potencia y retorno funcional/deportivo)";
+    return "Fase: por definir (según irritabilidad y objetivo)";
+  }
+
+  function derivePlan(module) {
+    const age = getAge();
+    const ir = getIrritability(module);
+    const cls = {
+      rcrsp: !!module.tests.cls_rcrsp,
+      rcFull: !!module.tests.cls_rc_full_thickness,
+      caps: !!module.tests.cls_capsulitis,
+      instab: !!module.tests.cls_instability,
+      ac: !!module.tests.cls_ac_joint,
+      cerv: !!module.tests.cls_cervical,
     };
 
-    if (field?.bilateral) {
-      applySide("L");
-      applySide("R");
-      syncDiffUI(module, fieldId);
-    } else {
-      applySide("");
-    }
-  }
+    const plan = [];
 
-  function syncDiffUI(module, fieldId) {
-    const root = document.getElementById(module.id);
-    if (!root) return;
+    // Universal
+    plan.push("Educación: explicación del cuadro en lenguaje funcional (no amenazante) + expectativas y tiempos.");
+    plan.push("Manejo de carga: identificar gestos/volumen detonante y ajustar (sin reposo total).");
 
-    const cur = getNumericState(module, fieldId);
-    if (!isObject(cur)) return;
-
-    const d = percentDiff(cur.L, cur.R);
-    const diffEl = root.querySelector(`[data-role="diff"][data-field-id="${fieldId}"]`);
-    if (!diffEl) return;
-
-    if (d === null) {
-      diffEl.textContent = "-";
-      diffEl.classList.remove("text-brand-danger");
-      diffEl.classList.add("text-gray-700");
-      return;
+    if (ir === "alta") {
+      plan.push("Analgesia por ejercicio: isométricos submáximos (RC/escápula) según tolerancia + exposición gradual.");
+      plan.push("ROM suave y dosificado (priorizar sueño, evitar picos de dolor >2–3/10 durante/pos 24h).");
+    } else if (ir === "media") {
+      plan.push("Progresión de fuerza: RC + escápula (ER/ABD/IR) con carga moderada, controlando síntomas 24h.");
+      plan.push("Movilidad dirigida (torácica, cápsula posterior si aplica) + re-test funcional.");
+    } else if (ir === "baja") {
+      plan.push("Fuerza pesada y potencia específica del gesto (overhead / empuje / tracción) + tolerancia al volumen.");
+      plan.push("Retorno funcional/deportivo: progresión de tareas y criterios de simetría/soportar carga.");
     }
 
-    diffEl.textContent = `${d.toFixed(1)}%`;
-    const isHigh = d > 10;
-    diffEl.classList.toggle("text-brand-danger", isHigh);
-    diffEl.classList.toggle("text-gray-700", !isHigh);
+    if (cls.rcrsp) {
+      plan.push("Enfoque RCRSP: control de carga + fortalecimiento progresivo del manguito y escápula + re-test (función overhead).");
+    }
+    if (cls.caps) {
+      plan.push("Enfoque hombro rígido/capsulitis: priorizar educación, dolor y movilidad dosificada; progresión lenta según irritabilidad.");
+      if (age !== null && age >= 40 && age <= 65) plan.push("Edad compatible con hombro rígido: monitorear ER pasiva, sueño y respuesta a carga.");
+    }
+    if (cls.instab) {
+      plan.push("Enfoque inestabilidad: control motor, propriocepción, estabilidad dinámica; progresar a posiciones vulnerables con criterio.");
+    }
+    if (cls.ac) {
+      plan.push("Enfoque AC: modular compresión/dolor focal, dosificar empujes/cargas horizontales y progresar por tolerancia.");
+    }
+    if (cls.rcFull) {
+      plan.push("Sospecha de desgarro completo: considerar derivación/imagen según edad, trauma, pérdida de potencia y limitación funcional.");
+      if (age !== null && age >= 60) plan.push("Edad >60 aumenta probabilidad: evaluar déficit real vs inhibición por dolor.");
+    }
+    if (cls.cerv) {
+      plan.push("Componente cervical: integrar evaluación neuro, manejo cervical, y ajustar carga del hombro según radicularidad.");
+    }
+
+    return {
+      phase: derivePhase(module),
+      bullets: plan,
+    };
   }
 
-  function syncModuleUIFromState(module) {
-    // set modes for numeric fields + values
-    const sections = module.template.sections || [];
-    sections.forEach((sec) => {
-      (sec.fields || []).forEach((f) => {
-        if (f.type === "numeric") {
-          syncNumericValueUI(module, f.id);
-          syncNumericModeUI(module, f.id);
-        }
-        if (f.type === "boolean") {
-          const root = document.getElementById(module.id);
-          if (!root) return;
-          const checkbox = root.querySelector(`input[type="checkbox"][data-field-id="${f.id}"]`);
-          if (checkbox) checkbox.checked = Boolean(module.state.tests[f.id]);
-        }
-        if (f.type === "textarea" || f.type === "text") {
-          const root = document.getElementById(module.id);
-          if (!root) return;
-          const el = root.querySelector(`[data-field-type="text"][data-field-id="${f.id}"]`);
-          if (el) el.value = String(module.state.text[f.id] ?? "");
-        }
-      });
+  function renderAlertCard(rule, severity) {
+    const sev = severity || rule.severity || "info";
+    const palette =
+      sev === "danger"
+        ? { bg: "bg-red-50", border: "border-red-200", text: "text-red-700", icon: "fa-triangle-exclamation" }
+        : sev === "warning"
+        ? { bg: "bg-yellow-50", border: "border-yellow-200", text: "text-yellow-800", icon: "fa-triangle-exclamation" }
+        : { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700", icon: "fa-circle-info" };
+
+    return renderComponent({
+      tag: "div",
+      className: `p-4 rounded-2xl border ${palette.bg} ${palette.border}`.trim(),
+      children: [
+        renderComponent({
+          tag: "div",
+          className: "flex items-start gap-3",
+          children: [
+            renderComponent({
+              tag: "div",
+              className: `w-9 h-9 rounded-full flex items-center justify-center ${palette.bg}`.trim(),
+              children: [iconEl(palette.icon, palette.text)],
+            }),
+            renderComponent({
+              tag: "div",
+              className: "min-w-0",
+              children: [
+                renderComponent({ tag: "div", className: `font-extrabold ${palette.text}`, text: rule.title || "Alerta clínica" }),
+                renderComponent({ tag: "div", className: "text-sm text-gray-700 mt-1", text: rule.description || "" }),
+              ],
+            }),
+          ],
+        }),
+      ],
     });
   }
 
-  // -----------------------------
-  // Logic Watcher
-  // -----------------------------
-  function evaluateLogic() {
-    activeModules.forEach((m) => evaluateModuleLogic(m));
-  }
-
-  function evaluateModuleLogic(module) {
-    const container = module.refs.alertContainer || $('[data-role="alerts"]', document.getElementById(module.id));
+  function evaluateModuleLogic(module, tpl) {
+    const container = $(`[data-alerts="${module.instanceId}"]`);
     if (!container) return;
 
-    // We rebuild alerts each time (simple + robust).
-    clearNode(container);
+    container.replaceChildren();
 
-    const rules = module.template.logicRules || [];
-    rules.forEach((rule) => {
+    const rules = Array.isArray(tpl.logicRules) ? tpl.logicRules : [];
+    const triggered = [];
+
+    for (const rule of rules) {
+      if (!rule || typeof rule.when !== "function") continue;
       let ok = false;
       try {
-        ok = typeof rule.when === "function" ? Boolean(rule.when(module.state, appState.patientData)) : false;
-      } catch {
+        ok = !!rule.when({ tests: module.tests, numeric: module.numeric, text: module.text }, state.patientData);
+      } catch (_) {
         ok = false;
       }
-      if (!ok) return;
+      if (ok) triggered.push(rule);
+    }
 
-      container.appendChild(renderAlertCard(rule));
-    });
+    if (triggered.length === 0) return;
+
+    // Render in order: danger -> warning -> info
+    const order = { danger: 0, warning: 1, info: 2 };
+    triggered.sort((a, b) => (order[a.severity] ?? 9) - (order[b.severity] ?? 9));
+
+    triggered.forEach((r) => container.appendChild(renderAlertCard(r)));
   }
 
-  function renderAlertCard(rule) {
-    const severity = rule.severity || "info";
-    const palette = {
-      info: {
-        bg: "bg-blue-50",
-        border: "border-blue-200",
-        title: "text-blue-900",
-        body: "text-blue-800",
-        icon: "fa-circle-info",
-      },
-      warning: {
-        bg: "bg-yellow-50",
-        border: "border-yellow-200",
-        title: "text-yellow-900",
-        body: "text-yellow-800",
-        icon: "fa-triangle-exclamation",
-      },
-      danger: {
-        bg: "bg-red-50",
-        border: "border-red-200",
-        title: "text-red-900",
-        body: "text-red-800",
-        icon: "fa-circle-exclamation",
-      },
-    }[severity] || {
-      bg: "bg-gray-50",
-      border: "border-gray-200",
-      title: "text-gray-900",
-      body: "text-gray-800",
-      icon: "fa-bell",
-    };
+  function renderPlanCard(module, tpl) {
+    const wrap = $(`[data-plan="${module.instanceId}"]`);
+    if (!wrap) return;
 
-    return renderComponent({
-      tag: "div",
-      className: `${palette.bg} ${palette.border} border rounded-xl p-4 flex gap-3 items-start pdf-break-avoid`,
-      children: [
-        {
-          tag: "div",
-          className: "w-9 h-9 rounded-full bg-white/60 border border-white flex items-center justify-center flex-shrink-0",
-          children: [{ tag: "i", className: `fa-solid ${palette.icon} ${palette.title}` }],
+    wrap.replaceChildren();
+
+    const plan = derivePlan(module);
+
+    const bullets = renderComponent({
+      tag: "ul",
+      className: "list-disc pl-5 space-y-1 text-sm text-gray-800",
+      children: plan.bullets.map((b) => renderComponent({ tag: "li", text: b })),
+    });
+
+    const btnInsert = renderComponent({
+      tag: "button",
+      className: "px-3 py-2 rounded-lg bg-brand-dark text-white text-sm font-bold hover:bg-gray-800 transition-all",
+      attrs: { type: "button" },
+      text: "Insertar en “Plan inicial”",
+      on: {
+        click: () => {
+          // Append into plan_inicial textarea if exists
+          const target = $(`[data-field="${module.instanceId}:plan_inicial"] textarea, [data-field="${module.instanceId}:plan_inicial"] input`);
+          const lines = ["", plan.phase, ...plan.bullets.map((x) => `• ${x}`), ""].join("\n");
+          if (target) {
+            target.value = (target.value || "") + lines;
+            module.text.plan_inicial = target.value;
+            scheduleAutosave();
+          }
         },
-        {
-          tag: "div",
-          className: "space-y-1",
-          children: [
-            { tag: "div", className: `text-sm font-bold ${palette.title}`, text: rule.title || "Alerta" },
-            { tag: "div", className: `text-xs leading-relaxed ${palette.body}`, text: rule.description || "" },
-          ],
-        },
-      ],
-    });
-  }
-
-  window.evaluateLogic = evaluateLogic;
-
-  // -----------------------------
-  // Storage: .aum export/import
-  // -----------------------------
-  function exportSession() {
-    const session = {
-      meta: {
-        app: "all-u-moves-clinical-suite",
-        version: 1,
-        exportedAt: new Date().toISOString(),
       },
-      patientData: buildPatientSnapshot(),
-      modules: activeModules.map((m) => ({
-        id: m.id,
-        type: m.type,
-        name: m.name,
-        state: m.state,
-      })),
-    };
-
-    const isoDate = new Date().toISOString().slice(0, 10);
-    const filename = `paciente-${isoDate}.aum`;
-
-    const blob = new Blob([JSON.stringify(session, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-
-    const a = renderComponent({
-      tag: "a",
-      attrs: { href: url, download: filename },
     });
 
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }
-
-  function buildPatientSnapshot() {
-    // read from DOM to avoid drift
-    const out = {};
-
-    PATIENT_TEXT_IDS.forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) out[id] = el.value;
-    });
-
-    PATIENT_RADIO_NAMES.forEach((name) => {
-      const checked = $(`input[name="${name}"]:checked`);
-      if (checked) out[name] = checked.value;
-    });
-
-    return out;
-  }
-
-  function loadSession(file) {
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const parsed = JSON.parse(String(e.target?.result || "{}"));
-        loadSessionFromObject(parsed);
-        alert("Sesión cargada.");
-      } catch (err) {
-        alert("Error al leer archivo: " + err);
-      }
-    };
-    reader.readAsText(file);
-  }
-
-  function loadSessionFromObject(session) {
-    resetStackWithoutConfirm();
-
-    const patient = session.patientData || session.static || {};
-    // Fill text inputs
-    Object.entries(patient).forEach(([key, value]) => {
-      const el = document.getElementById(key);
-      if (el) el.value = String(value ?? "");
-    });
-
-    // Radios
-    PATIENT_RADIO_NAMES.forEach((name) => {
-      const val = patient[name];
-      if (val === null || val === undefined) return;
-      const radio = $(`input[name="${name}"][value="${CSS.escape(String(val))}"]`);
-      if (radio) radio.checked = true;
-    });
-
-    // Recalc derived fields
-    calculateAge();
-    updateBMI();
-
-    // Modules
-    const mods = Array.isArray(session.modules) ? session.modules : [];
-    mods.forEach((m) => {
-      const id = addModuleFromSelect(m.type, m.id, m.state);
-      const mod = activeModules.find((x) => x.id === id);
-      if (!mod) return;
-      mod.__loaded = true;
-      mod.name = m.name || mod.name;
-
-      // Update tag label (if needed)
-      const tag = document.getElementById(`tag-${mod.id}`);
-      if (tag) {
-        const label = tag.querySelector("span");
-        if (label) label.textContent = mod.name;
-      }
-
-      // Update header title
-      const root = document.getElementById(mod.id);
-      if (root) {
-        const headerSpan = root.querySelector("h3 span:last-child");
-        if (headerSpan) headerSpan.textContent = `Evaluación: ${mod.name}`;
-      }
-
-      syncModuleUIFromState(mod);
-    });
-
-    ensureEmptyStateShownIfNeeded();
-    evaluateLogic();
-  }
-
-  function resetStackWithoutConfirm() {
-    // Clear modules
-    activeModules.length = 0;
-
-    // Remove module DOM nodes (keep empty-state)
-    const stack = $("#clinical-stack");
-    if (stack) {
-      $$(".module-entry", stack).forEach((n) => n.remove());
-      ensureEmptyStateShownIfNeeded();
-    }
-
-    // Clear tags
-    const tags = $("#active-tags-container");
-    if (tags) clearNode(tags);
-
-    // Clear patient inputs
-    PATIENT_TEXT_IDS.forEach((id) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.value = "";
-      appState.patientData[id] = "";
-    });
-
-    PATIENT_RADIO_NAMES.forEach((name) => {
-      $$(`input[name="${name}"]`).forEach((r) => (r.checked = false));
-      appState.patientData[name] = "";
-    });
-
-    // Clear previews
-    const media = $("#media-preview-area");
-    if (media) {
-      clearNode(media);
-      media.classList.add("hidden");
-    }
-    const docs = $("#doc-preview-area");
-    if (docs) {
-      clearNode(docs);
-      docs.classList.add("hidden");
-    }
-  }
-
-  // Compatibility with index.html buttons
-  window.exportSession = exportSession;
-  window.saveSession = exportSession; // header button calls saveSession()
-  window.loadSession = loadSession;
-
-  // file input onchange in index.html calls processLoadSession(this)
-  window.processLoadSession = (input) => {
-    const file = input?.files?.[0];
-    if (!file) return;
-    loadSession(file);
-    // reset input so selecting same file again works
-    input.value = "";
-  };
-
-  // -----------------------------
-  // UI: hidden file inputs + uploads
-  // -----------------------------
-  function triggerFileInput(id) {
-    const el = document.getElementById(id);
-    if (el) el.click();
-  }
-  window.triggerFileInput = triggerFileInput;
-
-  function processMediaUpload(input) {
-    const container = $("#media-preview-area");
-    if (!container) return;
-
-    container.classList.remove("hidden");
-
-    const files = input?.files ? Array.from(input.files) : [];
-    files.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const src = String(e.target?.result || "");
-
-        const isImage = file.type.startsWith("image/");
-        const isVideo = file.type.startsWith("video/");
-
-        const mediaNode = isImage
-          ? renderComponent({ tag: "img", className: "w-full h-full object-cover", attrs: { src } })
-          : isVideo
-          ? renderComponent({ tag: "video", className: "w-full h-full object-cover", attrs: { src, controls: false } })
-          : renderComponent({ tag: "div", className: "text-xs text-brand-grey p-2", text: "Archivo no soportado" });
-
-        const wrapper = renderComponent({
-          tag: "div",
-          className:
-            "relative group rounded-lg overflow-hidden shadow-sm border border-gray-200 aspect-square bg-gray-100 pdf-break-avoid",
-          children: [
-            { tag: "div", className: "w-full h-full", children: [mediaNode] },
-            ...(isVideo
-              ? [
-                  {
-                    tag: "div",
-                    className: "absolute inset-0 flex items-center justify-center bg-black/30 text-white",
-                    children: [{ tag: "i", className: "fa-solid fa-play" }],
-                  },
-                ]
-              : []),
-            {
-              tag: "div",
-              className: "absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] p-1 truncate hide-on-pdf",
-              text: file.name,
-            },
-            {
-              tag: "button",
-              className:
-                "absolute top-1 right-1 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity z-10 cursor-pointer hide-on-pdf",
-              attrs: { type: "button", title: "Quitar" },
-              on: { click: () => wrapper.remove() },
-              children: [{ tag: "i", className: "fa-solid fa-times" }],
-            },
-          ],
-        });
-
-        container.appendChild(wrapper);
-      };
-      reader.readAsDataURL(file);
-    });
-
-    input.value = "";
-  }
-  window.processMediaUpload = processMediaUpload;
-
-  function processDocUpload(input) {
-    const container = $("#doc-preview-area");
-    if (!container) return;
-
-    container.classList.remove("hidden");
-
-    const files = input?.files ? Array.from(input.files) : [];
-    files.forEach((file) => {
-      const row = renderComponent({
-        tag: "div",
-        className: "flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 pdf-break-avoid",
-        children: [
-          {
-            tag: "div",
-            className: "flex items-center gap-3 overflow-hidden",
-            children: [
-              { tag: "i", className: "fa-solid fa-file-pdf text-red-500 text-xl flex-shrink-0" },
-              { tag: "span", className: "text-sm text-gray-700 truncate font-medium", text: file.name },
-            ],
-          },
-          {
-            tag: "button",
-            className: "text-gray-400 hover:text-red-500 cursor-pointer hide-on-pdf",
-            attrs: { type: "button", title: "Quitar" },
-            on: { click: () => row.remove() },
-            children: [{ tag: "i", className: "fa-solid fa-trash" }],
-          },
-        ],
-      });
-
-      container.appendChild(row);
-    });
-
-    input.value = "";
-  }
-  window.processDocUpload = processDocUpload;
-
-  // -----------------------------
-  // Print / PDF: intercept and prepare
-  // -----------------------------
-  function expandAllTextareasForPrint() {
-    const textareas = $$("textarea");
-    textareas.forEach((ta) => {
-      appState.ui.printing.textareaSnapshots.set(ta, {
-        height: ta.style.height,
-        overflow: ta.style.overflow,
-      });
-      ta.style.height = `${ta.scrollHeight}px`;
-      ta.style.overflow = "hidden";
-    });
-  }
-
-  function restoreTextareasAfterPrint() {
-    appState.ui.printing.textareaSnapshots.forEach((snap, ta) => {
-      ta.style.height = snap.height;
-      ta.style.overflow = snap.overflow;
-    });
-    appState.ui.printing.textareaSnapshots.clear();
-  }
-
-  function setButtonBusy(btn, busyText) {
-    if (!btn) return;
-
-    const snapshot = {
-      disabled: btn.disabled,
-      children: Array.from(btn.childNodes).map((n) => n.cloneNode(true)),
-    };
-    appState.ui.printing.buttonSnapshots.set(btn, snapshot);
-
-    btn.disabled = true;
-    clearNode(btn);
-    btn.appendChild(
+    wrap.appendChild(
       renderComponent({
-        tag: "span",
-        className: "flex items-center gap-2",
+        tag: "div",
+        className: "p-4 rounded-2xl border border-gray-200 bg-white",
         children: [
-          { tag: "i", className: "fa-solid fa-spinner fa-spin" },
-          { tag: "span", text: busyText },
+          renderComponent({
+            tag: "div",
+            className: "flex items-start justify-between gap-4",
+            children: [
+              renderComponent({
+                tag: "div",
+                className: "min-w-0",
+                children: [
+                  renderComponent({ tag: "div", className: "font-extrabold text-brand-dark", text: "Plan sugerido (automatizado)" }),
+                  renderComponent({ tag: "div", className: "text-sm text-gray-600 mt-1", text: plan.phase }),
+                ],
+              }),
+              btnInsert,
+            ],
+          }),
+          renderComponent({ tag: "div", className: "mt-3", children: [bullets] }),
         ],
       })
     );
   }
 
-  function restoreButtonsAfterPrint() {
-    appState.ui.printing.buttonSnapshots.forEach((snap, btn) => {
-      btn.disabled = snap.disabled;
-      clearNode(btn);
-      snap.children.forEach((n) => btn.appendChild(n));
+  function evaluateAllLogic() {
+    state.activeModules.forEach((m) => {
+      const tpl = getModuleTemplate(m.key);
+      evaluateModuleLogic(m, tpl);
+      updateModuleScores(m, tpl);
+      renderPlanCard(m, tpl);
     });
-    appState.ui.printing.buttonSnapshots.clear();
   }
 
-  function exportToPDF() {
-    // The floating button in index.html uses onclick="exportToPDF()"
-    const btn = $('button[onclick="exportToPDF()"]');
-    setButtonBusy(btn, "Preparando...");
+  // -----------------------------
+  // Section render
+  // -----------------------------
+  function renderField(module, tpl, field) {
+    if (!field || !field.id) return renderComponent({ tag: "div" });
 
-    document.body.classList.add("printing");
-
-    expandAllTextareasForPrint();
-
-    const cleanup = () => {
-      document.body.classList.remove("printing");
-      restoreTextareasAfterPrint();
-      restoreButtonsAfterPrint();
-      window.removeEventListener("afterprint", cleanup);
+    const afterChange = () => {
+      // Derived updates
+      updateModuleScores(module, tpl);
+      evaluateModuleLogic(module, tpl);
+      renderPlanCard(module, tpl);
+      scheduleAutosave();
     };
-    window.addEventListener("afterprint", cleanup);
 
-    setTimeout(() => {
-      try {
-        window.print();
-      } catch (e) {
-        console.error(e);
-        alert("No se pudo abrir el diálogo de impresión/PDF. Revisa permisos del navegador.");
-        cleanup();
-      }
-    }, 150);
-  }
-  window.exportToPDF = exportToPDF;
+    // Special cases: irritability as select for speed
+    if (field.id === "irritabilidad") {
+      return selectField({
+        value: module.text[field.id] || "",
+        field: { ...field, label: field.label || "Irritabilidad" },
+        options: [
+          { value: "", label: "— Seleccionar —" },
+          { value: "Alta", label: "Alta" },
+          { value: "Media", label: "Media" },
+          { value: "Baja", label: "Baja" },
+        ],
+        onChange: (v) => {
+          module.text[field.id] = v;
+          afterChange();
+        },
+      });
+    }
 
-  // ------------------------------------------------------------
-  // mockHombroData (REQUIRED by spec)
-  // 3 preguntas reales de hombro y usado por el motor cuando elijas "Hombro".
-  // ------------------------------------------------------------
-  const mockHombroData = {
-    key: "hombro",
-    title: "Hombro",
-    icon: "fa-person-rays",
-    sections: [
-      {
-        title: "Rango de Movimiento (ROM)",
-        icon: "fa-ruler-combined",
-        style: "card",
-        fields: [
-          {
-            id: "abduccion",
-            label: "Abducción",
-            type: "numeric",
-            unit: "°",
-            min: 0,
-            max: 180,
-            bilateral: true,
-            normal: 180,
-            default: { L: 170, R: 160 },
+    if (field.type === "boolean") {
+      return triBoolField({
+        module,
+        field,
+        onChange: (next) => {
+          module.tests[field.id] = next;
+          afterChange();
+        },
+      });
+    }
+
+    if (field.type === "numeric") {
+      return renderComponent({
+        tag: "div",
+        attrs: { "data-field": `${module.instanceId}:${field.id}` },
+        children: [numericField({ module, field, onAfterChange: afterChange })],
+      });
+    }
+
+    if (field.type === "textarea") {
+      return renderComponent({
+        tag: "div",
+        attrs: { "data-field": `${module.instanceId}:${field.id}` },
+        children: [
+          textareaField({
+            value: module.text[field.id] || "",
+            field,
+            onChange: (v) => {
+              module.text[field.id] = v;
+              scheduleAutosave();
+            },
+          }),
+        ],
+      });
+    }
+
+    // text default
+    return renderComponent({
+      tag: "div",
+      attrs: { "data-field": `${module.instanceId}:${field.id}` },
+      children: [
+        textField({
+          value: module.text[field.id] || "",
+          field,
+          onChange: (v) => {
+            module.text[field.id] = v;
+            scheduleAutosave();
           },
-        ],
-      },
-      {
-        title: "Pruebas Especiales",
-        icon: "fa-stethoscope",
-        style: "grid2",
-        fields: [
-          { id: "neer", label: "Test de Neer", type: "boolean" },
-          { id: "hawkins", label: "Hawkins-Kennedy", type: "boolean" },
-        ],
-      },
-    ],
-    logicRules: [
-      {
-        id: "subacromial-warning",
-        severity: "warning",
-        title: "Alerta clínica: posible síndrome subacromial",
-        description:
-          "Neer + Hawkins positivos aumentan sospecha de irritación subacromial. Correlaciona con dolor, fuerza (rotadores) y patrón de carga.",
-        when: (s) => Boolean(s.tests?.neer) && Boolean(s.tests?.hawkins),
-      },
-    ],
-  };
+        }),
+      ],
+    });
+  }
 
-  // Register into mock DB (no hardcoded HTML; data-driven rendering)
-  mockData.hombro = mockHombroData;
+  function sectionHeaderBadges(module, sectionTitle) {
+    const t = (sectionTitle || "").toLowerCase();
+    const badges = [];
+
+    if (t.includes("spadi")) {
+      badges.push(
+        renderComponent({
+          tag: "span",
+          className: "text-xs font-extrabold px-2 py-1 rounded-lg bg-brand-accent/20 text-brand-dark",
+          attrs: { "data-badge-spadi": module.instanceId },
+          text: "SPADI —",
+        })
+      );
+    }
+    if (t.includes("dash")) {
+      badges.push(
+        renderComponent({
+          tag: "span",
+          className: "text-xs font-extrabold px-2 py-1 rounded-lg bg-brand-accent/20 text-brand-dark",
+          attrs: { "data-badge-dash": module.instanceId },
+          text: "DASH —",
+        })
+      );
+    }
+
+    return badges;
+  }
+
+  function renderSection(module, tpl, section, secIndex) {
+    const content = renderComponent({
+      tag: "div",
+      attrs: { "data-section-content": `${module.instanceId}:${secIndex}` },
+      className: "p-4 pt-3",
+      children: [],
+    });
+
+    // Layout
+    const style = section.style || "card";
+    const gridCls =
+      style === "grid2" ? "grid grid-cols-1 md:grid-cols-2 gap-3" : "grid grid-cols-1 gap-3";
+    const grid = renderComponent({ tag: "div", className: gridCls });
+
+    (section.fields || []).forEach((f) => grid.appendChild(renderField(module, tpl, f)));
+
+    content.appendChild(grid);
+    content.hidden = !!module.ui.collapsed[secIndex];
+
+    const chevron = renderComponent({
+      tag: "i",
+      className: `fa-solid fa-chevron-down transition-transform ${content.hidden ? "" : "rotate-180"}`.trim(),
+      attrs: { "data-section-chevron": `${module.instanceId}:${secIndex}`, "aria-hidden": "true" },
+    });
+
+    const header = renderComponent({
+      tag: "button",
+      className: "w-full text-left flex items-center justify-between gap-3 p-4 bg-gray-50 hover:bg-gray-100 transition-colors",
+      attrs: { type: "button" },
+      on: { click: () => toggleSection(module.instanceId, secIndex) },
+      children: [
+        renderComponent({
+          tag: "div",
+          className: "flex items-center gap-3 min-w-0",
+          children: [
+            renderComponent({
+              tag: "div",
+              className: "w-9 h-9 rounded-full bg-brand-accent/20 flex items-center justify-center shrink-0",
+              children: [iconEl(section.icon || "fa-circle", "text-brand-accent")],
+            }),
+            renderComponent({
+              tag: "div",
+              className: "min-w-0",
+              children: [
+                renderComponent({ tag: "div", className: "font-extrabold text-brand-dark truncate", text: section.title || "Sección" }),
+                renderComponent({
+                  tag: "div",
+                  className: "flex items-center gap-2 mt-1",
+                  children: sectionHeaderBadges(module, section.title),
+                }),
+              ],
+            }),
+          ],
+        }),
+        chevron,
+      ],
+    });
+
+    return renderComponent({
+      tag: "div",
+      className: "rounded-2xl overflow-hidden border border-gray-200 bg-white",
+      children: [header, content],
+    });
+  }
+
+  // -----------------------------
+  // Module card render
+  // -----------------------------
+  function renderModuleCard(module, tpl) {
+    const stack = $("#clinical-stack");
+    if (!stack) return;
+
+    // Remove empty-state if any
+    setEmptyStateVisibility();
+
+    const card = renderComponent({
+      tag: "section",
+      className: "module-card bg-white rounded-3xl shadow-lg overflow-hidden border border-black/5",
+      dataset: { moduleInstance: module.instanceId },
+      attrs: { "data-module-instance": module.instanceId },
+    });
+
+    const header = renderComponent({
+      tag: "div",
+      className: "bg-brand-dark p-6 flex items-center justify-between gap-4",
+      children: [
+        renderComponent({
+          tag: "div",
+          className: "flex items-center gap-4 min-w-0",
+          children: [
+            renderComponent({
+              tag: "div",
+              className: "w-12 h-12 rounded-full bg-brand-accent/20 flex items-center justify-center shrink-0",
+              children: [iconEl(tpl.icon || "fa-person-rays", "text-brand-accent text-xl")],
+            }),
+            renderComponent({
+              tag: "div",
+              className: "min-w-0",
+              children: [
+                renderComponent({ tag: "div", className: "text-white font-extrabold tracking-wide", text: `EVALUACIÓN: ${tpl.title || module.title}` }),
+                renderComponent({ tag: "div", className: "text-white/60 text-sm font-semibold mt-0.5", text: "Secciones colapsables · Cálculo automático · Razonamiento clínico" }),
+              ],
+            }),
+          ],
+        }),
+        renderComponent({
+          tag: "button",
+          className: "w-11 h-11 rounded-full flex items-center justify-center text-gray-300 hover:text-red-400 hover:bg-white/10 transition-colors",
+          attrs: { type: "button", title: "Eliminar módulo" },
+          on: { click: () => removeModule(module.instanceId) },
+          children: [iconEl("fa-trash-can")],
+        }),
+      ],
+    });
+
+    const body = renderComponent({ tag: "div", className: "p-6 space-y-4" });
+
+    // Alerts container
+    body.appendChild(renderComponent({ tag: "div", attrs: { "data-alerts": module.instanceId }, className: "space-y-3" }));
+
+    // Plan container (auto)
+    body.appendChild(renderComponent({ tag: "div", attrs: { "data-plan": module.instanceId }, className: "space-y-3" }));
+
+    // Sections
+    (tpl.sections || []).forEach((sec, idx) => {
+      body.appendChild(renderSection(module, tpl, sec, idx));
+    });
+
+    card.appendChild(header);
+    card.appendChild(body);
+
+    stack.appendChild(card);
+
+    // First derived render
+    renderPlanCard(module, tpl);
+    evaluateModuleLogic(module, tpl);
+    updateModuleScores(module, tpl);
+  }
+
+  // -----------------------------
+  // Active tags render
+  // -----------------------------
+  function renderActiveTags() {
+    const container = $("#active-tags-container");
+    if (!container) return;
+
+    container.replaceChildren();
+
+    state.activeModules.forEach((m) => {
+      const tpl = getModuleTemplate(m.key);
+      const chip = renderComponent({
+        tag: "div",
+        className: "flex items-center gap-2 bg-brand-dark text-white/90 px-4 py-2 rounded-full shadow-sm border border-white/10",
+        children: [
+          renderComponent({ tag: "span", className: "font-bold text-sm", text: tpl.title || m.title }),
+          renderComponent({
+            tag: "button",
+            className: "w-6 h-6 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-colors",
+            attrs: { type: "button", title: "Cerrar" },
+            on: { click: () => removeModule(m.instanceId) },
+            children: [iconEl("fa-xmark")],
+          }),
+        ],
+      });
+      container.appendChild(chip);
+    });
+
+    // Adjust min height
+    container.style.minHeight = state.activeModules.length ? "auto" : "0px";
+  }
+
+  function setEmptyStateVisibility() {
+    const empty = $("#empty-state");
+    const stack = $("#clinical-stack");
+    if (!empty || !stack) return;
+
+    empty.style.display = state.activeModules.length ? "none" : "block";
+  }
+
+  // -----------------------------
+  // Storage: export/load + autosave
+  // -----------------------------
+  function exportSession() {
+    const payload = {
+      version: APP_VERSION,
+      exportedAt: new Date().toISOString(),
+      patientData: state.patientData,
+      activeModules: state.activeModules,
+    };
+    downloadTextFile(`paciente-${todayStamp()}.aum`, JSON.stringify(payload, null, 2));
+  }
+
+  function loadSessionFromObject(payload) {
+    if (!payload || typeof payload !== "object") return;
+
+    // Reset current
+    state.patientData = payload.patientData || {};
+    state.activeModules = Array.isArray(payload.activeModules) ? payload.activeModules : [];
+
+    // Restore patient inputs (DOM)
+    for (const [k, v] of Object.entries(state.patientData)) {
+      const el = getPatientEl(k);
+      if (el) el.value = v ?? "";
+    }
+    // Age placeholder
+    const ageEl = getPatientEl("patient-age");
+    if (ageEl) ageEl.value = state.patientData["patient-age"] || ageEl.value || "-";
+
+    // Ensure BMI injected, then restore weight/height/bmi
+    ensureWeightHeightBMI();
+    ["patient-weight", "patient-height", "patient-bmi"].forEach((id) => {
+      const el = getPatientEl(id);
+      if (el && id in state.patientData) el.value = state.patientData[id] ?? "";
+    });
+
+    // Clear stack DOM and rebuild
+    const stack = $("#clinical-stack");
+    if (stack) {
+      $$(".module-card", stack).forEach((n) => n.remove());
+    }
+
+    renderActiveTags();
+    setEmptyStateVisibility();
+
+    // Re-render module cards with templates
+    state.activeModules.forEach((m) => {
+      const tpl = getModuleTemplate(m.key);
+      // Ensure missing structures
+      m.tests = m.tests || {};
+      m.numeric = m.numeric || {};
+      m.text = m.text || {};
+      m.ui = m.ui || { collapsed: {} };
+      m.ui.collapsed = m.ui.collapsed || {};
+      renderModuleCard(m, tpl);
+    });
+
+    evaluateAllLogic();
+    scheduleAutosave(true);
+  }
+
+  function handleLoadFile(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const payload = JSON.parse(String(reader.result || "{}"));
+        loadSessionFromObject(payload);
+      } catch (e) {
+        alert("No se pudo leer el archivo .aum (JSON inválido).");
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function scheduleAutosave(forceImmediate = false) {
+    if (forceImmediate) {
+      doAutosave();
+      return;
+    }
+    clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(doAutosave, 300);
+  }
+
+  function doAutosave() {
+    try {
+      const payload = {
+        version: APP_VERSION,
+        savedAt: new Date().toISOString(),
+        patientData: state.patientData,
+        activeModules: state.activeModules,
+      };
+      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(payload));
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  function maybeRestoreAutosave() {
+    let raw = null;
+    try {
+      raw = localStorage.getItem(AUTOSAVE_KEY);
+    } catch (_) {
+      raw = null;
+    }
+    if (!raw) return;
+
+    let payload = null;
+    try {
+      payload = JSON.parse(raw);
+    } catch (_) {
+      payload = null;
+    }
+    if (!payload) return;
+
+    // Ask user (B)
+    const ok = window.confirm("Encontré una sesión guardada automáticamente. ¿Restaurarla?");
+    if (!ok) return;
+
+    loadSessionFromObject(payload);
+  }
+
+  // -----------------------------
+  // Print / PDF
+  // -----------------------------
+  function ensurePrintStyles() {
+    if ($("#aum-print-style")) return;
+
+    const style = renderComponent({
+      tag: "style",
+      attrs: { id: "aum-print-style" },
+      text: `
+        @media print {
+          #btn-add-module, #btn-reset-stack, #btn-upload-media, #btn-upload-docs,
+          #btn-save-aum, #btn-load-aum, .no-print, button[data-quick], button[data-mode] {
+            display: none !important;
+          }
+        }
+      `,
+    });
+    document.head.appendChild(style);
+  }
+
+  function expandAllTextareasForPrint() {
+    $$("textarea").forEach((ta) => {
+      // Expand to content height
+      ta.style.height = "auto";
+      ta.style.height = `${ta.scrollHeight}px`;
+    });
+  }
+
+  function exportPDF() {
+    expandAllTextareasForPrint();
+    window.print();
+  }
+
+  // -----------------------------
+  // Bind top controls
+  // -----------------------------
+  function bindTopControls() {
+    const addBtn = $("#btn-add-module");
+    const sel = $("#moduleSelector");
+    if (addBtn && sel) {
+      addBtn.addEventListener("click", () => {
+        const key = sel.value;
+        if (!key) return;
+        addModule(key);
+      });
+    }
+
+    const resetBtn = $("#btn-reset-stack");
+    if (resetBtn) resetBtn.addEventListener("click", resetStack);
+
+    const saveBtn = $("#btn-save-aum");
+    if (saveBtn) saveBtn.addEventListener("click", exportSession);
+
+    const loadBtn = $("#btn-load-aum");
+    const loadInput = $("#file-load-input");
+    if (loadBtn && loadInput) {
+      loadBtn.addEventListener("click", () => loadInput.click());
+      loadInput.addEventListener("change", () => {
+        const f = loadInput.files && loadInput.files[0];
+        if (!f) return;
+        handleLoadFile(f);
+        loadInput.value = "";
+      });
+    }
+
+    const uploadMediaBtn = $("#btn-upload-media");
+    const mediaInput = $("#media-upload-input");
+    if (uploadMediaBtn && mediaInput) {
+      const open = () => mediaInput.click();
+      uploadMediaBtn.addEventListener("click", open);
+      uploadMediaBtn.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") open();
+      });
+    }
+
+    const uploadDocsBtn = $("#btn-upload-docs");
+    const docInput = $("#doc-upload-input");
+    if (uploadDocsBtn && docInput) {
+      const open = () => docInput.click();
+      uploadDocsBtn.addEventListener("click", open);
+      uploadDocsBtn.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") open();
+      });
+    }
+
+    const pdfBtn = $("#btn-export-pdf");
+    if (pdfBtn) pdfBtn.addEventListener("click", exportPDF);
+
+    // Before/after print hooks
+    window.addEventListener("beforeprint", () => expandAllTextareasForPrint());
+    ensurePrintStyles();
+  }
 
   // -----------------------------
   // Init
   // -----------------------------
   function init() {
-    // date display (keep consistent with existing index.html)
-    const dateEl = $("#date-display");
-    if (dateEl) dateEl.textContent = new Date().toLocaleDateString("es-CL");
-
-    injectAnthropometrics();
+    ensureWeightHeightBMI();
     bindPatientInputs();
+    bindTopControls();
+    setEmptyStateVisibility();
 
-    // Start with correct empty state
-    ensureEmptyStateShownIfNeeded();
-
-    // Evaluate once at start
-    evaluateLogic();
+    // Autosave restore prompt:
+    maybeRestoreAutosave();
   }
 
   if (document.readyState === "loading") {
