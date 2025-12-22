@@ -1,611 +1,600 @@
-// All u moves — js/data.js
-// Módulos clínicos (JSON) consumidos por el motor de la app.
-// Terminología: evita terminología antigua y privilegia lenguaje contemporáneo
-// tipo "dolor relacionado al manguito rotador (RCRSP)" / "tendinopatía del manguito".
-
+/* All u moves — js/data.js
+   Clinical modules data (JSON-like) for app.js engine
+   - Shoulder module (Hombro & Cintura Escapular)
+   - Evidence-informed structure: red flags, ROM, strength, special tests, clusters, PROMs (SPADI/DASH)
+   - Avoids outdated terminology; uses contemporary classification language (e.g., RCRSP)
+*/
 (() => {
   "use strict";
 
-  // -----------------------------
-  // Helpers (solo para reglas)
-  // -----------------------------
-  const countTrue = (...vals) => vals.reduce((acc, v) => acc + (v ? 1 : 0), 0);
-
-  const safeNumber = (v) => {
-    const n = typeof v === "number" ? v : Number(String(v ?? "").replace(",", "."));
-    return Number.isFinite(n) ? n : null;
-  };
-
-  const getAge = (patientData) => {
-    const a = safeNumber(patientData?.["patient-age"]);
-    return a === null ? null : a;
-  };
-
-  const bilateralVal = (maybeBilateral, side) => {
-    if (maybeBilateral && typeof maybeBilateral === "object") return safeNumber(maybeBilateral[side]);
-    return null;
-  };
-
-  // -----------------------------
-  // DASH — 30 ítems (paráfrasis no literal) + 2 módulos opcionales (trabajo, deporte/arte)
-  // Escala en app: 0–5 (0 = no respondido / N/A). Puedes instruir al paciente: 1–5.
-  // -----------------------------
-  const DASH_CORE_LABELS = [
-    "Abrir un frasco/tarro que está muy apretado",
-    "Escribir (mano/brazo) por un rato",
-    "Girar una llave en una cerradura",
-    "Preparar comida (picar, mezclar, cocinar)",
-    "Empujar una puerta pesada",
-    "Poner un objeto en un estante por sobre la cabeza",
-    "Hacer tareas domésticas pesadas (ej: limpiar fuerte)",
-    "Hacer tareas de jardinería o similares",
-    "Arreglar la cama (sábanas/frazadas)",
-    "Cargar una bolsa o mochila con compras",
-    "Cargar un objeto pesado (ej: caja)",
-    "Cambiar una ampolleta/objeto por sobre la cabeza",
-    "Lavarse o secarse el pelo",
-    "Lavarse la espalda (alcanzar zona dorsal)",
-    "Ponerse un polerón/polerita por la cabeza",
-    "Cortar comida con cuchillo",
-    "Actividades recreativas que exigen algo de fuerza del brazo (ej: deporte suave)",
-    "Actividades recreativas con impacto o fuerza alta del brazo (ej: deporte intenso)",
-    "Interacción social/ocio afectado por el brazo/hombro",
-    "Limitación en el trabajo habitual por el brazo/hombro",
-    "Dolor en el brazo/hombro",
-    "Dolor al hacer actividades con el brazo/hombro",
-    "Hormigueo/adormecimiento en brazo/mano",
-    "Debilidad percibida en brazo/hombro",
-    "Rigidez en hombro/brazo",
-    "Dificultad para dormir por dolor del brazo/hombro",
-    "Sentirse menos capaz por el problema (confianza funcional)",
-    "Impacto del problema en el ánimo/estrés",
-    "Impacto del problema en la imagen corporal o autoestima",
-    "Impacto global en actividades diarias (resumen)",
+  // ---------------------------------------
+  // Helpers (data-only, no DOM here)
+  // ---------------------------------------
+  const spadiPainItems = [
+    ["spadi_p01", "Dolor en el peor momento"],
+    ["spadi_p02", "Dolor al estar acostado/a del lado afectado"],
+    ["spadi_p03", "Dolor al alcanzar un objeto en un estante alto"],
+    ["spadi_p04", "Dolor al tocar la nuca / parte posterior de la cabeza"],
+    ["spadi_p05", "Dolor al empujar con la mano/brazo afectado (ej. puerta, levantarse de silla)"],
   ];
 
-  const DASH_WORK_LABELS = [
-    "Trabajo: usar herramientas o tareas repetitivas con el brazo",
-    "Trabajo: levantar/cargar en el trabajo",
-    "Trabajo: movimientos por sobre la cabeza en el trabajo",
-    "Trabajo: tolerancia general de la jornada por el brazo/hombro",
+  const spadiDisItems = [
+    ["spadi_d01", "Lavarse el cabello"],
+    ["spadi_d02", "Lavarse la espalda (entre omóplatos / región lumbar)"],
+    ["spadi_d03", "Ponerse una camiseta/jersey"],
+    ["spadi_d04", "Ponerse una camisa/chaqueta (mangas)"],
+    ["spadi_d05", "Ponerse pantalones"],
+    ["spadi_d06", "Colocar un objeto en un estante alto"],
+    ["spadi_d07", "Llevar un objeto pesado (p. ej., bolsa de compras)"],
+    ["spadi_d08", "Sacar algo del bolsillo trasero / cinturón"],
   ];
 
-  const DASH_SPORT_LABELS = [
-    "Deporte/arte: gesto específico que exige el hombro (principal)",
-    "Deporte/arte: gesto repetitivo con velocidad/alcance",
-    "Deporte/arte: fuerza/potencia del miembro superior requerida",
-    "Deporte/arte: tolerancia del volumen semanal (sin reagudización)",
+  // DASH (30 ítems core). Escala típica 1–5. Usamos 0 como "No aplica".
+  // 1 = Sin dificultad, 2 = Leve, 3 = Moderada, 4 = Severa, 5 = Incapaz
+  const dashCoreItems = [
+    ["dash_q01", "Abrir un frasco/tarro apretado o nuevo"],
+    ["dash_q02", "Escribir"],
+    ["dash_q03", "Girar una llave"],
+    ["dash_q04", "Preparar una comida (cortar, revolver, etc.)"],
+    ["dash_q05", "Empujar una puerta pesada"],
+    ["dash_q06", "Poner un objeto sobre la cabeza"],
+    ["dash_q07", "Hacer tareas domésticas pesadas (limpiar, lavar pisos, etc.)"],
+    ["dash_q08", "Jardinería o trabajos de patio"],
+    ["dash_q09", "Tender la cama (arreglarla)"],
+    ["dash_q10", "Cargar una bolsa o maletín"],
+    ["dash_q11", "Cargar un objeto pesado (≈ 4–5 kg)"],
+    ["dash_q12", "Cambiar una ampolleta / bombilla"],
+    ["dash_q13", "Lavarse o secarse el cabello"],
+    ["dash_q14", "Lavarse la espalda"],
+    ["dash_q15", "Ponerse una camiseta/jersey"],
+    ["dash_q16", "Ponerse una camisa/chaqueta (mangas)"],
+    ["dash_q17", "Usar un cuchillo para cortar comida"],
+    ["dash_q18", "Actividades recreativas que requieren poco esfuerzo (leer, tejer, etc.)"],
+    ["dash_q19", "Actividades recreativas que requieren algo de fuerza o impacto (golf, martillo, etc.)"],
+    ["dash_q20", "Actividades recreativas que requieren movimientos libres del brazo (lanzar, nadar, etc.)"],
+    ["dash_q21", "Actividades recreativas en las que el brazo se somete a fuerza o impacto (tenis, básquet, etc.)"],
+    ["dash_q22", "Durante las últimas semanas: ¿tu problema ha interferido con tus actividades sociales?"],
+    ["dash_q23", "Durante las últimas semanas: ¿tu problema ha limitado tu trabajo u otras actividades diarias?"],
+    ["dash_q24", "Dolor en el brazo/hombro/mano"],
+    ["dash_q25", "Hormigueo (parestesias) en brazo/hombro/mano"],
+    ["dash_q26", "Debilidad en brazo/hombro/mano"],
+    ["dash_q27", "Rigidez en brazo/hombro/mano"],
+    ["dash_q28", "Dificultad para dormir debido al dolor"],
+    ["dash_q29", "Dificultad para mantener el brazo en una posición por tiempo prolongado"],
+    ["dash_q30", "Confianza para usar el brazo en tareas habituales"],
   ];
 
-  const DASH_CORE = DASH_CORE_LABELS.map((label, i) => {
-    const n = String(i + 1).padStart(2, "0");
-    return {
-      id: `dash_q${n}`,
-      label: `DASH — ${label} (0–5; 0=N/A)`,
-      type: "numeric",
-      min: 0,
-      max: 5,
-      normal: 0,
-      default: 0,
-      unit: "",
-      limited: 4,
-    };
-  });
-
-  const DASH_WORK = DASH_WORK_LABELS.map((label, i) => {
-    const n = String(i + 1).padStart(2, "0");
-    return {
-      id: `dash_work${n}`,
-      label: `DASH (Trabajo) — ${label} (0–5; 0=N/A)`,
-      type: "numeric",
-      min: 0,
-      max: 5,
-      normal: 0,
-      default: 0,
-      unit: "",
-      limited: 4,
-    };
-  });
-
-  const DASH_SPORT = DASH_SPORT_LABELS.map((label, i) => {
-    const n = String(i + 1).padStart(2, "0");
-    return {
-      id: `dash_sport${n}`,
-      label: `DASH (Deporte/Arte) — ${label} (0–5; 0=N/A)`,
-      type: "numeric",
-      min: 0,
-      max: 5,
-      normal: 0,
-      default: 0,
-      unit: "",
-      limited: 4,
-    };
-  });
-
-  // -----------------------------
-  // SPADI — 5 dolor + 8 discapacidad (paráfrasis no literal). Escala 0–10.
-  // -----------------------------
-  const SPADI_PAIN_LABELS = [
-    "Dolor al máximo (peor dolor del hombro)",
-    "Dolor al estar acostado sobre el hombro afectado",
-    "Dolor al alcanzar un objeto alto (por sobre la cabeza)",
-    "Dolor al llevar la mano hacia la nuca/cuello (peinarse)",
-    "Dolor al empujar o sostener peso con el brazo",
+  // DASH módulos opcionales (Trabajo / Deporte-Artes)
+  const dashWorkItems = [
+    ["dash_w01", "Módulo Trabajo: usar herramientas / equipos específicos del trabajo"],
+    ["dash_w02", "Módulo Trabajo: realizar tareas repetitivas con el brazo"],
+    ["dash_w03", "Módulo Trabajo: levantar/cargar en el trabajo"],
+    ["dash_w04", "Módulo Trabajo: trabajar con el brazo por encima del hombro"],
   ];
 
-  const SPADI_DIS_LABELS = [
-    "Dificultad para lavarse el pelo / arreglarse",
-    "Dificultad para lavarse la espalda / alcanzar la zona dorsal",
-    "Dificultad para ponerse o sacarse una prenda por la cabeza",
-    "Dificultad para ponerse o sacarse chaqueta / manga",
-    "Dificultad para levantar/alcanzar un objeto alto",
-    "Dificultad para cargar una bolsa o peso moderado",
-    "Dificultad para usar el brazo en tareas domésticas",
-    "Dificultad para actividades recreativas/deporte por el hombro",
+  const dashSportItems = [
+    ["dash_s01", "Módulo Deporte/Artes: actividad que exige velocidad o precisión del brazo"],
+    ["dash_s02", "Módulo Deporte/Artes: actividad que exige impacto/carga en brazo"],
+    ["dash_s03", "Módulo Deporte/Artes: actividad con movimiento repetido overhead"],
+    ["dash_s04", "Módulo Deporte/Artes: rendimiento global en tu deporte/arte"],
   ];
 
-  const SPADI_PAIN = SPADI_PAIN_LABELS.map((label, i) => {
-    const n = String(i + 1).padStart(2, "0");
+  function mkPROMField(id, label, min, max, unit, normal, limited, help) {
     return {
-      id: `spadi_p${n}`,
-      label: `SPADI (Dolor) — ${label} (0–10)`,
+      id,
+      label,
       type: "numeric",
-      min: 0,
-      max: 10,
-      normal: 0,
-      default: 0,
-      unit: "",
-      limited: 6,
+      unit,
+      min,
+      max,
+      normal,
+      limited,
+      bilateral: false,
+      help,
     };
-  });
+  }
 
-  const SPADI_DIS = SPADI_DIS_LABELS.map((label, i) => {
-    const n = String(i + 1).padStart(2, "0");
-    return {
-      id: `spadi_d${n}`,
-      label: `SPADI (Discapacidad) — ${label} (0–10)`,
-      type: "numeric",
-      min: 0,
-      max: 10,
-      normal: 0,
-      default: 0,
-      unit: "",
-      limited: 6,
-    };
-  });
+  function mkDashField(id, label) {
+    return mkPROMField(
+      id,
+      label,
+      0,
+      5,
+      "",
+      1,
+      3,
+      "0=No aplica · 1=Sin dificultad · 5=Incapaz"
+    );
+  }
 
-  // -----------------------------
-  // MÓDULOS
-  // -----------------------------
+  // ---------------------------------------
+  // Module definition: Hombro
+  // ---------------------------------------
   const clinicalModules = {
     hombro: {
       key: "hombro",
       title: "Hombro & Cintura Escapular",
       icon: "fa-person-rays",
       sections: [
+        // 1) Red Flags / Derivación
         {
-          title: "Identificación (Segmento)",
-          icon: "fa-id-card",
-          style: "grid2",
-          fields: [
-            { id: "lado_sintomatico", label: "Lado sintomático (I / D / Bilateral)", type: "text", placeholder: "Ej: Derecha" },
-            { id: "dominancia", label: "Dominancia (diestra/zurda)", type: "text", placeholder: "Ej: Diestra" },
-          ],
-        },
-        {
-          title: "Motivo, metas y contexto (laboral / deportivo)",
-          icon: "fa-clipboard-question",
-          style: "card",
-          fields: [
-            { id: "motivo_consulta", label: "Motivo de consulta (qué, desde cuándo, dónde, cómo)", type: "textarea" },
-            { id: "metas_paciente", label: "Metas del paciente (SMART si es posible)", type: "textarea" },
-            { id: "contexto_trabajo_deporte", label: "Contexto de carga (gestos, volumen, cambios recientes)", type: "textarea" },
-            { id: "tratamientos_previos", label: "Tratamientos previos y respuesta", type: "textarea" },
-          ],
-        },
-        {
-          title: "Síntomas clave & Función",
-          icon: "fa-person-walking",
-          style: "card",
-          fields: [
-            { id: "dolor_actual", label: "Dolor actual (NRS)", type: "numeric", min: 0, max: 10, normal: 0, default: 0, unit: "/10", limited: 6 },
-            { id: "dolor_peor_24h", label: "Dolor peor últimas 24h (NRS)", type: "numeric", min: 0, max: 10, normal: 0, default: 0, unit: "/10", limited: 6 },
-            { id: "dolor_nocturno", label: "Dolor nocturno (interrumpe sueño)", type: "boolean", default: false },
-            { id: "dolor_no_mecanico", label: "Dolor no mecánico (no cambia con postura/carga)", type: "boolean", default: false },
-            { id: "dolor_sobre_cabeza", label: "Dolor al elevar/sobre-cabeza", type: "boolean", default: false },
-            { id: "dolor_al_lado", label: "Dolor al acostarse sobre el hombro", type: "boolean", default: false },
-            { id: "rigidez_matinal", label: "Rigidez matinal significativa", type: "boolean", default: false },
-            { id: "sensacion_inestabilidad", label: "Sensación de inestabilidad / aprehensión", type: "boolean", default: false },
-
-            { id: "psfs_act1", label: "PSFS Actividad #1 (nombre)", type: "text", placeholder: "Ej: peinarse / overhead" },
-            { id: "psfs_act1_score", label: "PSFS #1 (0–10 capacidad)", type: "numeric", min: 0, max: 10, normal: 10, default: 0, unit: "/10", limited: 6 },
-            { id: "psfs_act2", label: "PSFS Actividad #2 (nombre)", type: "text" },
-            { id: "psfs_act2_score", label: "PSFS #2 (0–10 capacidad)", type: "numeric", min: 0, max: 10, normal: 10, default: 0, unit: "/10", limited: 6 },
-            { id: "psfs_act3", label: "PSFS Actividad #3 (nombre)", type: "text" },
-            { id: "psfs_act3_score", label: "PSFS #3 (0–10 capacidad)", type: "numeric", min: 0, max: 10, normal: 10, default: 0, unit: "/10", limited: 6 },
-
-            { id: "resumen_funcional", label: "Resumen funcional (evitación, ajustes, limitaciones principales)", type: "textarea" },
-          ],
-        },
-        {
-          title: "Seguridad: Banderas Rojas (Descartes)",
+          title: "Banderas Rojas & Derivación",
           icon: "fa-triangle-exclamation",
-          style: "grid2",
+          style: "card",
           fields: [
-            { id: "trauma_deformidad_fractura", label: "Trauma con deformidad / sospecha fractura-luxación", type: "boolean" },
-            { id: "fiebre_escalofrios", label: "Fiebre/escalofríos o malestar sistémico", type: "boolean" },
+            { id: "antecedente_cancer", label: "Antecedente de cáncer", type: "boolean", help: "Especialmente reciente o sin controles." },
             { id: "perdida_peso", label: "Pérdida de peso inexplicada", type: "boolean" },
-            { id: "antecedente_cancer", label: "Antecedente de cáncer", type: "boolean" },
-            { id: "inmunosupresion", label: "Inmunosupresión / corticoides crónicos", type: "boolean" },
-            { id: "dolor_toracico_disnea", label: "Dolor torácico / disnea / irradiación atípica", type: "boolean" },
+            { id: "fiebre", label: "Fiebre / escalofríos", type: "boolean" },
+            { id: "riesgo_infeccion", label: "Riesgo de infección (inmunosupresión, drogas EV, herida, posqx)", type: "boolean" },
+            { id: "trauma_significativo", label: "Trauma significativo (caída/choque)", type: "boolean" },
+            { id: "deformidad_visible", label: "Deformidad visible / sospecha de luxación", type: "boolean" },
+            { id: "dolor_nocturno_no_mecanico", label: "Dolor nocturno no mecánico (no cambia con postura/carga)", type: "boolean" },
+            { id: "dolor_reposo_intenso", label: "Dolor intenso en reposo (desproporcionado)", type: "boolean" },
+            { id: "incapacidad_elevar_brazo", label: "Incapacidad de elevar el brazo activamente tras trauma", type: "boolean" },
             { id: "deficit_neuro_progresivo", label: "Déficit neurológico progresivo (fuerza/sensibilidad)", type: "boolean" },
-            { id: "sintomas_vasculares", label: "Síntomas vasculares (frialdad, palidez, edema, pulso)", type: "boolean" },
-            { id: "notas_red_flags", label: "Notas / decisión clínica / plan de derivación", type: "textarea" },
+            { id: "dolor_pecho_disnea", label: "Dolor torácico / disnea (tamizaje)", type: "boolean" },
+            { id: "redflags_notas", label: "Notas / decisión (derivación, imagen, urgencias)", type: "textarea", placeholder: "Registra lo relevante y tu conducta." },
           ],
         },
+
+        // 2) Anamnesis específica
         {
-          title: "Tipo de dolor, irritabilidad & factores psicosociales",
-          icon: "fa-brain",
-          style: "card",
-          fields: [
-            { id: "dolor_nociceptivo", label: "Mecanismo nociceptivo predominante (proporcional a carga/gesto)", type: "boolean" },
-            { id: "dolor_neuropatico", label: "Mecanismo neuropático (ardor/eléctrico, alodinia, déficits)", type: "boolean" },
-            { id: "dolor_nociplastico", label: "Mecanismo nociplástico posible (hipersensibilidad, sueño/estrés)", type: "boolean" },
-            { id: "irritabilidad", label: "Irritabilidad (Alta / Media / Baja)", type: "text", placeholder: "Ej: Media" },
-            { id: "miedo_movimiento", label: "Miedo al movimiento / evitación", type: "boolean" },
-            { id: "catastrofismo", label: "Catastrofismo / preocupación elevada", type: "boolean" },
-            { id: "estres_sueno", label: "Estrés alto / sueño insuficiente", type: "boolean" },
-            { id: "notas_psicosocial", label: "Notas (creencias, expectativas, barreras, adherencia)", type: "textarea" },
-          ],
-        },
-        {
-          title: "Tamizaje Cervical / Radicular (si corresponde)",
-          icon: "fa-person-circle-question",
+          title: "Anamnesis Específica",
+          icon: "fa-clipboard-question",
           style: "grid2",
           fields: [
-            { id: "spurling", label: "Spurling (+)", type: "boolean" },
-            { id: "distraction_alivia", label: "Distracción cervical alivia (+)", type: "boolean" },
-            { id: "ultt_mediano", label: "ULTT Mediano (+)", type: "boolean" },
-            { id: "rotacion_cervical_lt60", label: "Rotación cervical ipsilateral < 60° (+)", type: "boolean" },
-            { id: "neuro_notas", label: "Notas neuro (dermatomas, miotomas, reflejos, parestesias)", type: "textarea" },
+            { id: "lado_sintomatico", label: "Lado sintomático", type: "text", placeholder: "Izq / Der / Bilateral" },
+            { id: "dominancia", label: "Dominancia", type: "text", placeholder: "Diestro / Zurdo" },
+            { id: "inicio", label: "Inicio", type: "text", placeholder: "Agudo / Subagudo / Gradual" },
+            { id: "mecanismo", label: "Mecanismo / detonante", type: "text", placeholder: "Trauma, sobrecarga, overhead, etc." },
+            mkPROMField("dolor_eva", "Dolor actual (0–10)", 0, 10, "/10", 0, 5, "Escala EVA/END"),
+            { id: "dolor_localizacion", label: "Localización dolor", type: "text", placeholder: "Anterolateral, AC, bicipital, posterior, etc." },
+            { id: "dolor_irradia", label: "¿Irradia? (brazo/mano/escápula)", type: "text", placeholder: "Describe patrón" },
+            { id: "irritabilidad", label: "Irritabilidad (para dosificación)", type: "text", placeholder: "Alta / Media / Baja" }, // app.js lo convierte en select
+            { id: "patron_24h", label: "Patrón 24h (sueño, mañana, carga)", type: "text", placeholder: "Ej: peor noche, rigidez AM, etc." },
+            { id: "dolor_nocturno", label: "Dolor nocturno (clínico)", type: "boolean" },
+            { id: "rigidez", label: "Rigidez / sensación de tope", type: "boolean" },
+            { id: "chasquidos", label: "Chasquidos / bloqueos", type: "boolean" },
+            { id: "sensacion_inestabilidad", label: "Sensación de inestabilidad/aprehensión", type: "boolean" },
+            { id: "parestesias", label: "Parestesias / adormecimiento", type: "boolean" },
+            { id: "agravantes", label: "Agravantes (gestos/cargas)", type: "textarea", placeholder: "Overhead, empuje, tracción, dormir, etc." },
+            { id: "aliviantes", label: "Aliviantes", type: "textarea", placeholder: "Reposo relativo, calor, posición, etc." },
+            { id: "objetivo_paciente", label: "Objetivo del paciente", type: "textarea", placeholder: "Volver a deporte, trabajo, overhead, dormir, etc." },
           ],
         },
+
+        // 3) Inspección completa
         {
-          title: "Observación & Control Escápulo-Torácico",
-          icon: "fa-arrows-to-circle",
-          style: "grid2",
-          fields: [
-            { id: "disquinesia_escapular", label: "Disquinesia escapular (observación)", type: "boolean" },
-            { id: "winging", label: "Winging / borde medial prominente", type: "boolean" },
-            { id: "scap_assist", label: "Scapular Assistance Test (+) (↓ dolor / ↑ ROM)", type: "boolean" },
-            { id: "scap_retract", label: "Scapular Retraction Test (+) (↓ dolor / ↑ fuerza)", type: "boolean" },
-            { id: "toracica_limitada", label: "Movilidad torácica limitada (ext/rot)", type: "boolean" },
-            { id: "notas_escapula", label: "Notas (patrón, timing, compensaciones, re-test)", type: "textarea" },
-          ],
-        },
-        {
-          title: "Rango de Movimiento (ROM Activo)",
-          icon: "fa-ruler-combined",
+          title: "Inspección",
+          icon: "fa-eye",
           style: "card",
           fields: [
-            { id: "flexion_activa", label: "Flexión Anterior (Activo)", type: "numeric", unit: "°", min: 0, max: 180, normal: 170, limited: 120, bilateral: true, default: { L: 0, R: 0 } },
-            { id: "abduccion_activa", label: "Abducción (Activo)", type: "numeric", unit: "°", min: 0, max: 180, normal: 170, limited: 120, bilateral: true, default: { L: 0, R: 0 } },
-            { id: "er0_activa", label: "Rotación Externa 0° ABD (Activo)", type: "numeric", unit: "°", min: 0, max: 90, normal: 60, limited: 35, bilateral: true, default: { L: 0, R: 0 } },
-            { id: "ir0_activa", label: "Rotación Interna 0° ABD (Activo)", type: "numeric", unit: "°", min: 0, max: 90, normal: 70, limited: 45, bilateral: true, default: { L: 0, R: 0 } },
-            { id: "ir_funcional", label: "IR funcional (mano detrás de espalda) — nivel vertebral", type: "text", placeholder: "Ej: T7 / L1..." },
+            { id: "atrofia_supra", label: "Atrofia supraespinoso (fosa supraespinosa)", type: "boolean" },
+            { id: "atrofia_infra", label: "Atrofia infraespinoso (fosa infraespinosa)", type: "boolean" },
+            { id: "signo_popeye", label: "Signo 'Popeye' (bíceps)", type: "boolean" },
+            { id: "edema", label: "Edema", type: "boolean" },
+            { id: "eritema", label: "Eritema / cambios de color", type: "boolean" },
+            { id: "temp_aumentada", label: "Temperatura local aumentada", type: "boolean" },
+            { id: "asimetria_clavicular", label: "Asimetría clavicular / AC", type: "boolean" },
+            { id: "postura_protraccion", label: "Protracción / hombro anteriorizado", type: "boolean" },
+            { id: "elevacion_hombro", label: "Elevación de hombro (compensación)", type: "boolean" },
+            { id: "escapula_alada", label: "Escápula alada", type: "boolean" },
+            { id: "dyskinesis_escapular", label: "Disquinesia escapular (observación dinámica)", type: "boolean" },
+            { id: "ritmo_alterado", label: "Ritmo escápulo-humeral alterado", type: "boolean" },
+            { id: "cicatrices", label: "Cicatrices / antecedentes quirúrgicos visibles", type: "boolean" },
+            { id: "inspeccion_notas", label: "Notas de inspección", type: "textarea", placeholder: "Describe hallazgos relevantes." },
           ],
         },
+
+        // 4) Palpación completa
         {
-          title: "Rango de Movimiento (ROM Pasivo)",
+          title: "Palpación",
           icon: "fa-hand",
           style: "card",
           fields: [
-            { id: "flexion_pasiva", label: "Flexión Anterior (Pasivo)", type: "numeric", unit: "°", min: 0, max: 180, normal: 175, limited: 125, bilateral: true, default: { L: 0, R: 0 } },
-            { id: "abduccion_pasiva", label: "Abducción (Pasivo)", type: "numeric", unit: "°", min: 0, max: 180, normal: 175, limited: 125, bilateral: true, default: { L: 0, R: 0 } },
-            { id: "er0_pasiva", label: "Rotación Externa 0° ABD (Pasivo)", type: "numeric", unit: "°", min: 0, max: 90, normal: 70, limited: 40, bilateral: true, default: { L: 0, R: 0 } },
-            { id: "er90_pasiva", label: "Rotación Externa 90° ABD (Pasivo)", type: "numeric", unit: "°", min: 0, max: 120, normal: 90, limited: 60, bilateral: true, default: { L: 0, R: 0 } },
-            { id: "ir90_pasiva", label: "Rotación Interna 90° ABD (Pasivo)", type: "numeric", unit: "°", min: 0, max: 90, normal: 60, limited: 35, bilateral: true, default: { L: 0, R: 0 } },
-            { id: "accesorios_restringidos", label: "Restricción marcada GH (inferior/posterior/anterior)", type: "boolean", default: false },
+            { id: "dolor_ac_palp", label: "Dolor a palpación articulación AC", type: "boolean" },
+            { id: "dolor_bicipital_palp", label: "Dolor corredera bicipital", type: "boolean" },
+            { id: "dolor_supra_insercion_palp", label: "Dolor inserción supraespinoso (tubérculo mayor)", type: "boolean" },
+            { id: "dolor_infra_palp", label: "Dolor infraespinoso / redondo menor", type: "boolean" },
+            { id: "dolor_subescapular_palp", label: "Dolor subescapular / surco", type: "boolean" },
+            { id: "dolor_coracoides_palp", label: "Dolor región coracoides", type: "boolean" },
+            { id: "dolor_trapecio_palp", label: "Dolor trapecio/elevador escápula", type: "boolean" },
+            { id: "dolor_pectoral_menor_palp", label: "Dolor pectoral menor", type: "boolean" },
+            { id: "dolor_cervicoescapular_palp", label: "Dolor cervico-escapular", type: "boolean" },
+            { id: "dolor_oseo_focal", label: "Dolor óseo focal (clavícula/húmero proximal)", type: "boolean" },
+            { id: "crepitacion", label: "Crepitación / fricción palpable", type: "boolean" },
+            { id: "palpacion_notas", label: "Notas de palpación", type: "textarea", placeholder: "Puntos gatillo, dolor focal, respuesta al tacto, etc." },
           ],
         },
+
+        // 5) ROM activo
         {
-          title: "Fuerza (Clínica / MMT)",
+          title: "ROM Activo (AROM)",
+          icon: "fa-ruler-combined",
+          style: "card",
+          fields: [
+            { id: "flexion_a", label: "Flexión", type: "numeric", unit: "°", min: 0, max: 180, normal: 170, limited: 120, bilateral: true },
+            { id: "abduccion_a", label: "Abducción", type: "numeric", unit: "°", min: 0, max: 180, normal: 170, limited: 120, bilateral: true },
+            { id: "extension_a", label: "Extensión", type: "numeric", unit: "°", min: 0, max: 70, normal: 60, limited: 40, bilateral: true },
+            { id: "er0_a", label: "Rotación Externa (0° Abd)", type: "numeric", unit: "°", min: 0, max: 100, normal: 80, limited: 50, bilateral: true },
+            { id: "er90_a", label: "Rotación Externa (90° Abd)", type: "numeric", unit: "°", min: 0, max: 120, normal: 100, limited: 70, bilateral: true },
+            { id: "ir90_a", label: "Rotación Interna (90° Abd)", type: "numeric", unit: "°", min: 0, max: 90, normal: 70, limited: 45, bilateral: true },
+            { id: "arco_doloroso", label: "Arco doloroso (clínico)", type: "boolean", help: "Marcar si el dolor aparece en un rango específico de elevación." },
+            { id: "compensaciones", label: "Compensaciones (hombro elevado, tronco, escápula)", type: "boolean" },
+            { id: "ir_mano_espalda", label: "IR funcional (mano a espalda) — nivel", type: "text", placeholder: "Ej: T7, T12, glúteo" },
+            { id: "arom_notas", label: "Notas AROM", type: "textarea", placeholder: "Dolor, tope, calidad de movimiento, etc." },
+          ],
+        },
+
+        // 6) ROM pasivo
+        {
+          title: "ROM Pasivo (PROM)",
+          icon: "fa-arrows-left-right-to-line",
+          style: "card",
+          fields: [
+            { id: "flexion_p", label: "Flexión", type: "numeric", unit: "°", min: 0, max: 180, normal: 175, limited: 130, bilateral: true },
+            { id: "abduccion_p", label: "Abducción", type: "numeric", unit: "°", min: 0, max: 180, normal: 175, limited: 130, bilateral: true },
+            { id: "er0_p", label: "Rotación Externa (0° Abd)", type: "numeric", unit: "°", min: 0, max: 100, normal: 85, limited: 55, bilateral: true },
+            { id: "er90_p", label: "Rotación Externa (90° Abd)", type: "numeric", unit: "°", min: 0, max: 120, normal: 105, limited: 75, bilateral: true },
+            { id: "ir90_p", label: "Rotación Interna (90° Abd)", type: "numeric", unit: "°", min: 0, max: 90, normal: 75, limited: 50, bilateral: true },
+            { id: "patron_capsular", label: "Patrón capsular (sospecha) — ER limitada > Abd/Flex", type: "boolean" },
+            { id: "endfeel_duro", label: "End-feel duro/abrupto", type: "boolean" },
+            { id: "prom_notas", label: "Notas PROM", type: "textarea", placeholder: "End-feel, dolor, rigidez, capsular vs no-capsular." },
+          ],
+        },
+
+        // 7) Fuerza manual (global)
+        {
+          title: "Fuerza Manual (MMT / Resistencia)",
           icon: "fa-dumbbell",
           style: "card",
           fields: [
-            { id: "abd_mmt", label: "Abducción / Scaption (MMT 0–5)", type: "numeric", min: 0, max: 5, normal: 5, limited: 3, bilateral: true, default: { L: 0, R: 0 } },
-            { id: "er_mmt", label: "Rotación Externa (MMT 0–5)", type: "numeric", min: 0, max: 5, normal: 5, limited: 3, bilateral: true, default: { L: 0, R: 0 } },
-            { id: "ir_mmt", label: "Rotación Interna (MMT 0–5)", type: "numeric", min: 0, max: 5, normal: 5, limited: 3, bilateral: true, default: { L: 0, R: 0 } },
-            { id: "dolor_isometria_baja", label: "Dolor significativo con isometría (carga baja)", type: "boolean", default: false },
-            { id: "notas_fuerza", label: "Notas (dolor vs debilidad real, patrón, fatiga)", type: "textarea" },
+            { id: "debilidad_marcada", label: "Debilidad marcada (clínica)", type: "boolean", help: "Incapacidad clara vs inhibición por dolor." },
+            { id: "dolor_contra_resistencia", label: "Dolor con resistencia (cualquier dirección)", type: "boolean" },
+            { id: "fuerza_manual_global", label: "Evaluación manual global (RC, deltoides, escápula, patrón)", type: "textarea", placeholder: "Describe MMT, dolor, control, fatiga, compensaciones." },
+            { id: "fuerza_musculos_detalle", label: "Detalle por músculo (manual)", type: "textarea", placeholder: "Ej: ER 4-/5 dolor, Abd 4/5, Serrato 4/5, Trapecio inf 3+/5, etc." },
           ],
         },
+
+        // 8) Dinamometría (seccionado)
         {
-          title: "Pruebas Especiales (Clusters / Triage)",
+          title: "Dinamometría (registro bilateral)",
+          icon: "fa-gauge-high",
+          style: "card",
+          fields: [
+            { id: "dyn_unidad", label: "Unidad / protocolo", type: "text", placeholder: "Ej: N, kgf, N/kg · posición y palanca" },
+            { id: "dyn_er0", label: "ER (0° Abd)", type: "numeric", unit: "", min: 0, max: 1000, normal: 0, limited: 0, bilateral: true, help: "Registra valor L/R con el mismo protocolo." },
+            { id: "dyn_ir0", label: "IR (0° Abd)", type: "numeric", unit: "", min: 0, max: 1000, normal: 0, limited: 0, bilateral: true },
+            { id: "dyn_abd_scaption", label: "Abducción (scaption)", type: "numeric", unit: "", min: 0, max: 1000, normal: 0, limited: 0, bilateral: true },
+            { id: "dyn_flex", label: "Flexión", type: "numeric", unit: "", min: 0, max: 1000, normal: 0, limited: 0, bilateral: true },
+            { id: "dyn_ext", label: "Extensión", type: "numeric", unit: "", min: 0, max: 1000, normal: 0, limited: 0, bilateral: true },
+            { id: "dyn_row", label: "Tracción (row) / retractores", type: "numeric", unit: "", min: 0, max: 1000, normal: 0, limited: 0, bilateral: true },
+            { id: "dyn_notas", label: "Notas dinamometría", type: "textarea", placeholder: "Protocolo, posición, dolor, confiabilidad." },
+          ],
+        },
+
+        // 9) Control motor y escápula
+        {
+          title: "Control Motor & Escápula",
+          icon: "fa-person-running",
+          style: "card",
+          fields: [
+            { id: "control_escapular_deficit", label: "Déficit control escapular", type: "boolean" },
+            { id: "fatiga_serrato", label: "Fatiga/insuficiencia serrato anterior (clínica)", type: "boolean" },
+            { id: "trap_inf_deficit", label: "Déficit trapecio inferior (clínico)", type: "boolean" },
+            { id: "sat", label: "Scapular Assistance Test (SAT) mejora síntomas", type: "boolean" },
+            { id: "srt", label: "Scapular Retraction Test (SRT) mejora fuerza/síntomas", type: "boolean" },
+            { id: "ckc_dolor", label: "Dolor en tareas CKC (apoyo) — pared/suelo", type: "boolean" },
+            { id: "control_notas", label: "Notas control motor", type: "textarea", placeholder: "Wall slide, push-up plus, elevación, patrón, etc." },
+          ],
+        },
+
+        // 10) Pruebas especiales (RCRSP / Manguito)
+        {
+          title: "Pruebas Especiales — RCRSP / Manguito Rotador",
           icon: "fa-stethoscope",
-          style: "grid2",
+          style: "card",
           fields: [
-            // RCRSP (Cluster Park)
             { id: "hawkins", label: "Hawkins-Kennedy (+)", type: "boolean" },
-            { id: "arco_doloroso", label: "Arco doloroso (+)", type: "boolean" },
-            { id: "infra_dolor_debil", label: "Test Infraspinoso (dolor y/o debilidad) (+)", type: "boolean" },
-
-            // Desgarro completo
+            { id: "neer", label: "Neer (+)", type: "boolean" },
+            { id: "jobe", label: "Jobe / Empty Can (+)", type: "boolean" },
+            { id: "infraspinatus_test", label: "Test resistencia ER (infraespinoso) (+)", type: "boolean", help: "Dolor o debilidad reproducible." },
             { id: "drop_arm", label: "Drop Arm (+)", type: "boolean" },
-            { id: "er_lag_sign", label: "External Rotation Lag Sign (+)", type: "boolean" },
+            { id: "er_lag_sign", label: "ER Lag Sign (+)", type: "boolean" },
+            { id: "hornblower", label: "Hornblower (+) (redondo menor)", type: "boolean" },
+            { id: "belly_press", label: "Belly-Press (+) (subescapular)", type: "boolean" },
+            { id: "lift_off", label: "Lift-Off (+) (subescapular)", type: "boolean" },
+            { id: "bear_hug", label: "Bear Hug (+) (subescapular)", type: "boolean" },
+            { id: "rcrsp_notas", label: "Notas pruebas RCRSP/RC", type: "textarea", placeholder: "Registra lado, dolor, debilidad, calidad y comparativa." },
+          ],
+        },
 
-            // Inestabilidad anterior
-            { id: "aprehension", label: "Apprehension (+)", type: "boolean" },
-            { id: "relocation_alivia", label: "Relocation alivia (+)", type: "boolean" },
-            { id: "surprise", label: "Surprise (+)", type: "boolean" },
-
-            // AC joint (combinación)
-            { id: "cross_body", label: "Cross-body adduction (+)", type: "boolean" },
+        // 11) AC joint
+        {
+          title: "Pruebas Especiales — Articulación AC",
+          icon: "fa-link",
+          style: "card",
+          fields: [
+            { id: "cross_body_adduction", label: "Cross-Body Adduction (+)", type: "boolean" },
             { id: "paxinos", label: "Paxinos (+)", type: "boolean" },
-            { id: "obriens_local_ac", label: "O'Brien con dolor local AC (+)", type: "boolean" },
+            { id: "ac_resisted_extension", label: "Resisted AC Extension (+)", type: "boolean" },
+            { id: "ac_notas", label: "Notas AC", type: "textarea", placeholder: "Dolor focal AC vs dolor difuso." },
+          ],
+        },
 
-            // Subescapular
-            { id: "belly_press", label: "Belly-Press (+)", type: "boolean" },
-            { id: "lift_off", label: "Lift-Off (+)", type: "boolean" },
-            { id: "bear_hug", label: "Bear Hug (+)", type: "boolean" },
-
-            // SLAP/bíceps (cautela)
+        // 12) Inestabilidad / Labrum
+        {
+          title: "Pruebas Especiales — Inestabilidad / Labrum",
+          icon: "fa-rotate",
+          style: "card",
+          fields: [
+            { id: "apprehension", label: "Apprehension (+)", type: "boolean" },
+            { id: "relocation_relief", label: "Relocation (alivia aprensión/dolor) (+)", type: "boolean" },
+            { id: "sulcus", label: "Sulcus Sign (+)", type: "boolean" },
+            { id: "load_shift", label: "Load and Shift (+)", type: "boolean" },
+            { id: "crank", label: "Crank (+) (dolor/click)", type: "boolean" },
             { id: "biceps_load_ii", label: "Biceps Load II (+)", type: "boolean" },
-          ],
-        },
-        {
-          title: "Clasificación (principal / secundaria)",
-          icon: "fa-tags",
-          style: "card",
-          fields: [
-            { id: "cls_rcrsp", label: "Dolor relacionado al manguito rotador (RCRSP) / tendinopatía (± parcial)", type: "boolean" },
-            { id: "cls_rc_full_thickness", label: "Déficit de potencia: sospecha desgarro completo manguito", type: "boolean" },
-            { id: "cls_capsulitis", label: "Déficit de movilidad: capsulitis adhesiva (hombro rígido)", type: "boolean" },
-            { id: "cls_instability", label: "Alteración de coordinación: inestabilidad GH", type: "boolean" },
-            { id: "cls_ac_joint", label: "Articulación acromioclavicular sintomática", type: "boolean" },
-            { id: "cls_cervical", label: "Componente cervical/radicular relevante", type: "boolean" },
-            { id: "cls_other", label: "Otro / diferencial dominante", type: "text", placeholder: "Ej: suprascapular neuropatía, etc." },
-          ],
-        },
-        {
-          title: "Razonamiento Clínico & Síntesis",
-          icon: "fa-lightbulb",
-          style: "card",
-          fields: [
-            { id: "hipotesis_principal", label: "Hipótesis principal (diagnóstico funcional / mecanismo)", type: "textarea" },
-            { id: "hipotesis_secundarias", label: "Hipótesis secundarias / diferenciales", type: "textarea" },
-            { id: "hallazgos_clave", label: "Hallazgos clave que cambian la probabilidad", type: "textarea" },
-            { id: "plan_inicial", label: "Plan inicial (educación, carga, ejercicio, derivación si aplica)", type: "textarea" },
+            { id: "instab_notas", label: "Notas inestabilidad/labrum", type: "textarea", placeholder: "Dirección, historia de episodios, deporte overhead/contacto." },
           ],
         },
 
-        // PROMs: SPADI
+        // 13) Bíceps
         {
-          title: "Outcome Measure: SPADI — Dolor (5)",
-          icon: "fa-clipboard-list",
-          style: "grid2",
+          title: "Pruebas Especiales — Bíceps",
+          icon: "fa-hand-fist",
+          style: "card",
           fields: [
-            ...SPADI_PAIN,
-            { id: "spadi_total_pct", label: "SPADI Total (%) (si lo calculas, regístralo aquí)", type: "numeric", min: 0, max: 100, normal: 0, default: 0, unit: "%", limited: 30 },
-            { id: "spadi_notas", label: "SPADI — Notas (cómo se aplicó / contexto)", type: "textarea" },
+            { id: "speed", label: "Speed (+)", type: "boolean" },
+            { id: "yergason", label: "Yergason (+)", type: "boolean" },
+            { id: "uppercut", label: "Uppercut (+)", type: "boolean" },
+            { id: "biceps_notas", label: "Notas bíceps", type: "textarea", placeholder: "Dolor corredera vs referido." },
           ],
-        },
-        {
-          title: "Outcome Measure: SPADI — Discapacidad (8)",
-          icon: "fa-clipboard-list",
-          style: "grid2",
-          fields: [...SPADI_DIS],
         },
 
-        // PROMs: DASH
+        // 14) Screen cervical / neuro
         {
-          title: "Outcome Measure: DASH — Ítems 01–10",
-          icon: "fa-clipboard-check",
-          style: "grid2",
-          fields: DASH_CORE.slice(0, 10),
-        },
-        {
-          title: "Outcome Measure: DASH — Ítems 11–20",
-          icon: "fa-clipboard-check",
-          style: "grid2",
-          fields: DASH_CORE.slice(10, 20),
-        },
-        {
-          title: "Outcome Measure: DASH — Ítems 21–30",
-          icon: "fa-clipboard-check",
-          style: "grid2",
+          title: "Screen Cervical / Neuro (referido)",
+          icon: "fa-brain",
+          style: "card",
           fields: [
-            ...DASH_CORE.slice(20, 30),
-            { id: "dash_total", label: "DASH Total (0–100) (si lo calculas, regístralo aquí)", type: "numeric", min: 0, max: 100, normal: 0, default: 0, unit: "", limited: 20 },
-            { id: "dash_notas", label: "DASH — Notas (administración, N/A, observaciones)", type: "textarea" },
+            { id: "spurling", label: "Spurling (+)", type: "boolean" },
+            { id: "distraction", label: "Distracción cervical (alivia) (+)", type: "boolean" },
+            { id: "ultt_a", label: "ULTT A (+)", type: "boolean" },
+            { id: "rotation_lt60", label: "Rotación cervical < 60° (lado sintomático)", type: "boolean" },
+            { id: "dermatomas", label: "Alteración dermatomas", type: "boolean" },
+            { id: "miotomas", label: "Déficit miotomas", type: "boolean" },
+            { id: "reflejos", label: "Reflejos alterados", type: "boolean" },
+            { id: "cervical_notas", label: "Notas cervical/neuro", type: "textarea", placeholder: "Síntomas, distribución, prueba neurodinámica, etc." },
           ],
         },
+
+        // 15) Clasificación clínica (útil para tratamiento)
         {
-          title: "Outcome Measure: DASH — Módulos Opcionales",
-          icon: "fa-puzzle-piece",
+          title: "Clasificación Clínica (para guiar tratamiento)",
+          icon: "fa-sitemap",
+          style: "card",
+          fields: [
+            { id: "cls_rcrsp", label: "RCRSP (dolor relacionado al manguito / carga)", type: "boolean" },
+            { id: "cls_capsulitis", label: "Hombro rígido / capsulitis (probable)", type: "boolean" },
+            { id: "cls_instability", label: "Inestabilidad (anterior/multidireccional)", type: "boolean" },
+            { id: "cls_ac_joint", label: "Dolor articulación AC", type: "boolean" },
+            { id: "cls_biceps", label: "Tendinopatía bíceps / complejo bicipital", type: "boolean" },
+            { id: "cls_rc_full_thickness", label: "Sospecha desgarro completo manguito", type: "boolean" },
+            { id: "cls_cervical", label: "Componente cervical / radiculopatía probable", type: "boolean" },
+            { id: "cls_otra", label: "Otra hipótesis (texto)", type: "text", placeholder: "Ej: dolor referido, dolor nociplástico, etc." },
+            { id: "clasificacion_notas", label: "Notas clasificación", type: "textarea", placeholder: "Qué te hace pensar eso y qué necesitas confirmar." },
+          ],
+        },
+
+        // 16) Plan y objetivos (auto + editable)
+        {
+          title: "Plan, Objetivos y Seguimiento",
+          icon: "fa-bullseye",
+          style: "card",
+          fields: [
+            { id: "hipotesis_principal", label: "Hipótesis principal", type: "textarea", placeholder: "Estructura(s)/mecanismo(s) y por qué." },
+            { id: "objetivos_smarts", label: "Objetivos (SMART)", type: "textarea", placeholder: "Ej: dormir 7h sin dolor, overhead 10 rep sin dolor >2/10, etc." },
+            { id: "plan_inicial", label: "Plan inicial (editable) — aquí se insertan sugerencias", type: "textarea", placeholder: "Tu plan + lo que copie el motor automático." },
+            { id: "criterios_progresion", label: "Criterios de progresión (función, dolor 24h, simetría, tests)", type: "textarea", placeholder: "Define cuándo progresas carga/volumen/overhead." },
+            { id: "retest", label: "Re-test elegido (para seguimiento)", type: "text", placeholder: "Ej: AROM flex, SAT, SPADI, tarea overhead, etc." },
+          ],
+        },
+
+        // 17) SPADI (colapsado por defecto por app.js)
+        {
+          title: "SPADI — Dolor (0–10) y Discapacidad (0–10)",
+          icon: "fa-clipboard-list",
+          style: "card",
+          fields: [
+            { id: "spadi_info", label: "Instrucción", type: "text", placeholder: "0=sin dolor/dificultad · 10=peor/ imposible" },
+            ...spadiPainItems.map(([id, label]) => mkPROMField(id, label, 0, 10, "", 0, 5, "0–10")),
+            ...spadiDisItems.map(([id, label]) => mkPROMField(id, label, 0, 10, "", 0, 5, "0–10")),
+            { id: "spadi_notas", label: "Notas SPADI", type: "textarea", placeholder: "Contexto de respuestas, cambios relevantes." },
+          ],
+        },
+
+        // 18) DASH core (colapsado por defecto por app.js)
+        {
+          title: "DASH — Cuestionario (Core 30 ítems)",
+          icon: "fa-list-check",
           style: "grid2",
           fields: [
-            ...DASH_WORK,
-            ...DASH_SPORT,
-            { id: "dash_modulos_notas", label: "Notas (si aplicó Trabajo / Deporte-Artes y por qué)", type: "textarea" },
+            { id: "dash_info", label: "Instrucción", type: "text", placeholder: "0=No aplica · 1=Sin dificultad · 5=Incapaz" },
+            ...dashCoreItems.map(([id, label]) => mkDashField(id, label)),
+            { id: "dash_notas", label: "Notas DASH", type: "textarea", placeholder: "Contexto, tareas relevantes, etc." },
+          ],
+        },
+
+        // 19) DASH módulos (colapsado por defecto por app.js)
+        {
+          title: "DASH — Módulos opcionales (Trabajo / Deporte-Artes)",
+          icon: "fa-briefcase",
+          style: "grid2",
+          fields: [
+            ...dashWorkItems.map(([id, label]) => mkDashField(id, label)),
+            ...dashSportItems.map(([id, label]) => mkDashField(id, label)),
+            { id: "dash_modulos_notas", label: "Notas módulos DASH", type: "textarea", placeholder: "Si aplica, describe el gesto específico." },
           ],
         },
       ],
 
-      // -----------------------------
-      // LÓGICA EN TIEMPO REAL (alerts)
-      // -----------------------------
+      // ---------------------------------------
+      // Logic Rules (real-time reasoning)
+      // - Uses tri-state booleans: only === true counts as positive
+      // - when signature: (s, p) => boolean
+      //   s = {tests, numeric, text}
+      //   p = patientData (includes patient-age, etc.)
+      // ---------------------------------------
       logicRules: [
-        // Red flags
+        // Red Flags
         {
-          id: "rf-fractura-luxacion",
+          id: "red-flag-tumor",
           severity: "danger",
-          title: "ALERTA: Bandera Roja — trauma con sospecha de fractura/luxación",
-          description: "Trauma con deformidad o sospecha de fractura/luxación → evaluación médica/imagen y manejo urgente según contexto.",
-          when: (s) => Boolean(s?.tests?.trauma_deformidad_fractura),
-        },
-        {
-          id: "rf-infeccion",
-          severity: "danger",
-          title: "ALERTA: Bandera Roja — posible infección",
-          description: "Fiebre/malestar sistémico + dolor no mecánico (y/o inmunosupresión) → descartar infección. Considera derivación urgente.",
+          title: "ALERTA: Bandera Roja (Posible neoplasia)",
+          description:
+            "Antecedente de cáncer + dolor nocturno no mecánico + pérdida de peso inexplicada. Recomendación: DERIVACIÓN / evaluación médica urgente.",
           when: (s) =>
-            Boolean(s?.tests?.fiebre_escalofrios) &&
-            Boolean(s?.tests?.dolor_no_mecanico) &&
-            (Boolean(s?.tests?.inmunosupresion) || Boolean(s?.tests?.dolor_nocturno)),
+            s.tests.antecedente_cancer === true &&
+            s.tests.dolor_nocturno_no_mecanico === true &&
+            s.tests.perdida_peso === true,
         },
         {
-          id: "rf-neoplasia",
+          id: "red-flag-infection",
           severity: "danger",
-          title: "ALERTA: Bandera Roja — posible neoplasia",
-          description: "Antecedente de cáncer + pérdida de peso y/o dolor nocturno no mecánico → descartar neoplasia. Derivación prioritaria.",
+          title: "ALERTA: Bandera Roja (Posible infección)",
+          description:
+            "Fiebre/escalofríos + riesgo de infección + dolor intenso en reposo. Recomendación: derivación médica urgente.",
           when: (s) =>
-            Boolean(s?.tests?.antecedente_cancer) &&
-            (Boolean(s?.tests?.perdida_peso) || Boolean(s?.tests?.dolor_nocturno)) &&
-            Boolean(s?.tests?.dolor_no_mecanico),
+            s.tests.fiebre === true &&
+            s.tests.riesgo_infeccion === true &&
+            s.tests.dolor_reposo_intenso === true,
         },
         {
-          id: "rf-cardiopulmonar",
+          id: "red-flag-fracture-dislocation",
           severity: "danger",
-          title: "ALERTA: dolor referido cardiopulmonar (descartar)",
-          description: "Dolor torácico/disnea/irradiación atípica → descarte médico inmediato según contexto y factores de riesgo.",
-          when: (s) => Boolean(s?.tests?.dolor_toracico_disnea),
+          title: "ALERTA: Trauma significativo (fractura / luxación a descartar)",
+          description:
+            "Trauma significativo con deformidad visible o incapacidad para elevar el brazo. Considera urgencias/imágenes según clínica.",
+          when: (s) =>
+            s.tests.trauma_significativo === true &&
+            (s.tests.deformidad_visible === true || s.tests.incapacidad_elevar_brazo === true),
         },
         {
-          id: "rf-neuro-progresivo",
+          id: "red-flag-neuro",
           severity: "danger",
-          title: "ALERTA: déficit neurológico progresivo",
-          description: "Déficit neurológico progresivo → evaluación médica prioritaria. Considera origen cervical/neurológico.",
-          when: (s) => Boolean(s?.tests?.deficit_neuro_progresivo),
+          title: "ALERTA: Déficit neurológico progresivo",
+          description:
+            "Déficit neurológico progresivo requiere evaluación prioritaria. Considera screen cervical y derivación según gravedad.",
+          when: (s) => s.tests.deficit_neuro_progresivo === true,
         },
         {
-          id: "rf-vascular",
+          id: "red-flag-cardiopulmonary",
           severity: "danger",
-          title: "ALERTA: signos vasculares (descartar compromiso vascular/TOS)",
-          description: "Síntomas vasculares (frialdad, palidez, edema, pulso alterado) → descartar compromiso vascular. Derivar según severidad.",
-          when: (s) => Boolean(s?.tests?.sintomas_vasculares),
+          title: "ALERTA: Síntomas torácicos / respiratorios",
+          description:
+            "Dolor torácico o disnea: descartar urgencias cardiopulmonares. Recomendación: derivación inmediata según contexto.",
+          when: (s) => s.tests.dolor_pecho_disnea === true,
         },
 
-        // Clusters (alto valor) — renombrados a RCRSP (lenguaje contemporáneo)
+        // Cervical radiculopathy cluster (Wainner-like)
         {
-          id: "cluster-park-rcrsp-2de3",
+          id: "cluster-cervical-radiculopathy",
           severity: "warning",
-          title: "Cluster (+): RCRSP probable",
+          title: "Cluster cervical (+): sospecha componente radicular",
           description:
-            "≥2/3 positivos (Hawkins-Kennedy, Arco doloroso, Infraspinoso dolor/debilidad) aumenta fuertemente la probabilidad de dolor relacionado al manguito rotador, según contexto.",
+            "Múltiples hallazgos (Spurling, Distracción, ULTT A, rotación <60°) aumentan probabilidad de componente cervical. Ajusta razonamiento y manejo.",
           when: (s) => {
-            const hk = Boolean(s?.tests?.hawkins);
-            const pa = Boolean(s?.tests?.arco_doloroso);
-            const infra = Boolean(s?.tests?.infra_dolor_debil);
-            return countTrue(hk, pa, infra) >= 2;
+            const positives = [
+              s.tests.spurling === true,
+              s.tests.distraction === true,
+              s.tests.ultt_a === true,
+              s.tests.rotation_lt60 === true,
+            ].filter(Boolean).length;
+            return positives >= 3;
           },
         },
+
+        // RCRSP (Park-like cluster) — avoid "impingement" terminology
         {
-          id: "cluster-park-rcrsp-3de3",
+          id: "cluster-rcrsp",
           severity: "warning",
-          title: "Cluster (++): RCRSP muy probable",
+          title: "Cluster RCRSP (+): mayor probabilidad de dolor relacionado al manguito",
           description:
-            "3/3 positivos sugieren probabilidad muy alta de RCRSP (integrar irritabilidad, carga y diferenciales; el test no “dice” el tejido exacto).",
-          when: (s) => Boolean(s?.tests?.hawkins) && Boolean(s?.tests?.arco_doloroso) && Boolean(s?.tests?.infra_dolor_debil),
+            "Combinación de Arco doloroso + Hawkins-Kennedy + resistencia ER (infraespinoso) sugiere mayor probabilidad de RCRSP. Integra carga, control escapular y progresión por irritabilidad.",
+          when: (s) =>
+            s.tests.arco_doloroso === true &&
+            s.tests.hawkins === true &&
+            s.tests.infraspinatus_test === true,
         },
+
+        // Full thickness tear suspicion (age/context)
         {
-          id: "cluster-rct-fullthickness",
+          id: "cluster-full-thickness-rc",
           severity: "warning",
-          title: "Sospecha: desgarro completo del manguito rotador",
+          title: "Sospecha de desgarro completo del manguito (a considerar)",
           description:
-            "Arco doloroso (+) + Drop Arm (+) y/o ER Lag (+) + infraspinoso (+) aumenta sospecha de desgarro completo. Considera imagen según historia/función.",
+            "ER Lag Sign o Drop Arm (+) junto a debilidad marcada y/o edad avanzada aumenta sospecha. Considera derivación/imagen según impacto funcional y contexto.",
           when: (s, p) => {
-            const pa = Boolean(s?.tests?.arco_doloroso);
-            const da = Boolean(s?.tests?.drop_arm);
-            const erLag = Boolean(s?.tests?.er_lag_sign);
-            const infra = Boolean(s?.tests?.infra_dolor_debil);
-
-            const age = getAge(p);
-            const riskAge = age !== null && age >= 60;
-            const riskTrauma = Boolean(s?.tests?.trauma_deformidad_fractura);
-
-            return pa && (da || erLag) && infra && (riskAge || riskTrauma || Boolean(s?.tests?.dolor_nocturno));
+            const age = Number(p?.["patient-age"]);
+            const ageOk = Number.isFinite(age) ? age >= 60 : false;
+            const strongTest = s.tests.er_lag_sign === true || s.tests.drop_arm === true;
+            const weakness = s.tests.debilidad_marcada === true;
+            return strongTest && (weakness || ageOk);
           },
         },
+
+        // Capsulitis / stiff shoulder suspicion
         {
-          id: "pattern-adhesive-capsulitis",
+          id: "cluster-stiff-shoulder",
           severity: "warning",
-          title: "Patrón compatible con capsulitis adhesiva (hombro rígido)",
+          title: "Patrón compatible con hombro rígido / capsulitis (probable)",
           description:
-            "Dolor nocturno/rigidez + limitación marcada del ROM pasivo (especialmente ER) y/o accesorios restringidos sugiere capsulitis (confirmar patrón e historia).",
-          when: (s) => {
-            const night = Boolean(s?.tests?.dolor_nocturno) || Boolean(s?.tests?.dolor_al_lado);
-            const stiff = Boolean(s?.tests?.rigidez_matinal) || Boolean(s?.tests?.accesorios_restringidos);
-
-            const er = s?.numeric?.er0_pasiva;
-            const erL = bilateralVal(er, "L");
-            const erR = bilateralVal(er, "R");
-            const limitedER = (erL !== null && erL > 0 && erL <= 35) || (erR !== null && erR > 0 && erR <= 35);
-
-            return night && stiff && limitedER;
+            "Rigidez + dolor nocturno + patrón capsular (ER limitada) en rango etario típico aumenta probabilidad. Dosifica movilidad según irritabilidad y monitoriza 24h.",
+          when: (s, p) => {
+            const age = Number(p?.["patient-age"]);
+            const ageOk = Number.isFinite(age) ? age >= 40 && age <= 65 : false;
+            return (
+              s.tests.rigidez === true &&
+              s.tests.dolor_nocturno === true &&
+              s.tests.patron_capsular === true &&
+              ageOk
+            );
           },
         },
+
+        // Instability anterior
         {
-          id: "instability-anterior",
+          id: "cluster-anterior-instability",
           severity: "warning",
-          title: "Sospecha: inestabilidad anterior glenohumeral",
+          title: "Cluster inestabilidad anterior (+)",
           description:
-            "Apprehension (+) + alivio con Relocation (+) (± Surprise) aumenta la probabilidad de inestabilidad anterior. Integrar historia y deporte.",
-          when: (s) => Boolean(s?.tests?.aprehension) && Boolean(s?.tests?.relocation_alivia),
-        },
-        {
-          id: "ac-joint-likely",
-          severity: "warning",
-          title: "Sospecha: articulación acromioclavicular sintomática",
-          description:
-            "≥2 pruebas AC positivas (Cross-body, Paxinos, O'Brien con dolor local AC) sugieren origen AC si el dolor está bien localizado sobre la articulación.",
-          when: (s) => countTrue(Boolean(s?.tests?.cross_body), Boolean(s?.tests?.paxinos), Boolean(s?.tests?.obriens_local_ac)) >= 2,
-        },
-        {
-          id: "subscap-suspect",
-          severity: "warning",
-          title: "Sospecha: compromiso subescapular (triage)",
-          description:
-            "≥2 positivos (Belly-press / Lift-off / Bear-hug) aumentan sospecha de disfunción del subescapular (diferenciar dolor vs debilidad).",
-          when: (s) => countTrue(Boolean(s?.tests?.belly_press), Boolean(s?.tests?.lift_off), Boolean(s?.tests?.bear_hug)) >= 2,
+            "Apprehension (+) y Relocation con alivio (+) aumenta probabilidad de inestabilidad anterior. Enfocar estabilidad dinámica, control motor y exposición graduada.",
+          when: (s) => s.tests.apprehension === true && s.tests.relocation_relief === true,
         },
 
-        // Cervical/radicular (Wainner)
+        // AC joint pain cluster
         {
-          id: "cervical-radicular-3de4",
+          id: "cluster-ac-joint",
           severity: "warning",
-          title: "Componente cervical/radicular probable (cluster 3/4)",
+          title: "Cluster AC (+): dolor focal articulación AC",
           description:
-            "≥3/4 positivos (Spurling, Distracción, ULTT Mediano, Rotación <60°) sugiere componente radicular y ajusta el plan (neuro/tolerancia).",
-          when: (s) =>
-            countTrue(Boolean(s?.tests?.spurling), Boolean(s?.tests?.distraction_alivia), Boolean(s?.tests?.ultt_mediano), Boolean(s?.tests?.rotacion_cervical_lt60)) >= 3,
-        },
-        {
-          id: "cervical-radicular-4de4",
-          severity: "danger",
-          title: "Componente cervical/radicular muy probable (cluster 4/4)",
-          description:
-            "4/4 positivos → alta probabilidad. Prioriza evaluación cervical/neuro y coordina manejo según severidad/función.",
-          when: (s) =>
-            Boolean(s?.tests?.spurling) &&
-            Boolean(s?.tests?.distraction_alivia) &&
-            Boolean(s?.tests?.ultt_mediano) &&
-            Boolean(s?.tests?.rotacion_cervical_lt60),
+            "Cross-body adduction (+) + dolor a palpación AC sugiere mayor probabilidad de dolor AC. Ajusta compresión/cargas y progresa por tolerancia.",
+          when: (s) => s.tests.cross_body_adduction === true && s.tests.dolor_ac_palp === true,
         },
 
-        // Apoyos (re-test)
+        // Irritability guidance
         {
-          id: "scapular-contribution",
+          id: "irritability-high",
           severity: "info",
-          title: "Contribución escápulo-torácica posible",
+          title: "Irritabilidad alta: prioriza control de síntomas",
           description:
-            "Scapular Assistance/Retraction (+) sugiere que modificar la escápula cambia síntomas. Útil para re-test funcional y plan de control motor + carga.",
-          when: (s) => Boolean(s?.tests?.scap_assist) || Boolean(s?.tests?.scap_retract),
+            "Si hay irritabilidad alta, prioriza educación + manejo de carga + dosis baja/moderada, evitando picos de dolor y vigilando respuesta 24h.",
+          when: (s) => String(s.text.irritabilidad || "").toLowerCase().includes("alta"),
         },
       ],
     },
   };
 
-  // Exponer al navegador (sin ES Modules)
+  // Expose to window for non-module script usage
   window.clinicalModules = clinicalModules;
 })();
