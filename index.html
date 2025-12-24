@@ -382,112 +382,14 @@
     <!-- SCRIPTS -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('date-display').innerText = new Date().toLocaleDateString('es-CL');
+            const dateDisplay = document.getElementById('date-display');
+            if (dateDisplay) {
+                dateDisplay.innerText = new Date().toLocaleDateString('es-CL');
+            }
         });
 
-        function calculateAge() {
-            try {
-                const dobInput = document.getElementById('patient-dob').value;
-                if(!dobInput) return;
-                const dob = new Date(dobInput);
-                const age_dt = new Date(Date.now() - dob.getTime()); 
-                const age = Math.abs(age_dt.getUTCFullYear() - 1970);
-                document.getElementById('patient-age').value = age;
-            } catch(e) {}
-        }
-
-        function triggerFileInput(id) {
-            document.getElementById(id).click();
-        }
-
-        // --- GESTIÓN DE ARCHIVOS ---
-        
-        function processMediaUpload(input) {
-            const container = document.getElementById('media-preview-area');
-            container.classList.remove('hidden');
-            
-            if (input.files && input.files.length > 0) {
-                Array.from(input.files).forEach(file => {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        const div = document.createElement('div');
-                        div.className = "relative group rounded-lg overflow-hidden shadow-sm border border-gray-200 aspect-square bg-gray-100 pdf-break-avoid";
-                        
-                        let content = '';
-                        if(file.type.startsWith('image/')) {
-                            content = `<img src="${e.target.result}" class="w-full h-full object-cover">`;
-                        } else if(file.type.startsWith('video/')) {
-                            content = `<video src="${e.target.result}" class="w-full h-full object-cover"></video><div class="absolute inset-0 flex items-center justify-center bg-black/30 text-white"><i class="fa-solid fa-play"></i></div>`;
-                        }
-
-                        div.innerHTML = `
-                            ${content}
-                            <div class="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] p-1 truncate hide-on-pdf">${file.name}</div>
-                            <button type="button" onclick="this.parentElement.remove()" class="absolute top-1 right-1 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity z-10 cursor-pointer hide-on-pdf"><i class="fa-solid fa-times"></i></button>
-                        `;
-                        container.appendChild(div);
-                    }
-                    reader.readAsDataURL(file);
-                });
-            }
-        }
-
-        function processDocUpload(input) {
-            const container = document.getElementById('doc-preview-area');
-            container.classList.remove('hidden');
-
-            if (input.files && input.files.length > 0) {
-                Array.from(input.files).forEach(file => {
-                    const div = document.createElement('div');
-                    div.className = "flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 pdf-break-avoid";
-                    div.innerHTML = `
-                        <div class="flex items-center gap-3 overflow-hidden">
-                            <i class="fa-solid fa-file-pdf text-red-500 text-xl flex-shrink-0"></i>
-                            <span class="text-sm text-gray-700 truncate font-medium">${file.name}</span>
-                        </div>
-                        <button type="button" onclick="this.parentElement.remove()" class="text-gray-400 hover:text-red-500 cursor-pointer hide-on-pdf"><i class="fa-solid fa-trash"></i></button>
-                    `;
-                    container.appendChild(div);
-                });
-            }
-        }
-
-        // --- EXPORTACIÓN PDF DEFINITIVA (SIN LIBRERÍAS, 100% COMPATIBLE) ---
-        // Usa el motor nativo del navegador (Imprimir -> Guardar como PDF).
-        function exportToPDF() {
-            const btn = document.getElementById('btn-export-pdf');
-            const originalText = btn ? btn.innerHTML : null;
-            if (btn) {
-                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Preparando...';
-                btn.disabled = true;
-            }
-
-            document.body.classList.add('printing');
-
-            const cleanup = () => {
-                document.body.classList.remove('printing');
-                if (btn) {
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
-                }
-                window.removeEventListener('afterprint', cleanup);
-            };
-            window.addEventListener('afterprint', cleanup);
-
-            setTimeout(() => {
-                try {
-                    window.print();
-                } catch (e) {
-                    console.error(e);
-                    alert("No se pudo abrir el diálogo de impresión/PDF. Revisa permisos del navegador.");
-                    cleanup();
-                }
-            }, 150);
-        }
-
-        // --- (LEGACY REMOVIDO) ---
-        // Render de módulos/plantillas hardcodeadas vive en js/app.js (motor JSON → DOM).
-
+        // La lógica interactiva (módulos dinámicos, cálculo de edad, PDF, cargas, etc.)
+        // vive ahora en js/app.js para evitar duplicar motores/plantillas legacy.
     </script>
 
     <!-- Orden de carga garantizado: data.js → app.js (ambos defer) -->
