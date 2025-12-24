@@ -468,6 +468,7 @@
           title: "Banderas Rojas & Derivación",
           icon: "fa-triangle-exclamation",
           style: "card",
+          fast: true,
           fields: [
             { id: "antecedente_cancer", label: "Antecedente de cáncer", type: "boolean", help: "Especialmente reciente o sin controles." },
             { id: "perdida_peso", label: "Pérdida de peso inexplicada", type: "boolean" },
@@ -489,6 +490,7 @@
           title: "Anamnesis Específica",
           icon: "fa-clipboard-question",
           style: "grid2",
+          fast: true,
           fields: [
             { id: "lado_sintomatico", label: "Lado sintomático", type: "text", placeholder: "Izq / Der / Bilateral" },
             { id: "dominancia", label: "Dominancia", type: "text", placeholder: "Diestro / Zurdo" },
@@ -720,6 +722,7 @@
           title: "Clasificación Clínica (para guiar tratamiento)",
           icon: "fa-sitemap",
           style: "card",
+          fast: true,
           fields: [
             { id: "cls_rcrsp", label: "RCRSP (dolor relacionado al manguito / carga)", type: "boolean" },
             { id: "cls_capsulitis", label: "Hombro rígido / capsulitis (probable)", type: "boolean" },
@@ -738,6 +741,7 @@
           title: "Plan, Objetivos y Seguimiento",
           icon: "fa-bullseye",
           style: "card",
+          fast: true,
           fields: [
             { id: "hipotesis_principal", label: "Hipótesis principal", type: "textarea", placeholder: "Estructura(s)/mecanismo(s) y por qué." },
             { id: "objetivos_smarts", label: "Objetivos (SMART)", type: "textarea", placeholder: "Ej: dormir 7h sin dolor, overhead 10 rep sin dolor >2/10, etc." },

@@ -27,6 +27,38 @@
     return String(v);
   }
 
+  function normalizeTriEntry(raw) {
+    if (raw && typeof raw === "object" && "value" in raw) {
+      const val = raw.value === true ? true : raw.value === false ? false : null;
+      const sev = raw.severity ? String(raw.severity) : null;
+      return { value: val, severity: sev };
+    }
+    if (raw === true || raw === false || raw === null) {
+      return { value: raw, severity: null };
+    }
+    return { value: null, severity: null };
+  }
+
+  function triValue(entry) {
+    return entry && typeof entry === "object" && "value" in entry ? entry.value : entry ?? null;
+  }
+
+  function triSeverity(entry) {
+    return entry && typeof entry === "object" ? entry.severity || null : null;
+  }
+
+  function triEntry(value, severity = null) {
+    return { value: value === true ? true : value === false ? false : null, severity: severity || null };
+  }
+
+  function mapTriValues(obj = {}) {
+    const out = {};
+    Object.entries(obj).forEach(([k, v]) => {
+      out[k] = triValue(v);
+    });
+    return out;
+  }
+
   function renderComponent(cfg) {
     if (cfg instanceof Node) return cfg;
 
@@ -458,6 +490,7 @@
       return triBoolField({
         module: { tests: state.intake.values || {} },
         field,
+        enableSeverity: false,
         onChange: (next) => setIntakeValue(field.id, next),
       });
     }
@@ -669,7 +702,7 @@
       tests: {},
       numeric: {},
       text: {},
-      ui: { collapsed: {} }, // {sectionIndex:true/false}
+      ui: { collapsed: {}, mode: "complete" }, // {sectionIndex:true/false}
       computed: { spadi: null, dash: null },
     };
 
@@ -683,7 +716,7 @@
       (sec.fields || []).forEach((f) => {
         if (!f || !f.id) return;
         if (f.type === "boolean") {
-          moduleState.tests[f.id] = f.default ?? null; // tri-state: null/true/false
+          moduleState.tests[f.id] = triEntry(f.default ?? null); // tri-estado con severidad opcional
         } else if (f.type === "numeric") {
           if (f.bilateral) {
             moduleState.numeric[f.id] = f.default && typeof f.default === "object" ? { ...f.default } : { L: null, R: null };
@@ -711,6 +744,38 @@
     setEmptyStateVisibility();
     evaluateModuleLogic(m, tpl);
     updateModuleScores(m, tpl);
+    scheduleAutosave();
+  }
+
+  function applyModuleMode(module) {
+    const card = $(`[data-module-instance="${module.instanceId}"]`);
+    if (!card) return;
+    const isFast = module.ui.mode === "fast";
+
+    $$(`[data-section-wrap^="${module.instanceId}:"]`, card).forEach((sec) => {
+      const isFastSection = sec.dataset.fast === "true";
+      sec.hidden = isFast && !isFastSection;
+    });
+
+    const notice = $(`[data-mode-notice="${module.instanceId}"]`, card);
+    if (notice) notice.hidden = !isFast;
+
+    $$(`[data-mode-button="${module.instanceId}"]`, card).forEach((btn) => {
+      const active = btn.dataset.mode === module.ui.mode;
+      btn.classList.toggle("bg-brand-accent", active);
+      btn.classList.toggle("text-brand-dark", active);
+      btn.classList.toggle("bg-white/10", !active);
+      btn.classList.toggle("text-white/80", !active);
+    });
+
+    const chip = $(`[data-mode-chip="${module.instanceId}"]`, card);
+    if (chip) chip.textContent = isFast ? "Modo Rápido (5 min)" : "Modo Completo";
+  }
+
+  function setModuleMode(module, mode) {
+    if (!module || !mode) return;
+    module.ui.mode = mode;
+    applyModuleMode(module);
     scheduleAutosave();
   }
 
@@ -760,7 +825,8 @@
   // -----------------------------
   // Field rendering
   // -----------------------------
-  function setTriButtonState(container, value) {
+  function setTriButtonState(container, entry) {
+    const value = triValue(entry);
     const btns = $$("button[data-tri]", container);
     btns.forEach((b) => {
       const v = b.dataset.tri;
@@ -775,7 +841,8 @@
     });
   }
 
-  function triBoolField({ module, field, onChange }) {
+  function triBoolField({ module, field, onChange, enableSeverity = true }) {
+    const initial = enableSeverity ? normalizeTriEntry(module.tests?.[field.id]) : module.tests?.[field.id];
     const container = renderComponent({
       tag: "div",
       className: "flex items-center justify-between gap-4 p-3 bg-gray-50 rounded-xl border border-gray-100",
@@ -792,28 +859,101 @@
         }),
         renderComponent({
           tag: "div",
-          className: "flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-1",
+          className: "flex items-center gap-2",
           children: [
-            { tag: "button", className: "px-2.5 py-1 rounded-md text-sm font-bold", attrs: { type: "button", "data-tri": "null", title: "No evaluado" }, text: "—" },
-            { tag: "button", className: "px-2.5 py-1 rounded-md text-sm font-bold", attrs: { type: "button", "data-tri": "false", title: "Negativo" }, text: "−" },
-            { tag: "button", className: "px-2.5 py-1 rounded-md text-sm font-bold", attrs: { type: "button", "data-tri": "true", title: "Positivo" }, text: "+" },
+            renderComponent({
+              tag: "div",
+              className: "flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-1",
+              children: [
+                { tag: "button", className: "px-2.5 py-1 rounded-md text-sm font-bold", attrs: { type: "button", "data-tri": "null", title: "No evaluado" }, text: "—" },
+                { tag: "button", className: "px-2.5 py-1 rounded-md text-sm font-bold", attrs: { type: "button", "data-tri": "false", title: "Negativo" }, text: "−" },
+                { tag: "button", className: "px-2.5 py-1 rounded-md text-sm font-bold", attrs: { type: "button", "data-tri": "true", title: "Positivo" }, text: "+" },
+              ],
+              on: {
+                click: (e) => {
+                  const btn = e.target.closest("button[data-tri]");
+                  if (!btn) return;
+                  const v = btn.dataset.tri;
+                  const next = v === "true" ? true : v === "false" ? false : null;
+                  if (enableSeverity) {
+                    const current = normalizeTriEntry(module.tests?.[field.id]);
+                    const payload = triEntry(next, next === true ? current.severity : null);
+                    onChange(payload);
+                    setTriButtonState(container, payload);
+                    updateSeverityUI(payload);
+                  } else {
+                    onChange(next);
+                    setTriButtonState(container, next);
+                  }
+                },
+              },
+            }),
           ],
-          on: {
-            click: (e) => {
-              const btn = e.target.closest("button[data-tri]");
-              if (!btn) return;
-              const v = btn.dataset.tri;
-              const next = v === "true" ? true : v === "false" ? false : null;
-              onChange(next);
-              setTriButtonState(container, next);
-            },
-          },
         }),
       ],
     });
 
+    let severityWrap = null;
+    if (enableSeverity) {
+      const options = [
+        { value: "leve", label: "Leve" },
+        { value: "moderado", label: "Moderado" },
+        { value: "severo", label: "Severo" },
+      ];
+      severityWrap = renderComponent({
+        tag: "div",
+        className: "flex items-center gap-1",
+        children: options.map((opt) =>
+          renderComponent({
+            tag: "button",
+            className: "px-2.5 py-1 rounded-md text-xs font-bold border border-gray-200 bg-white text-gray-600",
+            attrs: { type: "button", "data-severity": opt.value, title: `Severidad ${opt.label}` },
+            text: opt.label,
+          })
+        ),
+        on: {
+          click: (e) => {
+            const btn = e.target.closest("button[data-severity]");
+            if (!btn) return;
+            const sel = btn.dataset.severity;
+            const current = normalizeTriEntry(module.tests?.[field.id]);
+            const payload = triEntry(true, sel);
+            onChange(payload);
+            setTriButtonState(container, payload);
+            updateSeverityUI(payload);
+          },
+        },
+      });
+      container.appendChild(
+        renderComponent({
+          tag: "div",
+          className: "flex flex-col gap-1 items-end",
+          children: [
+            renderComponent({ tag: "div", className: "text-[10px] uppercase font-extrabold text-gray-500", text: "Severidad (opcional)" }),
+            severityWrap,
+          ],
+        })
+      );
+    }
+
+    function updateSeverityUI(entry) {
+      if (!enableSeverity || !severityWrap) return;
+      const val = triValue(entry);
+      severityWrap.hidden = val !== true;
+      const activeSev = triSeverity(entry);
+      $$("button[data-severity]", severityWrap).forEach((b) => {
+        const active = b.dataset.severity === activeSev;
+        b.classList.toggle("bg-brand-dark", active);
+        b.classList.toggle("text-white", active);
+        b.classList.toggle("border-brand-dark", active);
+        b.classList.toggle("text-gray-600", !active);
+        b.classList.toggle("border-gray-200", !active);
+      });
+    }
+
     // Initialize
-    setTriButtonState(container, module.tests[field.id]);
+    setTriButtonState(container, initial);
+    updateSeverityUI(initial);
 
     return container;
   }
@@ -1215,12 +1355,12 @@
     const age = getAge();
     const ir = getIrritability(module);
     const cls = {
-      rcrsp: !!module.tests.cls_rcrsp,
-      rcFull: !!module.tests.cls_rc_full_thickness,
-      caps: !!module.tests.cls_capsulitis,
-      instab: !!module.tests.cls_instability,
-      ac: !!module.tests.cls_ac_joint,
-      cerv: !!module.tests.cls_cervical,
+      rcrsp: triValue(module.tests.cls_rcrsp) === true,
+      rcFull: triValue(module.tests.cls_rc_full_thickness) === true,
+      caps: triValue(module.tests.cls_capsulitis) === true,
+      instab: triValue(module.tests.cls_instability) === true,
+      ac: triValue(module.tests.cls_ac_joint) === true,
+      cerv: triValue(module.tests.cls_cervical) === true,
     };
 
     const plan = [];
@@ -1311,12 +1451,13 @@
 
     const rules = Array.isArray(tpl.logicRules) ? tpl.logicRules : [];
     const triggered = [];
+    const normalizedTests = mapTriValues(module.tests);
 
     for (const rule of rules) {
       if (!rule || typeof rule.when !== "function") continue;
       let ok = false;
       try {
-        ok = !!rule.when({ tests: module.tests, numeric: module.numeric, text: module.text }, state.patientData);
+        ok = !!rule.when({ tests: normalizedTests, numeric: module.numeric, text: module.text }, state.patientData);
       } catch (_) {
         ok = false;
       }
@@ -1574,6 +1715,7 @@
     return renderComponent({
       tag: "div",
       className: "rounded-2xl overflow-hidden border border-gray-200 bg-white",
+      attrs: { "data-section-wrap": `${module.instanceId}:${secIndex}`, "data-fast": section.fast ? "true" : "false" },
       children: [header, content],
     });
   }
@@ -1619,11 +1761,54 @@
           ],
         }),
         renderComponent({
-          tag: "button",
-          className: "w-11 h-11 rounded-full flex items-center justify-center text-gray-300 hover:text-red-400 hover:bg-white/10 transition-colors",
-          attrs: { type: "button", title: "Eliminar módulo" },
-          on: { click: () => removeModule(module.instanceId) },
-          children: [iconEl("fa-trash-can")],
+          tag: "div",
+          className: "flex items-center gap-4",
+          children: [
+            renderComponent({
+              tag: "div",
+              className: "flex flex-col items-end gap-1 text-white",
+              children: [
+                renderComponent({
+                  tag: "div",
+                  className: "text-[11px] font-extrabold uppercase tracking-wide",
+                  attrs: { "data-mode-chip": module.instanceId },
+                  text: module.ui.mode === "fast" ? "Modo Rápido (5 min)" : "Modo Completo",
+                }),
+                renderComponent({
+                  tag: "div",
+                  className: "flex items-center gap-1 bg-white/10 rounded-full border border-white/20 p-1",
+                  on: {
+                    click: (e) => {
+                      const btn = e.target.closest(`button[data-mode-button=\"${module.instanceId}\"]`);
+                      if (!btn) return;
+                      setModuleMode(module, btn.dataset.mode);
+                    },
+                  },
+                  children: [
+                    renderComponent({
+                      tag: "button",
+                      className: "px-3 py-1 rounded-full text-xs font-bold text-white/80",
+                      attrs: { type: "button", "data-mode-button": module.instanceId, "data-mode": "fast" },
+                      text: "Modo Rápido",
+                    }),
+                    renderComponent({
+                      tag: "button",
+                      className: "px-3 py-1 rounded-full text-xs font-bold text-white/80",
+                      attrs: { type: "button", "data-mode-button": module.instanceId, "data-mode": "complete" },
+                      text: "Modo Completo",
+                    }),
+                  ],
+                }),
+              ],
+            }),
+            renderComponent({
+              tag: "button",
+              className: "w-11 h-11 rounded-full flex items-center justify-center text-gray-300 hover:text-red-400 hover:bg-white/10 transition-colors",
+              attrs: { type: "button", title: "Eliminar módulo" },
+              on: { click: () => removeModule(module.instanceId) },
+              children: [iconEl("fa-trash-can")],
+            }),
+          ],
         }),
       ],
     });
@@ -1635,6 +1820,33 @@
 
     // Plan container (auto)
     body.appendChild(renderComponent({ tag: "div", attrs: { "data-plan": module.instanceId }, className: "space-y-3" }));
+
+    const modeNotice = renderComponent({
+      tag: "div",
+      attrs: { "data-mode-notice": module.instanceId },
+      className: "rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-3",
+      children: [
+        renderComponent({
+          tag: "div",
+          className: "w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center text-amber-700",
+          children: [iconEl("fa-bolt")],
+        }),
+        renderComponent({
+          tag: "div",
+          className: "min-w-0",
+          children: [
+            renderComponent({ tag: "div", className: "text-sm font-extrabold text-brand-dark", text: "Modo Rápido (5 min)" }),
+            renderComponent({
+              tag: "div",
+              className: "text-sm text-gray-700",
+              text: "Se muestran las secciones esenciales para clasificar, priorizar red flags y sugerir tratamiento basado en evidencia.",
+            }),
+          ],
+        }),
+      ],
+    });
+    if (module.ui.mode !== "fast") modeNotice.hidden = true;
+    body.appendChild(modeNotice);
 
     // Sections
     (tpl.sections || []).forEach((sec, idx) => {
@@ -1650,6 +1862,7 @@
     renderPlanCard(module, tpl);
     evaluateModuleLogic(module, tpl);
     updateModuleScores(module, tpl);
+    applyModuleMode(module);
   }
 
   // -----------------------------
@@ -1747,9 +1960,13 @@
       const tpl = getModuleTemplate(m.key);
       // Ensure missing structures
       m.tests = m.tests || {};
+      Object.keys(m.tests).forEach((k) => {
+        m.tests[k] = normalizeTriEntry(m.tests[k]);
+      });
       m.numeric = m.numeric || {};
       m.text = m.text || {};
-      m.ui = m.ui || { collapsed: {} };
+      m.ui = m.ui || { collapsed: {}, mode: "complete" };
+      m.ui.mode = m.ui.mode || "complete";
       m.ui.collapsed = m.ui.collapsed || {};
       renderModuleCard(m, tpl);
     });
