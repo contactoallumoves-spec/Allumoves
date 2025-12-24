@@ -108,6 +108,353 @@
   }
 
   // ---------------------------------------
+  // Intake remoto global (siempre visible)
+  // ---------------------------------------
+  const intakeRemoteConfig = {
+    title: "Intake Remoto Global",
+    comorbidities: {
+      title: "Comorbilidades y contexto sistémico",
+      icon: "fa-heart-pulse",
+      style: "grid2",
+      fields: [
+        { id: "com_diabetes", label: "Diabetes", type: "boolean", help: "Riesgo de neuropatía y cicatrización lenta." },
+        { id: "com_tiroides", label: "Alteración tiroidea", type: "boolean", help: "Fatiga, cambios de masa corporal, metabolismo." },
+        { id: "com_cardio", label: "Cardio/vascular", type: "boolean", help: "HTA, coronariopatía, insuficiencia o edema." },
+        { id: "com_osteoporosis", label: "Osteoporosis / baja DMO", type: "boolean", help: "Fragilidad ósea; precaución con impactos y manipulación." },
+        { id: "com_autoinmune", label: "Autoinmune / inmunosupresión", type: "boolean", help: "Brotes, fatiga, riesgo infeccioso." },
+        { id: "com_cancer", label: "Cáncer previo (o en control)", type: "boolean", help: "Red flags: pérdida de peso, fiebre, dolor no mecánico." },
+        { id: "com_embarazo", label: "Embarazo / Postparto", type: "boolean", help: "Posiciones seguras, fatiga, diástasis y periné." },
+      ],
+    },
+    medications: {
+      title: "Medicación activa",
+      icon: "fa-pills",
+      style: "grid2",
+      fields: [
+        { id: "med_anticoagulantes", label: "Anticoagulantes / antiagregantes", type: "boolean", help: "Mayor riesgo de hematomas/sangrado." },
+        { id: "med_corticoides", label: "Corticoides sistémicos", type: "boolean", help: "Fragilidad tisular; inmunosupresión." },
+        { id: "med_inmunosupresores", label: "Inmunosupresores / biológicos", type: "boolean", help: "Riesgo infeccioso y retraso de cicatrización." },
+      ],
+    },
+    branches: [
+      {
+        key: "msk",
+        title: "MSK",
+        icon: "fa-bone",
+        sections: [
+          {
+            title: "Contexto MSK remoto",
+            style: "grid2",
+            fields: [
+              { id: "msk_region", label: "Zona principal", type: "text", placeholder: "Columna, hombro, rodilla, etc." },
+              { id: "msk_trauma", label: "Trauma o cirugía reciente", type: "boolean" },
+              {
+                id: "msk_redflags",
+                label: "Síntomas de alarma autorreportados",
+                type: "select",
+                options: [
+                  { value: "", label: "Ninguno reportado" },
+                  { value: "sistemicos", label: "Fiebre, sudoraciones nocturnas, pérdida de peso" },
+                  { value: "neuro", label: "Déficit neurológico progresivo" },
+                  { value: "toracico", label: "Dolor torácico / disnea" },
+                ],
+                help: "Reporte remoto; confirmar en sesión presencial/teleconsulta.",
+              },
+              { id: "msk_dolor_no_mecanico", label: "Dolor no mecánico (no cambia con postura/carga)", type: "boolean" },
+              { id: "msk_objetivo", label: "Objetivo del paciente", type: "textarea", placeholder: "Dormir mejor, volver al trabajo/deporte, etc." },
+            ],
+          },
+        ],
+      },
+      {
+        key: "piso",
+        title: "Piso pélvico",
+        icon: "fa-toilet-paper",
+        sections: [
+          {
+            title: "Síntomas sensibles (remoto)",
+            style: "grid2",
+            fields: [
+              {
+                id: "piso_incontinencia",
+                label: "Pérdidas urinarias",
+                type: "select",
+                options: [
+                  { value: "", label: "— Seleccionar —" },
+                  { value: "si", label: "Sí" },
+                  { value: "no", label: "No" },
+                  { value: "nsnc", label: "Prefiero no responder" },
+                ],
+              },
+              {
+                id: "piso_dolor_sexual",
+                label: "Dolor con actividad sexual",
+                type: "select",
+                options: [
+                  { value: "", label: "— Seleccionar —" },
+                  { value: "si", label: "Sí" },
+                  { value: "no", label: "No" },
+                  { value: "nsnc", label: "Prefiero no responder" },
+                ],
+              },
+              {
+                id: "piso_prolapso",
+                label: "Sensación de peso/prolapso",
+                type: "select",
+                options: [
+                  { value: "", label: "— Seleccionar —" },
+                  { value: "si", label: "Sí" },
+                  { value: "no", label: "No" },
+                  { value: "nsnc", label: "Prefiero no responder" },
+                ],
+              },
+              {
+                id: "piso_parto",
+                label: "Embarazo/parto reciente",
+                type: "select",
+                options: [
+                  { value: "", label: "— Seleccionar —" },
+                  { value: "embarazo", label: "Embarazo actual" },
+                  { value: "postparto", label: "Postparto < 1 año" },
+                  { value: "no", label: "No aplica" },
+                  { value: "nsnc", label: "Prefiero no responder" },
+                ],
+              },
+              {
+                id: "piso_habitos_intestinales",
+                label: "Esfuerzo/estreñimiento",
+                type: "select",
+                options: [
+                  { value: "", label: "— Seleccionar —" },
+                  { value: "si", label: "Sí" },
+                  { value: "no", label: "No" },
+                  { value: "nsnc", label: "Prefiero no responder" },
+                ],
+              },
+              { id: "piso_objetivo", label: "Objetivo principal", type: "textarea", placeholder: "Control de pérdidas, retorno deportivo, etc." },
+            ],
+          },
+        ],
+      },
+      {
+        key: "sport",
+        title: "Deportiva / Kine deportiva",
+        icon: "fa-person-running",
+        sections: [
+          {
+            title: "Perfil deportivo",
+            style: "grid2",
+            fields: [
+              { id: "sport_disciplina", label: "Deporte principal", type: "text", placeholder: "Running, fútbol, crossfit, etc." },
+              {
+                id: "sport_frecuencia",
+                label: "Volumen actual",
+                type: "select",
+                options: [
+                  { value: "", label: "— Seleccionar —" },
+                  { value: "baja", label: "2-3 sesiones/sem" },
+                  { value: "moderada", label: "4-5 sesiones/sem" },
+                  { value: "alta", label: "6+ sesiones/sem o doble jornada" },
+                ],
+              },
+              { id: "sport_competencia", label: "En temporada competitiva", type: "boolean" },
+              {
+                id: "sport_carga_reciente",
+                label: "Cambio de carga aguda",
+                type: "select",
+                options: [
+                  { value: "", label: "— Seleccionar —" },
+                  { value: "estable", label: "Estable" },
+                  { value: "aumento_brusco", label: "Aumento brusco" },
+                  { value: "retorno", label: "Retorno tras pausa" },
+                ],
+              },
+              { id: "sport_lesion_previa", label: "Lesión en el último año", type: "boolean" },
+              { id: "sport_objetivo", label: "Objetivo / evento próximo", type: "textarea", placeholder: "PR, torneo, reinsertarse al juego, etc." },
+            ],
+          },
+        ],
+      },
+    ],
+    logic: {
+      alerts: [
+        {
+          id: "alert-cancer-previo",
+          severity: "warning",
+          title: "Antecedente de cáncer + dolor",
+          description: "Confirmar controles médicos, red flags sistémicos y necesidad de derivación/imagen.",
+          appliesTo: ["msk", "piso", "sport"],
+          when: (ctx) => ctx.comorbidities.com_cancer === true,
+        },
+        {
+          id: "alert-anticoagulantes",
+          severity: "warning",
+          title: "Anticoagulantes / antiagregantes",
+          description: "Evita técnicas invasivas o de alto impacto; vigila hematomas y sangrado.",
+          appliesTo: ["msk", "piso", "sport"],
+          when: (ctx) => ctx.medications.med_anticoagulantes === true,
+        },
+        {
+          id: "alert-trauma-anticoag",
+          severity: "danger",
+          title: "Trauma reciente + anticoagulantes",
+          description: "Riesgo de sangrado oculto. Considera derivación médica si hay dolor desproporcionado o aumento de volumen.",
+          appliesTo: ["msk"],
+          when: (ctx) => ctx.medications.med_anticoagulantes === true && ctx.values.msk_trauma === true,
+        },
+        {
+          id: "alert-osteoporosis",
+          severity: "warning",
+          title: "Fragilidad ósea",
+          description: "Evita impactos y manipulación de alta velocidad; evalúa riesgo de fractura por estrés.",
+          appliesTo: ["msk", "sport"],
+          when: (ctx) => ctx.comorbidities.com_osteoporosis === true,
+        },
+        {
+          id: "alert-pelvic-sensitive",
+          severity: "info",
+          title: "Preferencia de confidencialidad",
+          description: "Algunas respuestas sensibles se marcaron como “Prefiero no responder”. Garantiza privacidad y agenda screening gradual.",
+          appliesTo: ["piso"],
+          when: (ctx) => ["piso_incontinencia", "piso_dolor_sexual", "piso_prolapso", "piso_parto", "piso_habitos_intestinales"].some((id) => ctx.values[id] === "nsnc"),
+        },
+        {
+          id: "alert-redflags-remote",
+          severity: "danger",
+          title: "Síntomas de alarma referidos",
+          description: "Fiebre, pérdida de peso, déficit neurológico o dolor torácico requieren descarte médico/imagen antes de progresar carga.",
+          appliesTo: ["msk", "sport"],
+          when: (ctx) => ["sistemicos", "neuro", "toracico"].includes(ctx.values.msk_redflags),
+        },
+      ],
+      evaluation: [
+        {
+          id: "eval-diabetes",
+          text: "Diabetes: revisar glicemias recientes, integridad de piel y screening de neuropatía periférica.",
+          appliesTo: ["msk", "piso", "sport"],
+          when: (ctx) => ctx.comorbidities.com_diabetes === true,
+        },
+        {
+          id: "eval-tiroides",
+          text: "Alteración tiroidea: documentar fatiga, frío/calor, cambios de peso y posibles efectos sobre recuperación.",
+          appliesTo: ["msk", "piso", "sport"],
+          when: (ctx) => ctx.comorbidities.com_tiroides === true,
+        },
+        {
+          id: "eval-cardio",
+          text: "Cardio/vascular: vitales de base, tolerancia al esfuerzo y banderas de disnea/dolor torácico antes de pruebas exigentes.",
+          appliesTo: ["msk", "sport"],
+          when: (ctx) => ctx.comorbidities.com_cardio === true,
+        },
+        {
+          id: "eval-osteoporosis",
+          text: "Osteoporosis/baja DMO: evaluar antecedentes de fractura, densitometría y dolor a la percusión.",
+          appliesTo: ["msk", "sport"],
+          when: (ctx) => ctx.comorbidities.com_osteoporosis === true,
+        },
+        {
+          id: "eval-anticoag",
+          text: "Anticoagulantes: indagar INR/última dosis, hematomas y pruebas que impliquen compresión sostenida.",
+          appliesTo: ["msk", "piso", "sport"],
+          when: (ctx) => ctx.medications.med_anticoagulantes === true,
+        },
+        {
+          id: "eval-inmuno",
+          text: "Autoinmune/inmunosupresión: monitorea signos infecciosos, fatiga y brotes articulares.",
+          appliesTo: ["msk", "piso", "sport"],
+          when: (ctx) => ctx.comorbidities.com_autoinmune === true || ctx.medications.med_inmunosupresores === true,
+        },
+        {
+          id: "eval-emb",
+          text: "Embarazo/postparto: verifica trimestre, diástasis, tolerancia a decúbitos y seguridad fetal.",
+          appliesTo: ["piso", "msk"],
+          when: (ctx) => ctx.comorbidities.com_embarazo === true || ["embarazo", "postparto"].includes(ctx.values.piso_parto),
+        },
+        {
+          id: "eval-pelvic-loss",
+          text: "Piso pélvico: diario miccional y tamizaje de prolapsos si hay pérdidas o sensación de peso.",
+          appliesTo: ["piso"],
+          when: (ctx) => ctx.values.piso_incontinencia === "si" || ctx.values.piso_prolapso === "si",
+        },
+        {
+          id: "eval-pelvic-dolor",
+          text: "Dolor sexual: usar escalas de dolor, evaluar factores psicosociales y derivar a ginecología si hay alarma.",
+          appliesTo: ["piso"],
+          when: (ctx) => ctx.values.piso_dolor_sexual === "si",
+        },
+        {
+          id: "eval-sport-carga",
+          text: "Deporte: documentar carga aguda/crónica y variaciones (ACWR) para planificar progresión segura.",
+          appliesTo: ["sport"],
+          when: (ctx) => ["aumento_brusco", "retorno"].includes(ctx.values.sport_carga_reciente),
+        },
+        {
+          id: "eval-msk-no-mecanico",
+          text: "Dolor no mecánico: prioriza descarte sistémico y prueba de comportamiento al movimiento antes de asumir origen local.",
+          appliesTo: ["msk"],
+          when: (ctx) => ctx.values.msk_dolor_no_mecanico === true,
+        },
+      ],
+      treatment: [
+        {
+          id: "tx-cardio",
+          text: "Carga dosificada con monitoreo de FC/PA; pausas activas y educación en percepción de esfuerzo.",
+          appliesTo: ["msk", "sport"],
+          when: (ctx) => ctx.comorbidities.com_cardio === true,
+        },
+        {
+          id: "tx-osteoporosis",
+          text: "Fortalecimiento progresivo, bajo impacto; evitar manipulaciones HVLA en columna costal/lumbar.",
+          appliesTo: ["msk", "sport"],
+          when: (ctx) => ctx.comorbidities.com_osteoporosis === true,
+        },
+        {
+          id: "tx-anticoag",
+          text: "Técnicas de baja compresión; educar sobre hematomas y signos de alarma.",
+          appliesTo: ["msk", "piso", "sport"],
+          when: (ctx) => ctx.medications.med_anticoagulantes === true,
+        },
+        {
+          id: "tx-corticoides",
+          text: "Progresión lenta de carga tendinosa y vigilancia de glucemias; cuidado con tracciones fuertes.",
+          appliesTo: ["msk", "sport"],
+          when: (ctx) => ctx.medications.med_corticoides === true,
+        },
+        {
+          id: "tx-emb",
+          text: "Evita Valsalva sostenido; posiciones seguras, trabajo respiratorio y manejo de presión intraabdominal.",
+          appliesTo: ["piso", "msk"],
+          when: (ctx) => ctx.comorbidities.com_embarazo === true || ["embarazo", "postparto"].includes(ctx.values.piso_parto),
+        },
+        {
+          id: "tx-pelvic-loss",
+          text: "Entrenamiento de piso pélvico (contracciones y relajación), educación en hábitos de evacuación y toser con protección abdominal.",
+          appliesTo: ["piso"],
+          when: (ctx) => ctx.values.piso_incontinencia === "si",
+        },
+        {
+          id: "tx-pelvic-dolor",
+          text: "Desensibilización gradual, pautas de lubricación/posiciones, y derivación interdisciplinaria si el dolor es severo.",
+          appliesTo: ["piso"],
+          when: (ctx) => ctx.values.piso_dolor_sexual === "si",
+        },
+        {
+          id: "tx-sport-carga",
+          text: "Plan de periodización con semanas de descarga; coordinar con entrenador si hay competencia próxima.",
+          appliesTo: ["sport"],
+          when: (ctx) => ctx.values.sport_competencia === true || ["aumento_brusco", "retorno"].includes(ctx.values.sport_carga_reciente),
+        },
+        {
+          id: "tx-sport-lesion",
+          text: "Prevenir recaídas: include warm-up específico, control de carga y screening de zonas previamente lesionadas.",
+          appliesTo: ["sport"],
+          when: (ctx) => ctx.values.sport_lesion_previa === true,
+        },
+      ],
+    },
+  };
+
+  // ---------------------------------------
   // Module definition: Hombro
   // ---------------------------------------
   const clinicalModules = {
@@ -596,5 +943,6 @@
   };
 
   // Expose to window for non-module script usage
+  window.intakeRemoteConfig = intakeRemoteConfig;
   window.clinicalModules = clinicalModules;
 })();
