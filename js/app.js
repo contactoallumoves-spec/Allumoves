@@ -661,6 +661,18 @@
   // -----------------------------
   // Module templates
   // -----------------------------
+  function isOutcomeSectionTitle(title = "") {
+    const t = (title || "").toLowerCase();
+    return t.includes("spadi") || t.includes("dash") || t.includes("outcome");
+  }
+
+  function getOutcomeTypeFromTitle(title = "") {
+    const t = (title || "").toLowerCase();
+    if (t.includes("spadi")) return "spadi";
+    if (t.includes("dash")) return "dash";
+    return null;
+  }
+
   function getModuleTemplate(typeKey) {
     // Prefer external modules (js/data.js)
     try {
@@ -709,9 +721,7 @@
     // Seed defaults from fields
     (template.sections || []).forEach((sec, secIndex) => {
       // Default collapse: SPADI/DASH collapsed, others expanded
-      const t = (sec.title || "").toLowerCase();
-      const isOutcomes = t.includes("spadi") || t.includes("dash") || t.includes("outcome");
-      moduleState.ui.collapsed[secIndex] = isOutcomes ? true : false;
+      moduleState.ui.collapsed[secIndex] = isOutcomeSectionTitle(sec.title) ? true : false;
 
       (sec.fields || []).forEach((f) => {
         if (!f || !f.id) return;
@@ -1064,24 +1074,39 @@
     });
     exact.value = value ?? "";
 
+    const quickButtons = (() => {
+      if (field.quick) {
+        return [
+          { key: "primary", label: field.quick.primaryLabel || "Opción 1", value: field.quick.primaryValue ?? null },
+          { key: "secondary", label: field.quick.secondaryLabel || "Opción 2", value: field.quick.secondaryValue ?? null },
+          { key: "clear", label: field.quick.clearLabel || "Vaciar", value: null },
+        ];
+      }
+      return [
+        { key: "normal", label: "Normal", value: field.normal ?? null },
+        { key: "limited", label: "Limitado", value: field.limited ?? (field.normal != null ? Math.round(field.normal * 0.7) : null) },
+        { key: "clear", label: "Vaciar", value: null },
+      ];
+    })();
+
     const quickWrap = renderComponent({
       tag: "div",
       className: "flex items-center gap-2",
-      children: [
-        renderComponent({ tag: "button", className: "px-3 py-2 rounded-lg bg-white border border-gray-200 text-sm font-bold", attrs: { type: "button", "data-quick": "normal" }, text: "Normal" }),
-        renderComponent({ tag: "button", className: "px-3 py-2 rounded-lg bg-white border border-gray-200 text-sm font-bold", attrs: { type: "button", "data-quick": "limited" }, text: "Limitado" }),
-        renderComponent({ tag: "button", className: "px-3 py-2 rounded-lg bg-white border border-gray-200 text-sm font-bold", attrs: { type: "button", "data-quick": "clear" }, text: "Vaciar" }),
-      ],
+      children: quickButtons.map((btn) =>
+        renderComponent({
+          tag: "button",
+          className: "px-3 py-2 rounded-lg bg-white border border-gray-200 text-sm font-bold",
+          attrs: { type: "button", "data-quick": btn.key },
+          text: btn.label,
+        })
+      ),
       on: {
         click: (e) => {
           const b = e.target.closest("button[data-quick]");
           if (!b) return;
-          const q = b.dataset.quick;
-          let next = null;
-          if (q === "normal") next = field.normal ?? null;
-          if (q === "limited") next = field.limited ?? (field.normal != null ? Math.round(field.normal * 0.7) : null);
-          if (q === "clear") next = null;
-          onValueChange(next);
+          const cfg = quickButtons.find((q) => q.key === b.dataset.quick);
+          if (!cfg) return;
+          onValueChange(cfg.value ?? null);
           onAfterChange?.();
         },
       },
@@ -1269,12 +1294,47 @@
     return typeof v === "number" && Number.isFinite(v);
   }
 
+  function outcomeToneClass(tone) {
+    if (tone === "low") return "bg-emerald-100 text-emerald-800";
+    if (tone === "moderate") return "bg-amber-100 text-amber-800";
+    if (tone === "high") return "bg-orange-100 text-orange-800";
+    if (tone === "very-high") return "bg-red-100 text-red-800";
+    return "bg-brand-accent/20 text-brand-dark";
+  }
+
+  function interpretSpadiScore(score) {
+    if (!isNum(score)) return null;
+    const thresholds = [
+      { max: 20, label: "mínima", tone: "low", rec: "Progresar ejercicios domiciliarios y educación en autocuidado." },
+      { max: 40, label: "leve-moderada", tone: "moderate", rec: "Refuerza control de dolor nocturno y movilidad activa gradual." },
+      { max: 60, label: "moderada", tone: "high", rec: "Planifica progresión supervisada y seguimiento semanal de síntomas." },
+      { max: 80, label: "severa", tone: "high", rec: "Prioriza manejo de dolor y tareas toleradas antes de sobrecargar." },
+    ];
+    const match = thresholds.find((t) => score <= t.max) || { label: "muy severa", tone: "very-high", rec: "Considera derivación médica y progresión muy graduada." };
+    return match;
+  }
+
+  function interpretDashScore(score) {
+    if (!isNum(score)) return null;
+    const thresholds = [
+      { max: 15, label: "mínima", tone: "low", rec: "Mantén actividad habitual y ejercicios de mantenimiento." },
+      { max: 30, label: "leve", tone: "moderate", rec: "Añade ejercicios funcionales y exposición graduada a tareas retadoras." },
+      { max: 50, label: "moderada", tone: "high", rec: "Usa progresión estructurada de carga y monitoriza respuesta 24h." },
+    ];
+    const match = thresholds.find((t) => score <= t.max) || { label: "severa", tone: "very-high", rec: "Prioriza analgesia, modificaciones laborales/deportivas y reevaluación frecuente." };
+    return match;
+  }
+
   function calcSPADI(module) {
     const painIds = Object.keys(module.numeric).filter((id) => id.startsWith("spadi_p"));
     const disIds = Object.keys(module.numeric).filter((id) => id.startsWith("spadi_d"));
 
     const painVals = painIds.map((id) => module.numeric[id]).filter(isNum);
     const disVals = disIds.map((id) => module.numeric[id]).filter(isNum);
+
+    const totalItems = painIds.length + disIds.length;
+    const answered = painVals.length + disVals.length;
+    const missing = Math.max(totalItems - answered, 0);
 
     const painPct = painVals.length ? (painVals.reduce((a, b) => a + b, 0) / (painVals.length * 10)) * 100 : null;
     const disPct = disVals.length ? (disVals.reduce((a, b) => a + b, 0) / (disVals.length * 10)) * 100 : null;
@@ -1283,7 +1343,19 @@
     if (painPct !== null && disPct !== null) total = (painPct + disPct) / 2;
     else total = painPct ?? disPct ?? null;
 
-    return { painPct, disPct, totalPct: total };
+    const interp = interpretSpadiScore(total);
+    return {
+      painPct,
+      disPct,
+      totalPct: total,
+      answered,
+      totalItems,
+      missing,
+      complete: missing === 0,
+      interpretation: interp?.label || null,
+      recommendation: interp?.rec || null,
+      tone: interp?.tone || null,
+    };
   }
 
   function calcDASH(module) {
@@ -1293,11 +1365,28 @@
       .map((id) => module.numeric[id])
       .filter((v) => isNum(v) && v >= 1 && v <= 5);
 
-    if (vals.length < 10) return { total: null, n: vals.length };
+    const totalItems = coreIds.length;
+    const answered = vals.length;
+    const missing = Math.max(totalItems - answered, 0);
+
+    if (answered < 10) {
+      return { total: null, n: answered, answered, totalItems, missing, complete: false, interpretation: null, recommendation: null, tone: null };
+    }
 
     const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
     const score = (mean - 1) * 25; // 0–100
-    return { total: score, n: vals.length };
+    const interp = interpretDashScore(score);
+    return {
+      total: score,
+      n: answered,
+      answered,
+      totalItems,
+      missing,
+      complete: missing === 0,
+      interpretation: interp?.label || null,
+      recommendation: interp?.rec || null,
+      tone: interp?.tone || null,
+    };
   }
 
   function updateModuleScores(module, tpl) {
@@ -1321,8 +1410,120 @@
     const spBadge = $(`[data-badge-spadi="${module.instanceId}"]`, card);
     const daBadge = $(`[data-badge-dash="${module.instanceId}"]`, card);
 
-    if (spBadge) spBadge.textContent = sp.totalPct !== null ? `SPADI ${sp.totalPct.toFixed(0)}%` : "SPADI —";
-    if (daBadge) daBadge.textContent = da.total !== null ? `DASH ${da.total.toFixed(0)}` : `DASH —`;
+    const setOutcomeBadge = (el, typeLabel, data, formatter) => {
+      if (!el) return;
+      let text = `${typeLabel} —`;
+      let toneClass = outcomeToneClass();
+      if (data) {
+        if (data.missing > 0) {
+          text = `${typeLabel} incompleto (${data.missing})`;
+          toneClass = "bg-yellow-100 text-yellow-800";
+        } else if (formatter) {
+          const formatted = formatter(data);
+          if (formatted) text = formatted;
+          toneClass = outcomeToneClass(data.tone);
+        }
+      }
+      el.className = `text-xs font-extrabold px-2 py-1 rounded-lg ${toneClass}`;
+      el.textContent = text;
+    };
+
+    setOutcomeBadge(
+      spBadge,
+      "SPADI",
+      sp,
+      (data) => (data.totalPct !== null ? `SPADI ${data.totalPct.toFixed(0)}%${data.interpretation ? ` · ${data.interpretation}` : ""}` : null)
+    );
+    setOutcomeBadge(
+      daBadge,
+      "DASH",
+      da,
+      (data) => (data.total !== null ? `DASH ${data.total.toFixed(0)}${data.interpretation ? ` · ${data.interpretation}` : ""}` : null)
+    );
+
+    renderOutcomeSummary(module, tpl, "spadi", sp);
+    renderOutcomeSummary(module, tpl, "dash", da);
+  }
+
+  function renderOutcomeSummary(module, _tpl, type, data) {
+    const card = $(`[data-module-instance="${module.instanceId}"]`);
+    if (!card) return;
+    const container = $(`[data-outcome-summary="${module.instanceId}:${type}"]`, card);
+    if (!container) return;
+
+    const label = type === "spadi" ? "SPADI" : "DASH";
+    const answered = data?.answered ?? data?.n ?? 0;
+    const totalItems = data?.totalItems ?? (type === "spadi" ? 13 : 30);
+    const missing = Math.max(totalItems - answered, 0);
+
+    const chips = [
+      renderComponent({
+        tag: "span",
+        className: "px-2 py-1 rounded-full text-xs font-semibold bg-brand-accent/30 text-brand-dark",
+        text: `Ítems respondidos: ${answered}/${totalItems}`,
+      }),
+    ];
+    if (missing > 0) {
+      chips.push(
+        renderComponent({
+          tag: "span",
+          className: "px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800",
+          text: `Faltan ${missing}`,
+        })
+      );
+    }
+
+    let mainLine = `${label}: completa los ítems para ver el puntaje.`;
+    if (type === "spadi" && data) {
+      if (data.totalPct !== null) {
+        const detail = [];
+        if (data.painPct !== null) detail.push(`Dolor ${data.painPct.toFixed(0)}%`);
+        if (data.disPct !== null) detail.push(`Discapacidad ${data.disPct.toFixed(0)}%`);
+        mainLine = `${label}: ${data.totalPct.toFixed(1)}%${detail.length ? ` (${detail.join(" · ")})` : ""}${missing > 0 ? " · incompleto" : ""}`;
+      } else if (missing > 0) {
+        mainLine = `${label}: faltan ${missing} ítems para calcular el puntaje.`;
+      }
+    }
+
+    if (type === "dash" && data) {
+      if (data.total !== null) {
+        mainLine = `${label}: ${data.total.toFixed(1)} / 100 (${answered} de ${totalItems} ítems usados)${missing > 0 ? " · incompleto" : ""}`;
+      } else if (missing > 0) {
+        mainLine = `${label}: responde al menos 10 ítems (core) para calcular el puntaje.`;
+      }
+    }
+
+    const interpretationLine =
+      data && missing === 0 && data.interpretation
+        ? renderComponent({
+            tag: "div",
+            className: "text-sm font-semibold text-brand-dark",
+            text: `Interpretación clínica: ${data.interpretation}`,
+          })
+        : null;
+
+    const recommendationLine =
+      data && missing === 0 && data.recommendation
+        ? renderComponent({
+            tag: "div",
+            className: "text-sm text-gray-700",
+            text: `Recomendación: ${data.recommendation}`,
+          })
+        : null;
+
+    const box = renderComponent({
+      tag: "div",
+      className: "p-3 rounded-xl border border-gray-200 bg-white space-y-2",
+      children: [
+        renderComponent({ tag: "div", className: "text-sm font-bold text-brand-dark", text: mainLine }),
+        renderComponent({ tag: "div", className: "flex flex-wrap gap-2", children: chips }),
+        interpretationLine,
+        recommendationLine,
+      ].filter(Boolean),
+    });
+
+    container.innerHTML = "";
+    container.appendChild(box);
   }
 
   // -----------------------------
@@ -1655,6 +1856,10 @@
   }
 
   function renderSection(module, tpl, section, secIndex) {
+    if (module.ui.collapsed[secIndex] === undefined) {
+      module.ui.collapsed[secIndex] = isOutcomeSectionTitle(section.title);
+    }
+
     const content = renderComponent({
       tag: "div",
       attrs: { "data-section-content": `${module.instanceId}:${secIndex}` },
@@ -1667,6 +1872,17 @@
     const gridCls =
       style === "grid2" ? "grid grid-cols-1 md:grid-cols-2 gap-3" : "grid grid-cols-1 gap-3";
     const grid = renderComponent({ tag: "div", className: gridCls });
+
+    const outcomeType = getOutcomeTypeFromTitle(section.title);
+    if (outcomeType) {
+      content.appendChild(
+        renderComponent({
+          tag: "div",
+          className: "mb-3",
+          attrs: { "data-outcome-summary": `${module.instanceId}:${outcomeType}` },
+        })
+      );
+    }
 
     (section.fields || []).forEach((f) => grid.appendChild(renderField(module, tpl, f)));
 

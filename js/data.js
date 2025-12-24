@@ -79,6 +79,22 @@
     ["dash_s04", "Módulo Deporte/Artes: rendimiento global en tu deporte/arte"],
   ];
 
+  const spadiQuick = {
+    primaryLabel: "0 (sin dolor/dificultad)",
+    primaryValue: 0,
+    secondaryLabel: "10 (peor dificultad/dolor)",
+    secondaryValue: 10,
+    clearLabel: "Vaciar",
+  };
+
+  const dashQuick = {
+    primaryLabel: "1 (sin dificultad)",
+    primaryValue: 1,
+    secondaryLabel: "5 (incapaz)",
+    secondaryValue: 5,
+    clearLabel: "Vaciar",
+  };
+
   function mkPROMField(id, label, min, max, unit, normal, limited, help) {
     return {
       id,
@@ -92,6 +108,10 @@
       bilateral: false,
       help,
     };
+  }
+
+  function withQuickConfig(field, quick) {
+    return { ...field, quick };
   }
 
   function mkDashField(id, label) {
@@ -758,8 +778,8 @@
           style: "card",
           fields: [
             { id: "spadi_info", label: "Instrucción", type: "text", placeholder: "0=sin dolor/dificultad · 10=peor/ imposible" },
-            ...spadiPainItems.map(([id, label]) => mkPROMField(id, label, 0, 10, "", 0, 5, "0–10")),
-            ...spadiDisItems.map(([id, label]) => mkPROMField(id, label, 0, 10, "", 0, 5, "0–10")),
+            ...spadiPainItems.map(([id, label]) => withQuickConfig(mkPROMField(id, label, 0, 10, "", 0, 5, "0–10"), spadiQuick)),
+            ...spadiDisItems.map(([id, label]) => withQuickConfig(mkPROMField(id, label, 0, 10, "", 0, 5, "0–10"), spadiQuick)),
             { id: "spadi_notas", label: "Notas SPADI", type: "textarea", placeholder: "Contexto de respuestas, cambios relevantes." },
           ],
         },
@@ -771,7 +791,7 @@
           style: "grid2",
           fields: [
             { id: "dash_info", label: "Instrucción", type: "text", placeholder: "0=No aplica · 1=Sin dificultad · 5=Incapaz" },
-            ...dashCoreItems.map(([id, label]) => mkDashField(id, label)),
+            ...dashCoreItems.map(([id, label]) => withQuickConfig(mkDashField(id, label), dashQuick)),
             { id: "dash_notas", label: "Notas DASH", type: "textarea", placeholder: "Contexto, tareas relevantes, etc." },
           ],
         },
@@ -782,8 +802,8 @@
           icon: "fa-briefcase",
           style: "grid2",
           fields: [
-            ...dashWorkItems.map(([id, label]) => mkDashField(id, label)),
-            ...dashSportItems.map(([id, label]) => mkDashField(id, label)),
+            ...dashWorkItems.map(([id, label]) => withQuickConfig(mkDashField(id, label), dashQuick)),
+            ...dashSportItems.map(([id, label]) => withQuickConfig(mkDashField(id, label), dashQuick)),
             { id: "dash_modulos_notas", label: "Notas módulos DASH", type: "textarea", placeholder: "Si aplica, describe el gesto específico." },
           ],
         },
