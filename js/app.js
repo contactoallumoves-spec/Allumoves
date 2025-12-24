@@ -13,12 +13,6 @@
   // -----------------------------
   const APP_VERSION = "aum-app-v4.0.0";
 
-  const state = {
-    patientData: {},
-    activeModules: [], // [{instanceId, key, title, icon, tests, numeric, text, ui, computed}]
-    meta: { version: APP_VERSION, updatedAt: null },
-  };
-
   const AUTOSAVE_KEY = "aum_autosave_v1";
   let autosaveTimer = null;
 
@@ -115,6 +109,83 @@
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
+
+  // -----------------------------
+  // Intake remoto global: helpers & state
+  // -----------------------------
+  let intakeFieldIndex = { all: [], comorbidities: [], medications: [], branches: {} };
+
+  function getIntakeConfig() {
+    try {
+      return window.intakeRemoteConfig || null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function resetIntakeIndex() {
+    intakeFieldIndex = { all: [], comorbidities: [], medications: [], branches: {} };
+  }
+
+  function collectSectionFields(sections = []) {
+    const out = [];
+    (sections || []).forEach((sec) => {
+      (sec.fields || []).forEach((f) => out.push(f));
+    });
+    return out;
+  }
+
+  function buildEmptyIntakeState() {
+    const cfg = getIntakeConfig();
+    resetIntakeIndex();
+
+    const values = {};
+    const uiCollapsed = {};
+    if (!cfg) return { values, uiCollapsed };
+
+    const register = (fields, bucket, branchKey) => {
+      if (!Array.isArray(fields)) return;
+      fields.forEach((f) => {
+        if (!f || !f.id) return;
+        values[f.id] = f.default ?? (f.type === "boolean" ? null : "");
+        intakeFieldIndex.all.push(f.id);
+        if (bucket === "comorbidities") intakeFieldIndex.comorbidities.push(f.id);
+        if (bucket === "medications") intakeFieldIndex.medications.push(f.id);
+        if (bucket === "branch" && branchKey) {
+          if (!intakeFieldIndex.branches[branchKey]) intakeFieldIndex.branches[branchKey] = [];
+          intakeFieldIndex.branches[branchKey].push(f.id);
+        }
+      });
+    };
+
+    register(cfg.comorbidities?.fields, "comorbidities");
+    register(cfg.medications?.fields, "medications");
+    (cfg.branches || []).forEach((b) => {
+      register(collectSectionFields(b.sections), "branch", b.key);
+      uiCollapsed[b.key] = false;
+    });
+
+    return { values, uiCollapsed };
+  }
+
+  function hydrateIntakeState(existing) {
+    const base = buildEmptyIntakeState();
+    if (!existing) return base;
+    const incomingValues = existing.values || existing;
+    base.values = { ...base.values, ...(incomingValues || {}) };
+    base.uiCollapsed = { ...base.uiCollapsed, ...(existing.uiCollapsed || {}) };
+    return base;
+  }
+
+  // -----------------------------
+  // Globals / State
+  // -----------------------------
+  const state = {
+    patientData: {},
+    intake: buildEmptyIntakeState(),
+    activeModules: [], // [{instanceId, key, title, icon, tests, numeric, text, ui, computed}]
+    meta: { version: APP_VERSION, updatedAt: null },
+  };
 
   // -----------------------------
   // Patient inputs + BMI injection
@@ -281,6 +352,277 @@
       setPatientData("patient-age", age || "");
       evaluateAllLogic();
     };
+  }
+
+  // -----------------------------
+  // Intake remoto global (render siempre visible)
+  // -----------------------------
+  function setIntakeValue(id, value) {
+    if (!state.intake) state.intake = buildEmptyIntakeState();
+    state.intake.values[id] = value;
+    renderAllIntakeInsights();
+    scheduleAutosave();
+  }
+
+  function pickIntake(ids = []) {
+    const out = {};
+    ids.forEach((id) => {
+      out[id] = state.intake?.values?.[id];
+    });
+    return out;
+  }
+
+  function intakeRuleApplies(rule, branchKey) {
+    const scopes = Array.isArray(rule?.appliesTo) && rule.appliesTo.length ? rule.appliesTo : ["all"];
+    return scopes.includes("all") || scopes.includes(branchKey);
+  }
+
+  function deriveIntakeOutcomes(branchKey) {
+    const cfg = getIntakeConfig();
+    if (!cfg) return { alerts: [], evaluation: [], treatment: [] };
+
+    const ctx = {
+      branchKey,
+      values: state.intake?.values || {},
+      comorbidities: pickIntake(intakeFieldIndex.comorbidities),
+      medications: pickIntake(intakeFieldIndex.medications),
+    };
+
+    const safeCheck = (rule) => {
+      try {
+        return typeof rule.when === "function" ? rule.when(ctx) : false;
+      } catch (_) {
+        return false;
+      }
+    };
+
+    const alerts = (cfg.logic?.alerts || []).filter((r) => intakeRuleApplies(r, branchKey) && safeCheck(r));
+    const evaluation = (cfg.logic?.evaluation || []).filter((r) => intakeRuleApplies(r, branchKey) && safeCheck(r));
+    const treatment = (cfg.logic?.treatment || []).filter((r) => intakeRuleApplies(r, branchKey) && safeCheck(r));
+
+    return {
+      alerts,
+      evaluation: evaluation.map((r) => r.text),
+      treatment: treatment.map((r) => r.text),
+    };
+  }
+
+  function intakeList(items, emptyText) {
+    if (!items || items.length === 0) {
+      return renderComponent({ tag: "div", className: "text-xs text-gray-500", text: emptyText || "Sin hallazgos críticos." });
+    }
+    return renderComponent({
+      tag: "ul",
+      className: "list-disc pl-4 space-y-1 text-sm text-gray-800",
+      children: items.map((txt) => renderComponent({ tag: "li", text: txt })),
+    });
+  }
+
+  function renderIntakeResults(branchKey) {
+    const result = deriveIntakeOutcomes(branchKey);
+
+    const alertsWrap = $(`[data-intake-alerts="${branchKey}"]`);
+    if (alertsWrap) {
+      alertsWrap.replaceChildren();
+      if (result.alerts.length === 0) {
+        alertsWrap.appendChild(intakeList([], "Sin alertas clínicas activas."));
+      } else {
+        result.alerts.forEach((r) => alertsWrap.appendChild(renderAlertCard(r)));
+      }
+    }
+
+    const evalWrap = $(`[data-intake-eval="${branchKey}"]`);
+    if (evalWrap) {
+      evalWrap.replaceChildren();
+      evalWrap.appendChild(intakeList(result.evaluation, "Sin consideraciones especiales de evaluación."));
+    }
+
+    const txWrap = $(`[data-intake-tx="${branchKey}"]`);
+    if (txWrap) {
+      txWrap.replaceChildren();
+      txWrap.appendChild(intakeList(result.treatment, "Sin modificaciones relevantes de tratamiento."));
+    }
+  }
+
+  function renderAllIntakeInsights() {
+    const cfg = getIntakeConfig();
+    if (!cfg) return;
+    (cfg.branches || []).forEach((b) => renderIntakeResults(b.key));
+  }
+
+  function renderIntakeField(field) {
+    if (!field || !field.id) return renderComponent({ tag: "div" });
+    const value = state.intake?.values?.[field.id];
+
+    if (field.type === "boolean") {
+      return triBoolField({
+        module: { tests: state.intake.values || {} },
+        field,
+        onChange: (next) => setIntakeValue(field.id, next),
+      });
+    }
+
+    if (field.type === "select") {
+      return renderComponent({
+        tag: "div",
+        attrs: { "data-field": `intake:${field.id}` },
+        children: [
+          selectField({
+            value: value ?? "",
+            field,
+            options: field.options || [],
+            onChange: (v) => setIntakeValue(field.id, v),
+          }),
+        ],
+      });
+    }
+
+    if (field.type === "textarea") {
+      return renderComponent({
+        tag: "div",
+        attrs: { "data-field": `intake:${field.id}` },
+        children: [
+          textareaField({
+            value: value || "",
+            field,
+            onChange: (v) => setIntakeValue(field.id, v),
+          }),
+        ],
+      });
+    }
+
+    return renderComponent({
+      tag: "div",
+      attrs: { "data-field": `intake:${field.id}` },
+      children: [
+        textField({
+          value: value || "",
+          field,
+          onChange: (v) => setIntakeValue(field.id, v),
+        }),
+      ],
+    });
+  }
+
+  function renderIntakeSection(section) {
+    const gridCls = section.style === "grid2" ? "grid grid-cols-1 md:grid-cols-2 gap-3" : "grid grid-cols-1 gap-3";
+    return renderComponent({
+      tag: "div",
+      className: "rounded-2xl border border-gray-100 bg-white overflow-hidden",
+      children: [
+        renderComponent({
+          tag: "div",
+          className: "px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center gap-2",
+          children: [
+            renderComponent({
+              tag: "div",
+              className: "w-8 h-8 rounded-full bg-brand-accent/15 flex items-center justify-center text-brand-accent",
+              children: [iconEl(section.icon || "fa-clipboard-list")],
+            }),
+            renderComponent({ tag: "div", className: "font-extrabold text-brand-dark", text: section.title || "Sección" }),
+          ],
+        }),
+        renderComponent({
+          tag: "div",
+          className: "p-4",
+          children: [
+            renderComponent({
+              tag: "div",
+              className: gridCls,
+              children: (section.fields || []).map((f) => renderIntakeField(f)),
+            }),
+          ],
+        }),
+      ],
+    });
+  }
+
+  function renderIntakeResultsGrid(branchKey) {
+    return renderComponent({
+      tag: "div",
+      className: "grid grid-cols-1 lg:grid-cols-3 gap-3",
+      children: [
+        renderComponent({
+          tag: "div",
+          className: "rounded-2xl border border-gray-100 bg-white p-4 space-y-2",
+          children: [
+            renderComponent({ tag: "div", className: "text-xs font-extrabold uppercase text-brand-dark", text: "Alertas" }),
+            renderComponent({ tag: "div", attrs: { "data-intake-alerts": branchKey }, className: "space-y-3" }),
+          ],
+        }),
+        renderComponent({
+          tag: "div",
+          className: "rounded-2xl border border-gray-100 bg-white p-4 space-y-2",
+          children: [
+            renderComponent({ tag: "div", className: "text-xs font-extrabold uppercase text-brand-dark", text: "Consideraciones de evaluación" }),
+            renderComponent({ tag: "div", attrs: { "data-intake-eval": branchKey }, className: "space-y-2" }),
+          ],
+        }),
+        renderComponent({
+          tag: "div",
+          className: "rounded-2xl border border-gray-100 bg-white p-4 space-y-2",
+          children: [
+            renderComponent({ tag: "div", className: "text-xs font-extrabold uppercase text-brand-dark", text: "Consideraciones de tratamiento" }),
+            renderComponent({ tag: "div", attrs: { "data-intake-tx": branchKey }, className: "space-y-2" }),
+          ],
+        }),
+      ],
+    });
+  }
+
+  function renderIntakeBranch(branch) {
+    return renderComponent({
+      tag: "section",
+      className: "rounded-3xl border border-gray-200 shadow-sm bg-white overflow-hidden",
+      children: [
+        renderComponent({
+          tag: "div",
+          className: "bg-brand-dark p-5 flex items-center gap-3",
+          children: [
+            renderComponent({
+              tag: "div",
+              className: "w-11 h-11 rounded-full bg-brand-accent/20 flex items-center justify-center text-brand-accent",
+              children: [iconEl(branch.icon || "fa-person-rays")],
+            }),
+            renderComponent({
+              tag: "div",
+              className: "min-w-0",
+              children: [
+                renderComponent({ tag: "div", className: "text-white font-extrabold text-lg", text: branch.title || "Rama" }),
+                renderComponent({ tag: "div", className: "text-white/70 text-sm", text: "Disponible en todas las evaluaciones" }),
+              ],
+            }),
+          ],
+        }),
+        renderComponent({
+          tag: "div",
+          className: "p-5 space-y-4",
+          children: [
+            ...(branch.sections || []).map((sec) => renderIntakeSection(sec)),
+            renderIntakeResultsGrid(branch.key),
+          ],
+        }),
+      ],
+    });
+  }
+
+  function renderIntakeRemote() {
+    const root = $("#intake-remote-root");
+    const cfg = getIntakeConfig();
+    if (!root || !cfg) return;
+
+    root.replaceChildren();
+
+    if (cfg.comorbidities || cfg.medications) {
+      const topGrid = renderComponent({ tag: "div", className: "grid grid-cols-1 lg:grid-cols-2 gap-4" });
+      if (cfg.comorbidities) topGrid.appendChild(renderIntakeSection(cfg.comorbidities));
+      if (cfg.medications) topGrid.appendChild(renderIntakeSection(cfg.medications));
+      root.appendChild(topGrid);
+    }
+
+    (cfg.branches || []).forEach((branch) => root.appendChild(renderIntakeBranch(branch)));
+
+    renderAllIntakeInsights();
   }
 
   // -----------------------------
@@ -1359,6 +1701,7 @@
       exportedAt: new Date().toISOString(),
       patientData: state.patientData,
       activeModules: state.activeModules,
+      intake: state.intake,
     };
     downloadTextFile(`paciente-${todayStamp()}.aum`, JSON.stringify(payload, null, 2));
   }
@@ -1369,6 +1712,7 @@
     // Reset current
     state.patientData = payload.patientData || {};
     state.activeModules = Array.isArray(payload.activeModules) ? payload.activeModules : [];
+    state.intake = hydrateIntakeState(payload.intake);
 
     // Restore patient inputs (DOM)
     for (const [k, v] of Object.entries(state.patientData)) {
@@ -1385,6 +1729,9 @@
       const el = getPatientEl(id);
       if (el && id in state.patientData) el.value = state.patientData[id] ?? "";
     });
+
+    // Intake remoto global
+    renderIntakeRemote();
 
     // Clear stack DOM and rebuild
     const stack = $("#clinical-stack");
@@ -1440,6 +1787,7 @@
         savedAt: new Date().toISOString(),
         patientData: state.patientData,
         activeModules: state.activeModules,
+        intake: state.intake,
       };
       localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(payload));
     } catch (_) {
@@ -1571,6 +1919,7 @@
   function init() {
     ensureWeightHeightBMI();
     bindPatientInputs();
+    renderIntakeRemote();
     bindTopControls();
     setEmptyStateVisibility();
 
