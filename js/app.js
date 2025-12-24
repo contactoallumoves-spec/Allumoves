@@ -456,7 +456,7 @@ const hypLine = hyp.length ? hyp.map((h, i) => `${i + 1}) ${h.title}`).join(" ·
 const lines = [`A quien corresponda,`,``,`Derivo a ${pName}${edad ? ` (${edad} años)` : ""}${rut ? `, RUT: ${rut}` : ""} para evaluación médica/imagen/criterio según contexto clínico.`,``,`Motivo: ${motivo || "—"}`, dur ? `Evolución: ${dur}` : null, redFlags ? `Banderas rojas / puntos de atención: ${redFlags}` : null, gRules.length ? `Consideraciones (comorbilidades/medicación): ${gRules.map((r) => r.title).join(" · ")}` : null, `Hipótesis funcionales principales: ${hypLine}`,``,`Atte.,`,`${kine}`].filter(Boolean);
 return lines.join("\n");
 }
-"""
+
 // ===== app.js PART 2/3 =====
 };
 function getTemplates() { const modules = window.clinicalModules; if (!modules || typeof modules !== "object") return {}; return modules; }
@@ -841,7 +841,7 @@ renderComponent({ tag: "div", className: "mt-3", children: [renderComponent({ ta
 renderComponent({ tag: "div", className: "mt-3", children: [renderComponent({ tag: "div", className: "text-xs font-extrabold uppercase tracking-wide text-gray-500", text: hasDosage ? "Dosificación (según fase)" : "Dosificación (pendiente)" }), renderComponent({ tag: "ul", className: "mt-2 list-disc pl-5 space-y-1 text-sm text-gray-800", children: plan.dosage.map((d) => renderComponent({ tag: "li", text: d })) })] })
 ] });
 }
-"""
+
 // ===== app.js PART 3/3 =====
 function moduleHeader(m) {
 const mode = m.ui.mode || "full";
