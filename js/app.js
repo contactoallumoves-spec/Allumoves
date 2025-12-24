@@ -1,1586 +1,1012 @@
-/* All u moves — js/app.js
-   Frontend Stack Engine + Clinical Reasoning
-   - No hardcoded HTML strings: DOM is built via renderComponent()
-   - Real event listeners + global state
-   - Modules from window.clinicalModules (js/data.js)
-   - Autosave to localStorage (asks to restore)
-*/
+// ===== app.js PART 1/3 =====
+/* All u moves — app.js (v5) */
 (() => {
-  "use strict";
-
-  // -----------------------------
-  // Globals / State
-  // -----------------------------
-  const APP_VERSION = "aum-app-v4.0.0";
-
-  const state = {
-    patientData: {},
-    activeModules: [], // [{instanceId, key, title, icon, tests, numeric, text, ui, computed}]
-    meta: { version: APP_VERSION, updatedAt: null },
-  };
-
-  const AUTOSAVE_KEY = "aum_autosave_v1";
-  let autosaveTimer = null;
-
-  // -----------------------------
-  // DOM helpers
-  // -----------------------------
-  const $ = (sel, root = document) => root.querySelector(sel);
-  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
-
-  function safeText(v) {
-    if (v === null || v === undefined) return "";
-    return String(v);
-  }
-
-  function renderComponent(cfg) {
-    if (cfg instanceof Node) return cfg;
-
-    const tag = cfg?.tag || "div";
-    const el = document.createElement(tag);
-
-    // className / classes
-    const cls = cfg?.className || cfg?.class || cfg?.classes;
-    if (cls) el.className = cls;
-
-    // attrs
-    if (cfg?.attrs) {
-      for (const [k, v] of Object.entries(cfg.attrs)) {
-        if (v === null || v === undefined) continue;
-        el.setAttribute(k, String(v));
-      }
-    }
-
-    // dataset
-    if (cfg?.dataset) {
-      for (const [k, v] of Object.entries(cfg.dataset)) {
-        el.dataset[k] = String(v);
-      }
-    }
-
-    // text
-    if (cfg?.text !== undefined) {
-      el.textContent = safeText(cfg.text);
-    }
-
-    // children
-    if (cfg?.children && Array.isArray(cfg.children)) {
-      for (const child of cfg.children) {
-        if (child === null || child === undefined) continue;
-        if (child instanceof Node) {
-          el.appendChild(child);
-        } else if (typeof child === "string" || typeof child === "number") {
-          el.appendChild(document.createTextNode(String(child)));
-        } else {
-          el.appendChild(renderComponent(child));
-        }
-      }
-    }
-
-    // events
-    if (cfg?.on) {
-      for (const [evt, handler] of Object.entries(cfg.on)) {
-        el.addEventListener(evt, handler);
-      }
-    }
-
-    return el;
-  }
-
-  function iconEl(faClass, extraClass = "") {
-    return renderComponent({
-      tag: "i",
-      className: `fa-solid ${faClass} ${extraClass}`.trim(),
-      attrs: { "aria-hidden": "true" },
-    });
-  }
-
-  // -----------------------------
-  // Time / download helpers
-  // -----------------------------
-  function todayStamp() {
-    const d = new Date();
-    const yyyy = String(d.getFullYear());
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    return `${yyyy}-${mm}-${dd}`;
-  }
-
-  function downloadTextFile(filename, text) {
-    const blob = new Blob([text], { type: "application/json;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = renderComponent({ tag: "a", attrs: { href: url, download: filename } });
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
-
-  // -----------------------------
-  // Patient inputs + BMI injection
-  // -----------------------------
-  const patientInputIds = [
-    "kine-name",
-    "patient-name",
-    "patient-rut",
-    "patient-dob",
-    "patient-age",
-    "patient-address",
-    "patient-commune",
-    "patient-phone",
-    "patient-email",
-    "patient-insurance",
-    "patient-emergency-name",
-    "patient-emergency-phone",
-    "patient-occupation",
-    "patient-work-details",
-    "patient-sport",
-  ];
-
-  function getPatientEl(id) {
-    return document.getElementById(id);
-  }
-
-  function ensureWeightHeightBMI() {
-    // Insert after Edad field (patient-age) inside the same grid row
-    const ageInput = getPatientEl("patient-age");
-    if (!ageInput) return;
-
-    if (getPatientEl("patient-weight") && getPatientEl("patient-height") && getPatientEl("patient-bmi")) return;
-
-    const ageCol = ageInput.closest("div");
-    const grid = ageCol?.parentElement;
-    if (!grid) return;
-
-    const weightCol = renderComponent({
-      tag: "div",
-      className: "md:col-span-2",
-      children: [
-        renderComponent({ tag: "label", className: "aum-label", text: "Peso" }),
-        renderComponent({
-          tag: "input",
-          className: "aum-input text-center",
-          attrs: { type: "number", id: "patient-weight", placeholder: "kg", min: "0", step: "0.1" },
-        }),
-      ],
-    });
-
-    const heightCol = renderComponent({
-      tag: "div",
-      className: "md:col-span-2",
-      children: [
-        renderComponent({ tag: "label", className: "aum-label", text: "Estatura" }),
-        renderComponent({
-          tag: "input",
-          className: "aum-input text-center",
-          attrs: { type: "number", id: "patient-height", placeholder: "cm", min: "0", step: "0.1" },
-        }),
-      ],
-    });
-
-    const bmiCol = renderComponent({
-      tag: "div",
-      className: "md:col-span-2",
-      children: [
-        renderComponent({ tag: "label", className: "aum-label", text: "IMC" }),
-        renderComponent({
-          tag: "input",
-          className: "aum-input text-center",
-          attrs: { type: "text", id: "patient-bmi", placeholder: "-", readonly: "readonly" },
-        }),
-      ],
-    });
-
-    // Insert right after age column
-    grid.insertBefore(weightCol, ageCol.nextSibling);
-    grid.insertBefore(heightCol, weightCol.nextSibling);
-    grid.insertBefore(bmiCol, heightCol.nextSibling);
-
-    // Attach listeners
-    const weight = getPatientEl("patient-weight");
-    const height = getPatientEl("patient-height");
-    const bmi = getPatientEl("patient-bmi");
-    const onChange = () => {
-      const w = Number(weight.value);
-      const hCm = Number(height.value);
-      if (Number.isFinite(w) && w > 0 && Number.isFinite(hCm) && hCm > 0) {
-        const h = hCm / 100;
-        const bmiVal = w / (h * h);
-        bmi.value = Number.isFinite(bmiVal) ? bmiVal.toFixed(1) : "-";
-        setPatientData("patient-weight", w);
-        setPatientData("patient-height", hCm);
-        setPatientData("patient-bmi", bmi.value);
-      } else {
-        bmi.value = "-";
-        setPatientData("patient-weight", weight.value ? w : "");
-        setPatientData("patient-height", height.value ? hCm : "");
-        setPatientData("patient-bmi", "");
-      }
-    };
-    weight.addEventListener("input", onChange);
-    height.addEventListener("input", onChange);
-  }
-
-  function computeAgeFromDOB(dobStr) {
-    if (!dobStr) return "";
-    const dob = new Date(dobStr);
-    if (Number.isNaN(dob.getTime())) return "";
-    const today = new Date();
-    let age = today.getFullYear() - dob.getFullYear();
-    const m = today.getMonth() - dob.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
-    return age >= 0 ? String(age) : "";
-  }
-
-  function setPatientData(id, value) {
-    state.patientData[id] = value;
-    scheduleAutosave();
-  }
-
-  function bindPatientInputs() {
-    // Fill state from DOM initial values
-    for (const id of patientInputIds) {
-      const el = getPatientEl(id);
-      if (!el) continue;
-      state.patientData[id] = el.value ?? "";
-    }
-
-    // Attach listeners
-    for (const id of patientInputIds) {
-      const el = getPatientEl(id);
-      if (!el) continue;
-
-      if (id === "patient-dob") {
-        el.addEventListener("change", () => {
-          const age = computeAgeFromDOB(el.value);
-          const ageEl = getPatientEl("patient-age");
-          if (ageEl) ageEl.value = age || "-";
-          setPatientData("patient-dob", el.value);
-          setPatientData("patient-age", age || "");
-          // re-evaluate logic where age matters
-          evaluateAllLogic();
-        });
-        continue;
-      }
-
-      if (id === "patient-age") {
-        // read-only - keep in state
-        continue;
-      }
-
-      el.addEventListener("input", () => setPatientData(id, el.value));
-    }
-
-    // Backward-compat for inline onchange="calculateAge()"
-    window.calculateAge = () => {
-      const dob = getPatientEl("patient-dob")?.value || "";
-      const age = computeAgeFromDOB(dob);
-      const ageEl = getPatientEl("patient-age");
-      if (ageEl) ageEl.value = age || "-";
-      setPatientData("patient-dob", dob);
-      setPatientData("patient-age", age || "");
-      evaluateAllLogic();
-    };
-  }
-
-  // -----------------------------
-  // Module templates
-  // -----------------------------
-  function getModuleTemplate(typeKey) {
-    // Prefer external modules (js/data.js)
-    try {
-      const cm = window.clinicalModules;
-      if (cm && cm[typeKey]) return cm[typeKey];
-    } catch (_) {}
-
-    // Fallback: allow a minimal notes module
-    return {
-      key: typeKey,
-      title: typeKey,
-      icon: "fa-notes-medical",
-      sections: [
-        {
-          title: "Notas",
-          icon: "fa-pen-to-square",
-          style: "card",
-          fields: [{ id: "notas", label: "Notas", type: "textarea" }],
-        },
-      ],
-      logicRules: [],
-    };
-  }
-
-  // -----------------------------
-  // Stack Engine: add/remove modules
-  // -----------------------------
-  function makeInstanceId(baseKey) {
-    const rnd = Math.random().toString(16).slice(2, 8);
-    return `${baseKey}-${Date.now().toString(36)}-${rnd}`;
-  }
-
-  function ensureModuleState(template) {
-    const moduleState = {
-      instanceId: makeInstanceId(template.key),
-      key: template.key,
-      title: template.title,
-      icon: template.icon || "fa-notes-medical",
-      tests: {},
-      numeric: {},
-      text: {},
-      ui: { collapsed: {} }, // {sectionIndex:true/false}
-      computed: { spadi: null, dash: null },
-    };
-
-    // Seed defaults from fields
-    (template.sections || []).forEach((sec, secIndex) => {
-      // Default collapse: SPADI/DASH collapsed, others expanded
-      const t = (sec.title || "").toLowerCase();
-      const isOutcomes = t.includes("spadi") || t.includes("dash") || t.includes("outcome");
-      moduleState.ui.collapsed[secIndex] = isOutcomes ? true : false;
-
-      (sec.fields || []).forEach((f) => {
-        if (!f || !f.id) return;
-        if (f.type === "boolean") {
-          moduleState.tests[f.id] = f.default ?? null; // tri-state: null/true/false
-        } else if (f.type === "numeric") {
-          if (f.bilateral) {
-            moduleState.numeric[f.id] = f.default && typeof f.default === "object" ? { ...f.default } : { L: null, R: null };
-          } else {
-            moduleState.numeric[f.id] = f.default ?? null;
-          }
-        } else {
-          moduleState.text[f.id] = f.default ?? "";
-        }
-      });
-    });
-
-    return moduleState;
-  }
-
-  function addModule(typeKey) {
-    const tpl = getModuleTemplate(typeKey);
-    const m = ensureModuleState(tpl);
-
-    state.activeModules.push(m);
-
-    // Render tag + module card
-    renderActiveTags();
-    renderModuleCard(m, tpl);
-    setEmptyStateVisibility();
-    evaluateModuleLogic(m, tpl);
-    updateModuleScores(m, tpl);
-    scheduleAutosave();
-  }
-
-  function removeModule(instanceId) {
-    const idx = state.activeModules.findIndex((m) => m.instanceId === instanceId);
-    if (idx === -1) return;
-
-    // Remove DOM card
-    const card = $(`[data-module-instance="${instanceId}"]`);
-    if (card) card.remove();
-
-    state.activeModules.splice(idx, 1);
-    renderActiveTags();
-    setEmptyStateVisibility();
-    scheduleAutosave();
-  }
-
-  function resetStack() {
-    if (state.activeModules.length === 0) return;
-    const ok = window.confirm("¿Seguro que quieres limpiar todas las evaluaciones del Stack?");
-    if (!ok) return;
-
-    state.activeModules = [];
-    const stack = $("#clinical-stack");
-    if (stack) {
-      $$(".module-card", stack).forEach((n) => n.remove());
-    }
-    renderActiveTags();
-    setEmptyStateVisibility();
-    scheduleAutosave();
-  }
-
-  // -----------------------------
-  // Collapsible Sections UI
-  // -----------------------------
-  function toggleSection(instanceId, secIndex) {
-    const m = state.activeModules.find((x) => x.instanceId === instanceId);
-    if (!m) return;
-    m.ui.collapsed[secIndex] = !m.ui.collapsed[secIndex];
-    const content = $(`[data-section-content="${instanceId}:${secIndex}"]`);
-    const chevron = $(`[data-section-chevron="${instanceId}:${secIndex}"]`);
-    if (content) content.hidden = !!m.ui.collapsed[secIndex];
-    if (chevron) chevron.classList.toggle("rotate-180", !m.ui.collapsed[secIndex]);
-    scheduleAutosave();
-  }
-
-  // -----------------------------
-  // Field rendering
-  // -----------------------------
-  function setTriButtonState(container, value) {
-    const btns = $$("button[data-tri]", container);
-    btns.forEach((b) => {
-      const v = b.dataset.tri;
-      const active =
-        (v === "null" && value === null) ||
-        (v === "true" && value === true) ||
-        (v === "false" && value === false);
-      b.classList.toggle("bg-brand-dark", active);
-      b.classList.toggle("text-white", active);
-      b.classList.toggle("bg-white", !active);
-      b.classList.toggle("text-gray-500", !active);
-    });
-  }
-
-  function triBoolField({ module, field, onChange }) {
-    const container = renderComponent({
-      tag: "div",
-      className: "flex items-center justify-between gap-4 p-3 bg-gray-50 rounded-xl border border-gray-100",
-      children: [
-        renderComponent({
-          tag: "div",
-          className: "min-w-0",
-          children: [
-            renderComponent({ tag: "div", className: "text-sm font-semibold text-brand-dark", text: field.label }),
-            field.help
-              ? renderComponent({ tag: "div", className: "text-xs text-gray-500 mt-0.5", text: field.help })
-              : null,
-          ],
-        }),
-        renderComponent({
-          tag: "div",
-          className: "flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-1",
-          children: [
-            { tag: "button", className: "px-2.5 py-1 rounded-md text-sm font-bold", attrs: { type: "button", "data-tri": "null", title: "No evaluado" }, text: "—" },
-            { tag: "button", className: "px-2.5 py-1 rounded-md text-sm font-bold", attrs: { type: "button", "data-tri": "false", title: "Negativo" }, text: "−" },
-            { tag: "button", className: "px-2.5 py-1 rounded-md text-sm font-bold", attrs: { type: "button", "data-tri": "true", title: "Positivo" }, text: "+" },
-          ],
-          on: {
-            click: (e) => {
-              const btn = e.target.closest("button[data-tri]");
-              if (!btn) return;
-              const v = btn.dataset.tri;
-              const next = v === "true" ? true : v === "false" ? false : null;
-              onChange(next);
-              setTriButtonState(container, next);
-            },
-          },
-        }),
-      ],
-    });
-
-    // Initialize
-    setTriButtonState(container, module.tests[field.id]);
-
-    return container;
-  }
-
-  function textareaField({ value, field, onChange }) {
-    const ta = renderComponent({
-      tag: "textarea",
-      className: "aum-input min-h-[96px] resize-y",
-      attrs: { id: field.id, placeholder: field.placeholder || "" },
-    });
-    ta.value = value || "";
-    ta.addEventListener("input", () => onChange(ta.value));
-    return renderComponent({
-      tag: "div",
-      className: "p-3 bg-white rounded-xl border border-gray-100",
-      children: [
-        renderComponent({ tag: "div", className: "text-sm font-semibold text-brand-dark mb-2", text: field.label }),
-        ta,
-      ],
-    });
-  }
-
-  function textField({ value, field, onChange }) {
-    const input = renderComponent({
-      tag: "input",
-      className: "aum-input",
-      attrs: { type: "text", id: field.id, placeholder: field.placeholder || "" },
-    });
-    input.value = value || "";
-    input.addEventListener("input", () => onChange(input.value));
-    return renderComponent({
-      tag: "div",
-      className: "p-3 bg-white rounded-xl border border-gray-100",
-      children: [
-        renderComponent({ tag: "div", className: "text-sm font-semibold text-brand-dark mb-2", text: field.label }),
-        input,
-      ],
-    });
-  }
-
-  function selectField({ value, field, options, onChange }) {
-    const select = renderComponent({
-      tag: "select",
-      className: "aum-input cursor-pointer font-semibold",
-      attrs: { id: field.id },
-      children: options.map((o) => renderComponent({ tag: "option", attrs: { value: o.value }, text: o.label })),
-    });
-    select.value = value || "";
-    select.addEventListener("change", () => onChange(select.value));
-    return renderComponent({
-      tag: "div",
-      className: "p-3 bg-white rounded-xl border border-gray-100",
-      children: [
-        renderComponent({ tag: "div", className: "text-sm font-semibold text-brand-dark mb-2", text: field.label }),
-        select,
-      ],
-    });
-  }
-
-  function numericTriple({ module, field, value, side, onValueChange, onAfterChange, diffRef }) {
-    // Local UI mode per field/side
-    const modeKey = `${field.id}:${side || "S"}`;
-    module.ui.modes = module.ui.modes || {};
-    if (!module.ui.modes[modeKey]) module.ui.modes[modeKey] = "slider"; // slider | exact | quick
-
-    const valLabel = renderComponent({
-      tag: "span",
-      className: "text-sm font-bold text-brand-dark",
-      text: value === null || value === "" || value === undefined ? "—" : String(value),
-    });
-
-    const unitLabel = renderComponent({ tag: "span", className: "text-xs text-gray-500 ml-1", text: field.unit || "" });
-
-    const modeBtn = (k, label) =>
-      renderComponent({
-        tag: "button",
-        className: "px-2 py-1 rounded-md text-xs font-bold border border-gray-200",
-        attrs: { type: "button", "data-mode": k },
-        text: label,
-      });
-
-    const modeBar = renderComponent({
-      tag: "div",
-      className: "flex items-center gap-1",
-      children: [modeBtn("slider", "Barra"), modeBtn("exact", "Exacto"), modeBtn("quick", "Rápido")],
-      on: {
-        click: (e) => {
-          const b = e.target.closest("button[data-mode]");
-          if (!b) return;
-          module.ui.modes[modeKey] = b.dataset.mode;
-          updateModeUI();
-          scheduleAutosave();
-        },
-      },
-    });
-
-    const slider = renderComponent({
-      tag: "input",
-      className: "w-full",
-      attrs: { type: "range", min: String(field.min ?? 0), max: String(field.max ?? 100), step: "1" },
-    });
-    slider.value = value ?? 0;
-
-    const exact = renderComponent({
-      tag: "input",
-      className: "aum-input text-center",
-      attrs: { type: "number", min: String(field.min ?? 0), max: String(field.max ?? 9999), step: "1" },
-    });
-    exact.value = value ?? "";
-
-    const quickWrap = renderComponent({
-      tag: "div",
-      className: "flex items-center gap-2",
-      children: [
-        renderComponent({ tag: "button", className: "px-3 py-2 rounded-lg bg-white border border-gray-200 text-sm font-bold", attrs: { type: "button", "data-quick": "normal" }, text: "Normal" }),
-        renderComponent({ tag: "button", className: "px-3 py-2 rounded-lg bg-white border border-gray-200 text-sm font-bold", attrs: { type: "button", "data-quick": "limited" }, text: "Limitado" }),
-        renderComponent({ tag: "button", className: "px-3 py-2 rounded-lg bg-white border border-gray-200 text-sm font-bold", attrs: { type: "button", "data-quick": "clear" }, text: "Vaciar" }),
-      ],
-      on: {
-        click: (e) => {
-          const b = e.target.closest("button[data-quick]");
-          if (!b) return;
-          const q = b.dataset.quick;
-          let next = null;
-          if (q === "normal") next = field.normal ?? null;
-          if (q === "limited") next = field.limited ?? (field.normal != null ? Math.round(field.normal * 0.7) : null);
-          if (q === "clear") next = null;
-          onValueChange(next);
-          onAfterChange?.();
-        },
-      },
-    });
-
-    const modeArea = renderComponent({
-      tag: "div",
-      className: "mt-2",
-      children: [slider, exact, quickWrap],
-    });
-
-    const headerLine = renderComponent({
-      tag: "div",
-      className: "flex items-center justify-between gap-3",
-      children: [
-        renderComponent({
-          tag: "div",
-          className: "min-w-0",
-          children: [
-            renderComponent({
-              tag: "div",
-              className: "text-sm font-semibold text-brand-dark",
-              text: side ? `${field.label} (${side})` : field.label,
-            }),
-            field.help ? renderComponent({ tag: "div", className: "text-xs text-gray-500", text: field.help }) : null,
-          ],
-        }),
-        renderComponent({
-          tag: "div",
-          className: "flex items-center gap-2 shrink-0",
-          children: [
-            renderComponent({ tag: "div", className: "flex items-center", children: [valLabel, unitLabel] }),
-            modeBar,
-          ],
-        }),
-      ],
-    });
-
-    function setValue(next) {
-      // reflect in controls
-      valLabel.textContent = next === null || next === "" || next === undefined ? "—" : String(next);
-      if (module.ui.modes[modeKey] === "slider") slider.value = String(next ?? 0);
-      if (module.ui.modes[modeKey] === "exact") exact.value = next ?? "";
-      onValueChange(next);
-      if (diffRef) diffRef();
-      scheduleAutosave();
-    }
-
-    slider.addEventListener("input", () => setValue(Number(slider.value)));
-    slider.addEventListener("change", () => onAfterChange?.());
-    exact.addEventListener("input", () => {
-      const v = exact.value === "" ? null : Number(exact.value);
-      setValue(Number.isFinite(v) ? v : null);
-    });
-    exact.addEventListener("change", () => onAfterChange?.());
-
-    function setActiveModeButtons() {
-      $$("button[data-mode]", modeBar).forEach((b) => {
-        const active = b.dataset.mode === module.ui.modes[modeKey];
-        b.classList.toggle("bg-brand-dark", active);
-        b.classList.toggle("text-white", active);
-        b.classList.toggle("bg-white", !active);
-        b.classList.toggle("text-gray-600", !active);
-      });
-    }
-
-    function updateModeUI() {
-      setActiveModeButtons();
-      const mode = module.ui.modes[modeKey];
-      slider.hidden = mode !== "slider";
-      exact.hidden = mode !== "exact";
-      quickWrap.hidden = mode !== "quick";
-      // keep controls synced
-      slider.value = String(value ?? 0);
-      exact.value = value ?? "";
-    }
-
-    // init
-    updateModeUI();
-    setActiveModeButtons();
-
-    return renderComponent({
-      tag: "div",
-      className: "p-3 bg-gray-50 rounded-xl border border-gray-100",
-      children: [headerLine, modeArea],
-    });
-  }
-
-  function numericField({ module, field, onAfterChange }) {
-    const wrap = renderComponent({ tag: "div", className: "space-y-3" });
-
-    if (field.bilateral) {
-      const diffText = renderComponent({ tag: "div", className: "text-xs text-gray-500 font-semibold", text: "Δ%: —" });
-
-      const refreshDiff = () => {
-        const v = module.numeric[field.id] || { L: null, R: null };
-        const L = typeof v.L === "number" ? v.L : null;
-        const R = typeof v.R === "number" ? v.R : null;
-        const denom = Math.max(L || 0, R || 0);
-        if (!denom) {
-          diffText.textContent = "Δ%: —";
-          diffText.classList.remove("text-red-600");
-          diffText.classList.add("text-gray-500");
-          return;
-        }
-        const diff = Math.abs((L || 0) - (R || 0));
-        const pct = (diff / denom) * 100;
-        diffText.textContent = `Δ%: ${pct.toFixed(0)}%`;
-        if (pct > 10) {
-          diffText.classList.add("text-red-600");
-          diffText.classList.remove("text-gray-500");
-        } else {
-          diffText.classList.remove("text-red-600");
-          diffText.classList.add("text-gray-500");
-        }
-      };
-
-      const cols = renderComponent({
-        tag: "div",
-        className: "grid grid-cols-1 md:grid-cols-2 gap-3",
-        children: [
-          numericTriple({
-            module,
-            field,
-            value: module.numeric[field.id]?.L ?? null,
-            side: "L",
-            onValueChange: (next) => {
-              module.numeric[field.id] = module.numeric[field.id] || { L: null, R: null };
-              module.numeric[field.id].L = next;
-              refreshDiff();
-              onAfterChange?.();
-            },
-            onAfterChange,
-            diffRef: refreshDiff,
-          }),
-          numericTriple({
-            module,
-            field,
-            value: module.numeric[field.id]?.R ?? null,
-            side: "R",
-            onValueChange: (next) => {
-              module.numeric[field.id] = module.numeric[field.id] || { L: null, R: null };
-              module.numeric[field.id].R = next;
-              refreshDiff();
-              onAfterChange?.();
-            },
-            onAfterChange,
-            diffRef: refreshDiff,
-          }),
-        ],
-      });
-
-      wrap.appendChild(
-        renderComponent({
-          tag: "div",
-          className: "flex items-center justify-between",
-          children: [
-            renderComponent({ tag: "div", className: "text-sm font-bold text-brand-dark", text: field.label }),
-            diffText,
-          ],
-        })
-      );
-      wrap.appendChild(cols);
-      refreshDiff();
-      return wrap;
-    }
-
-    // unilateral
-    return numericTriple({
-      module,
-      field,
-      value: module.numeric[field.id] ?? null,
-      onValueChange: (next) => {
-        module.numeric[field.id] = next;
-        onAfterChange?.();
-      },
-      onAfterChange,
-    });
-  }
-
-  // -----------------------------
-  // Module scoring (SPADI / DASH)
-  // -----------------------------
-  function isNum(v) {
-    return typeof v === "number" && Number.isFinite(v);
-  }
-
-  function calcSPADI(module) {
-    const painIds = Object.keys(module.numeric).filter((id) => id.startsWith("spadi_p"));
-    const disIds = Object.keys(module.numeric).filter((id) => id.startsWith("spadi_d"));
-
-    const painVals = painIds.map((id) => module.numeric[id]).filter(isNum);
-    const disVals = disIds.map((id) => module.numeric[id]).filter(isNum);
-
-    const painPct = painVals.length ? (painVals.reduce((a, b) => a + b, 0) / (painVals.length * 10)) * 100 : null;
-    const disPct = disVals.length ? (disVals.reduce((a, b) => a + b, 0) / (disVals.length * 10)) * 100 : null;
-
-    let total = null;
-    if (painPct !== null && disPct !== null) total = (painPct + disPct) / 2;
-    else total = painPct ?? disPct ?? null;
-
-    return { painPct, disPct, totalPct: total };
-  }
-
-  function calcDASH(module) {
-    const coreIds = Object.keys(module.numeric).filter((id) => id.startsWith("dash_q"));
-    // In data.js, 0 = N/A. Compute using answered values 1-5.
-    const vals = coreIds
-      .map((id) => module.numeric[id])
-      .filter((v) => isNum(v) && v >= 1 && v <= 5);
-
-    if (vals.length < 10) return { total: null, n: vals.length };
-
-    const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
-    const score = (mean - 1) * 25; // 0–100
-    return { total: score, n: vals.length };
-  }
-
-  function updateModuleScores(module, tpl) {
-    // SPADI
-    const sp = calcSPADI(module);
-    module.computed.spadi = sp;
-    if ("spadi_total_pct" in module.numeric) {
-      module.numeric.spadi_total_pct = sp.totalPct !== null ? Number(sp.totalPct.toFixed(1)) : null;
-    }
-
-    // DASH
-    const da = calcDASH(module);
-    module.computed.dash = da;
-    if ("dash_total" in module.numeric) {
-      module.numeric.dash_total = da.total !== null ? Number(da.total.toFixed(1)) : null;
-    }
-
-    // Update header chips in accordion titles (if present)
-    const card = $(`[data-module-instance="${module.instanceId}"]`);
-    if (!card) return;
-    const spBadge = $(`[data-badge-spadi="${module.instanceId}"]`, card);
-    const daBadge = $(`[data-badge-dash="${module.instanceId}"]`, card);
-
-    if (spBadge) spBadge.textContent = sp.totalPct !== null ? `SPADI ${sp.totalPct.toFixed(0)}%` : "SPADI —";
-    if (daBadge) daBadge.textContent = da.total !== null ? `DASH ${da.total.toFixed(0)}` : `DASH —`;
-  }
-
-  // -----------------------------
-  // Clinical reasoning: alerts + plan suggestions
-  // -----------------------------
-  function getIrritability(module) {
-    // Prefer dedicated select field id "irritabilidad"
-    const v = (module.text.irritabilidad || "").toLowerCase().trim();
-    if (v.includes("alta")) return "alta";
-    if (v.includes("media")) return "media";
-    if (v.includes("baja")) return "baja";
-    // If empty: unknown
-    return "";
-  }
-
-  function getAge() {
-    const a = Number(state.patientData["patient-age"]);
-    return Number.isFinite(a) ? a : null;
-  }
-
-  function derivePhase(module) {
-    const ir = getIrritability(module);
-    if (ir === "alta") return "Fase 1 (analgesia / control de síntomas)";
-    if (ir === "media") return "Fase 2 (capacidad y control motor / carga progresiva)";
-    if (ir === "baja") return "Fase 3–4 (fuerza, potencia y retorno funcional/deportivo)";
-    return "Fase: por definir (según irritabilidad y objetivo)";
-  }
-
-  function derivePlan(module) {
-    const age = getAge();
-    const ir = getIrritability(module);
-    const cls = {
-      rcrsp: !!module.tests.cls_rcrsp,
-      rcFull: !!module.tests.cls_rc_full_thickness,
-      caps: !!module.tests.cls_capsulitis,
-      instab: !!module.tests.cls_instability,
-      ac: !!module.tests.cls_ac_joint,
-      cerv: !!module.tests.cls_cervical,
-    };
-
-    const plan = [];
-
-    // Universal
-    plan.push("Educación: explicación del cuadro en lenguaje funcional (no amenazante) + expectativas y tiempos.");
-    plan.push("Manejo de carga: identificar gestos/volumen detonante y ajustar (sin reposo total).");
-
-    if (ir === "alta") {
-      plan.push("Analgesia por ejercicio: isométricos submáximos (RC/escápula) según tolerancia + exposición gradual.");
-      plan.push("ROM suave y dosificado (priorizar sueño, evitar picos de dolor >2–3/10 durante/pos 24h).");
-    } else if (ir === "media") {
-      plan.push("Progresión de fuerza: RC + escápula (ER/ABD/IR) con carga moderada, controlando síntomas 24h.");
-      plan.push("Movilidad dirigida (torácica, cápsula posterior si aplica) + re-test funcional.");
-    } else if (ir === "baja") {
-      plan.push("Fuerza pesada y potencia específica del gesto (overhead / empuje / tracción) + tolerancia al volumen.");
-      plan.push("Retorno funcional/deportivo: progresión de tareas y criterios de simetría/soportar carga.");
-    }
-
-    if (cls.rcrsp) {
-      plan.push("Enfoque RCRSP: control de carga + fortalecimiento progresivo del manguito y escápula + re-test (función overhead).");
-    }
-    if (cls.caps) {
-      plan.push("Enfoque hombro rígido/capsulitis: priorizar educación, dolor y movilidad dosificada; progresión lenta según irritabilidad.");
-      if (age !== null && age >= 40 && age <= 65) plan.push("Edad compatible con hombro rígido: monitorear ER pasiva, sueño y respuesta a carga.");
-    }
-    if (cls.instab) {
-      plan.push("Enfoque inestabilidad: control motor, propriocepción, estabilidad dinámica; progresar a posiciones vulnerables con criterio.");
-    }
-    if (cls.ac) {
-      plan.push("Enfoque AC: modular compresión/dolor focal, dosificar empujes/cargas horizontales y progresar por tolerancia.");
-    }
-    if (cls.rcFull) {
-      plan.push("Sospecha de desgarro completo: considerar derivación/imagen según edad, trauma, pérdida de potencia y limitación funcional.");
-      if (age !== null && age >= 60) plan.push("Edad >60 aumenta probabilidad: evaluar déficit real vs inhibición por dolor.");
-    }
-    if (cls.cerv) {
-      plan.push("Componente cervical: integrar evaluación neuro, manejo cervical, y ajustar carga del hombro según radicularidad.");
-    }
-
-    return {
-      phase: derivePhase(module),
-      bullets: plan,
-    };
-  }
-
-  function renderAlertCard(rule, severity) {
-    const sev = severity || rule.severity || "info";
-    const palette =
-      sev === "danger"
-        ? { bg: "bg-red-50", border: "border-red-200", text: "text-red-700", icon: "fa-triangle-exclamation" }
-        : sev === "warning"
-        ? { bg: "bg-yellow-50", border: "border-yellow-200", text: "text-yellow-800", icon: "fa-triangle-exclamation" }
-        : { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700", icon: "fa-circle-info" };
-
-    return renderComponent({
-      tag: "div",
-      className: `p-4 rounded-2xl border ${palette.bg} ${palette.border}`.trim(),
-      children: [
-        renderComponent({
-          tag: "div",
-          className: "flex items-start gap-3",
-          children: [
-            renderComponent({
-              tag: "div",
-              className: `w-9 h-9 rounded-full flex items-center justify-center ${palette.bg}`.trim(),
-              children: [iconEl(palette.icon, palette.text)],
-            }),
-            renderComponent({
-              tag: "div",
-              className: "min-w-0",
-              children: [
-                renderComponent({ tag: "div", className: `font-extrabold ${palette.text}`, text: rule.title || "Alerta clínica" }),
-                renderComponent({ tag: "div", className: "text-sm text-gray-700 mt-1", text: rule.description || "" }),
-              ],
-            }),
-          ],
-        }),
-      ],
-    });
-  }
-
-  function evaluateModuleLogic(module, tpl) {
-    const container = $(`[data-alerts="${module.instanceId}"]`);
-    if (!container) return;
-
-    container.replaceChildren();
-
-    const rules = Array.isArray(tpl.logicRules) ? tpl.logicRules : [];
-    const triggered = [];
-
-    for (const rule of rules) {
-      if (!rule || typeof rule.when !== "function") continue;
-      let ok = false;
-      try {
-        ok = !!rule.when({ tests: module.tests, numeric: module.numeric, text: module.text }, state.patientData);
-      } catch (_) {
-        ok = false;
-      }
-      if (ok) triggered.push(rule);
-    }
-
-    if (triggered.length === 0) return;
-
-    // Render in order: danger -> warning -> info
-    const order = { danger: 0, warning: 1, info: 2 };
-    triggered.sort((a, b) => (order[a.severity] ?? 9) - (order[b.severity] ?? 9));
-
-    triggered.forEach((r) => container.appendChild(renderAlertCard(r)));
-  }
-
-  function renderPlanCard(module, tpl) {
-    const wrap = $(`[data-plan="${module.instanceId}"]`);
-    if (!wrap) return;
-
-    wrap.replaceChildren();
-
-    const plan = derivePlan(module);
-
-    const bullets = renderComponent({
-      tag: "ul",
-      className: "list-disc pl-5 space-y-1 text-sm text-gray-800",
-      children: plan.bullets.map((b) => renderComponent({ tag: "li", text: b })),
-    });
-
-    const btnInsert = renderComponent({
-      tag: "button",
-      className: "px-3 py-2 rounded-lg bg-brand-dark text-white text-sm font-bold hover:bg-gray-800 transition-all",
-      attrs: { type: "button" },
-      text: "Insertar en “Plan inicial”",
-      on: {
-        click: () => {
-          // Append into plan_inicial textarea if exists
-          const target = $(`[data-field="${module.instanceId}:plan_inicial"] textarea, [data-field="${module.instanceId}:plan_inicial"] input`);
-          const lines = ["", plan.phase, ...plan.bullets.map((x) => `• ${x}`), ""].join("\n");
-          if (target) {
-            target.value = (target.value || "") + lines;
-            module.text.plan_inicial = target.value;
-            scheduleAutosave();
-          }
-        },
-      },
-    });
-
-    wrap.appendChild(
-      renderComponent({
-        tag: "div",
-        className: "p-4 rounded-2xl border border-gray-200 bg-white",
-        children: [
-          renderComponent({
-            tag: "div",
-            className: "flex items-start justify-between gap-4",
-            children: [
-              renderComponent({
-                tag: "div",
-                className: "min-w-0",
-                children: [
-                  renderComponent({ tag: "div", className: "font-extrabold text-brand-dark", text: "Plan sugerido (automatizado)" }),
-                  renderComponent({ tag: "div", className: "text-sm text-gray-600 mt-1", text: plan.phase }),
-                ],
-              }),
-              btnInsert,
-            ],
-          }),
-          renderComponent({ tag: "div", className: "mt-3", children: [bullets] }),
-        ],
-      })
-    );
-  }
-
-  function evaluateAllLogic() {
-    state.activeModules.forEach((m) => {
-      const tpl = getModuleTemplate(m.key);
-      evaluateModuleLogic(m, tpl);
-      updateModuleScores(m, tpl);
-      renderPlanCard(m, tpl);
-    });
-  }
-
-  // -----------------------------
-  // Section render
-  // -----------------------------
-  function renderField(module, tpl, field) {
-    if (!field || !field.id) return renderComponent({ tag: "div" });
-
-    const afterChange = () => {
-      // Derived updates
-      updateModuleScores(module, tpl);
-      evaluateModuleLogic(module, tpl);
-      renderPlanCard(module, tpl);
-      scheduleAutosave();
-    };
-
-    // Special cases: irritability as select for speed
-    if (field.id === "irritabilidad") {
-      return selectField({
-        value: module.text[field.id] || "",
-        field: { ...field, label: field.label || "Irritabilidad" },
-        options: [
-          { value: "", label: "— Seleccionar —" },
-          { value: "Alta", label: "Alta" },
-          { value: "Media", label: "Media" },
-          { value: "Baja", label: "Baja" },
-        ],
-        onChange: (v) => {
-          module.text[field.id] = v;
-          afterChange();
-        },
-      });
-    }
-
-    if (field.type === "boolean") {
-      return triBoolField({
-        module,
-        field,
-        onChange: (next) => {
-          module.tests[field.id] = next;
-          afterChange();
-        },
-      });
-    }
-
-    if (field.type === "numeric") {
-      return renderComponent({
-        tag: "div",
-        attrs: { "data-field": `${module.instanceId}:${field.id}` },
-        children: [numericField({ module, field, onAfterChange: afterChange })],
-      });
-    }
-
-    if (field.type === "textarea") {
-      return renderComponent({
-        tag: "div",
-        attrs: { "data-field": `${module.instanceId}:${field.id}` },
-        children: [
-          textareaField({
-            value: module.text[field.id] || "",
-            field,
-            onChange: (v) => {
-              module.text[field.id] = v;
-              scheduleAutosave();
-            },
-          }),
-        ],
-      });
-    }
-
-    // text default
-    return renderComponent({
-      tag: "div",
-      attrs: { "data-field": `${module.instanceId}:${field.id}` },
-      children: [
-        textField({
-          value: module.text[field.id] || "",
-          field,
-          onChange: (v) => {
-            module.text[field.id] = v;
-            scheduleAutosave();
-          },
-        }),
-      ],
-    });
-  }
-
-  function sectionHeaderBadges(module, sectionTitle) {
-    const t = (sectionTitle || "").toLowerCase();
-    const badges = [];
-
-    if (t.includes("spadi")) {
-      badges.push(
-        renderComponent({
-          tag: "span",
-          className: "text-xs font-extrabold px-2 py-1 rounded-lg bg-brand-accent/20 text-brand-dark",
-          attrs: { "data-badge-spadi": module.instanceId },
-          text: "SPADI —",
-        })
-      );
-    }
-    if (t.includes("dash")) {
-      badges.push(
-        renderComponent({
-          tag: "span",
-          className: "text-xs font-extrabold px-2 py-1 rounded-lg bg-brand-accent/20 text-brand-dark",
-          attrs: { "data-badge-dash": module.instanceId },
-          text: "DASH —",
-        })
-      );
-    }
-
-    return badges;
-  }
-
-  function renderSection(module, tpl, section, secIndex) {
-    const content = renderComponent({
-      tag: "div",
-      attrs: { "data-section-content": `${module.instanceId}:${secIndex}` },
-      className: "p-4 pt-3",
-      children: [],
-    });
-
-    // Layout
-    const style = section.style || "card";
-    const gridCls =
-      style === "grid2" ? "grid grid-cols-1 md:grid-cols-2 gap-3" : "grid grid-cols-1 gap-3";
-    const grid = renderComponent({ tag: "div", className: gridCls });
-
-    (section.fields || []).forEach((f) => grid.appendChild(renderField(module, tpl, f)));
-
-    content.appendChild(grid);
-    content.hidden = !!module.ui.collapsed[secIndex];
-
-    const chevron = renderComponent({
-      tag: "i",
-      className: `fa-solid fa-chevron-down transition-transform ${content.hidden ? "" : "rotate-180"}`.trim(),
-      attrs: { "data-section-chevron": `${module.instanceId}:${secIndex}`, "aria-hidden": "true" },
-    });
-
-    const header = renderComponent({
-      tag: "button",
-      className: "w-full text-left flex items-center justify-between gap-3 p-4 bg-gray-50 hover:bg-gray-100 transition-colors",
-      attrs: { type: "button" },
-      on: { click: () => toggleSection(module.instanceId, secIndex) },
-      children: [
-        renderComponent({
-          tag: "div",
-          className: "flex items-center gap-3 min-w-0",
-          children: [
-            renderComponent({
-              tag: "div",
-              className: "w-9 h-9 rounded-full bg-brand-accent/20 flex items-center justify-center shrink-0",
-              children: [iconEl(section.icon || "fa-circle", "text-brand-accent")],
-            }),
-            renderComponent({
-              tag: "div",
-              className: "min-w-0",
-              children: [
-                renderComponent({ tag: "div", className: "font-extrabold text-brand-dark truncate", text: section.title || "Sección" }),
-                renderComponent({
-                  tag: "div",
-                  className: "flex items-center gap-2 mt-1",
-                  children: sectionHeaderBadges(module, section.title),
-                }),
-              ],
-            }),
-          ],
-        }),
-        chevron,
-      ],
-    });
-
-    return renderComponent({
-      tag: "div",
-      className: "rounded-2xl overflow-hidden border border-gray-200 bg-white",
-      children: [header, content],
-    });
-  }
-
-  // -----------------------------
-  // Module card render
-  // -----------------------------
-  function renderModuleCard(module, tpl) {
-    const stack = $("#clinical-stack");
-    if (!stack) return;
-
-    // Remove empty-state if any
-    setEmptyStateVisibility();
-
-    const card = renderComponent({
-      tag: "section",
-      className: "module-card bg-white rounded-3xl shadow-lg overflow-hidden border border-black/5",
-      dataset: { moduleInstance: module.instanceId },
-      attrs: { "data-module-instance": module.instanceId },
-    });
-
-    const header = renderComponent({
-      tag: "div",
-      className: "bg-brand-dark p-6 flex items-center justify-between gap-4",
-      children: [
-        renderComponent({
-          tag: "div",
-          className: "flex items-center gap-4 min-w-0",
-          children: [
-            renderComponent({
-              tag: "div",
-              className: "w-12 h-12 rounded-full bg-brand-accent/20 flex items-center justify-center shrink-0",
-              children: [iconEl(tpl.icon || "fa-person-rays", "text-brand-accent text-xl")],
-            }),
-            renderComponent({
-              tag: "div",
-              className: "min-w-0",
-              children: [
-                renderComponent({ tag: "div", className: "text-white font-extrabold tracking-wide", text: `EVALUACIÓN: ${tpl.title || module.title}` }),
-                renderComponent({ tag: "div", className: "text-white/60 text-sm font-semibold mt-0.5", text: "Secciones colapsables · Cálculo automático · Razonamiento clínico" }),
-              ],
-            }),
-          ],
-        }),
-        renderComponent({
-          tag: "button",
-          className: "w-11 h-11 rounded-full flex items-center justify-center text-gray-300 hover:text-red-400 hover:bg-white/10 transition-colors",
-          attrs: { type: "button", title: "Eliminar módulo" },
-          on: { click: () => removeModule(module.instanceId) },
-          children: [iconEl("fa-trash-can")],
-        }),
-      ],
-    });
-
-    const body = renderComponent({ tag: "div", className: "p-6 space-y-4" });
-
-    // Alerts container
-    body.appendChild(renderComponent({ tag: "div", attrs: { "data-alerts": module.instanceId }, className: "space-y-3" }));
-
-    // Plan container (auto)
-    body.appendChild(renderComponent({ tag: "div", attrs: { "data-plan": module.instanceId }, className: "space-y-3" }));
-
-    // Sections
-    (tpl.sections || []).forEach((sec, idx) => {
-      body.appendChild(renderSection(module, tpl, sec, idx));
-    });
-
-    card.appendChild(header);
-    card.appendChild(body);
-
-    stack.appendChild(card);
-
-    // First derived render
-    renderPlanCard(module, tpl);
-    evaluateModuleLogic(module, tpl);
-    updateModuleScores(module, tpl);
-  }
-
-  // -----------------------------
-  // Active tags render
-  // -----------------------------
-  function renderActiveTags() {
-    const container = $("#active-tags-container");
-    if (!container) return;
-
-    container.replaceChildren();
-
-    state.activeModules.forEach((m) => {
-      const tpl = getModuleTemplate(m.key);
-      const chip = renderComponent({
-        tag: "div",
-        className: "flex items-center gap-2 bg-brand-dark text-white/90 px-4 py-2 rounded-full shadow-sm border border-white/10",
-        children: [
-          renderComponent({ tag: "span", className: "font-bold text-sm", text: tpl.title || m.title }),
-          renderComponent({
-            tag: "button",
-            className: "w-6 h-6 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-colors",
-            attrs: { type: "button", title: "Cerrar" },
-            on: { click: () => removeModule(m.instanceId) },
-            children: [iconEl("fa-xmark")],
-          }),
-        ],
-      });
-      container.appendChild(chip);
-    });
-
-    // Adjust min height
-    container.style.minHeight = state.activeModules.length ? "auto" : "0px";
-  }
-
-  function setEmptyStateVisibility() {
-    const empty = $("#empty-state");
-    const stack = $("#clinical-stack");
-    if (!empty || !stack) return;
-
-    empty.style.display = state.activeModules.length ? "none" : "block";
-  }
-
-  // -----------------------------
-  // Storage: export/load + autosave
-  // -----------------------------
-  function exportSession() {
-    const payload = {
-      version: APP_VERSION,
-      exportedAt: new Date().toISOString(),
-      patientData: state.patientData,
-      activeModules: state.activeModules,
-    };
-    downloadTextFile(`paciente-${todayStamp()}.aum`, JSON.stringify(payload, null, 2));
-  }
-
-  function loadSessionFromObject(payload) {
-    if (!payload || typeof payload !== "object") return;
-
-    // Reset current
-    state.patientData = payload.patientData || {};
-    state.activeModules = Array.isArray(payload.activeModules) ? payload.activeModules : [];
-
-    // Restore patient inputs (DOM)
-    for (const [k, v] of Object.entries(state.patientData)) {
-      const el = getPatientEl(k);
-      if (el) el.value = v ?? "";
-    }
-    // Age placeholder
-    const ageEl = getPatientEl("patient-age");
-    if (ageEl) ageEl.value = state.patientData["patient-age"] || ageEl.value || "-";
-
-    // Ensure BMI injected, then restore weight/height/bmi
-    ensureWeightHeightBMI();
-    ["patient-weight", "patient-height", "patient-bmi"].forEach((id) => {
-      const el = getPatientEl(id);
-      if (el && id in state.patientData) el.value = state.patientData[id] ?? "";
-    });
-
-    // Clear stack DOM and rebuild
-    const stack = $("#clinical-stack");
-    if (stack) {
-      $$(".module-card", stack).forEach((n) => n.remove());
-    }
-
-    renderActiveTags();
-    setEmptyStateVisibility();
-
-    // Re-render module cards with templates
-    state.activeModules.forEach((m) => {
-      const tpl = getModuleTemplate(m.key);
-      // Ensure missing structures
-      m.tests = m.tests || {};
-      m.numeric = m.numeric || {};
-      m.text = m.text || {};
-      m.ui = m.ui || { collapsed: {} };
-      m.ui.collapsed = m.ui.collapsed || {};
-      renderModuleCard(m, tpl);
-    });
-
-    evaluateAllLogic();
-    scheduleAutosave(true);
-  }
-
-  function handleLoadFile(file) {
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const payload = JSON.parse(String(reader.result || "{}"));
-        loadSessionFromObject(payload);
-      } catch (e) {
-        alert("No se pudo leer el archivo .aum (JSON inválido).");
-      }
-    };
-    reader.readAsText(file);
-  }
-
-  function scheduleAutosave(forceImmediate = false) {
-    if (forceImmediate) {
-      doAutosave();
-      return;
-    }
-    clearTimeout(autosaveTimer);
-    autosaveTimer = setTimeout(doAutosave, 300);
-  }
-
-  function doAutosave() {
-    try {
-      const payload = {
-        version: APP_VERSION,
-        savedAt: new Date().toISOString(),
-        patientData: state.patientData,
-        activeModules: state.activeModules,
-      };
-      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(payload));
-    } catch (_) {
-      // ignore
-    }
-  }
-
-  function maybeRestoreAutosave() {
-    let raw = null;
-    try {
-      raw = localStorage.getItem(AUTOSAVE_KEY);
-    } catch (_) {
-      raw = null;
-    }
-    if (!raw) return;
-
-    let payload = null;
-    try {
-      payload = JSON.parse(raw);
-    } catch (_) {
-      payload = null;
-    }
-    if (!payload) return;
-
-    // Ask user (B)
-    const ok = window.confirm("Encontré una sesión guardada automáticamente. ¿Restaurarla?");
-    if (!ok) return;
-
-    loadSessionFromObject(payload);
-  }
-
-  // -----------------------------
-  // Print / PDF
-  // -----------------------------
-  function ensurePrintStyles() {
-    if ($("#aum-print-style")) return;
-
-    const style = renderComponent({
-      tag: "style",
-      attrs: { id: "aum-print-style" },
-      text: `
-        @media print {
-          #btn-add-module, #btn-reset-stack, #btn-upload-media, #btn-upload-docs,
-          #btn-save-aum, #btn-load-aum, .no-print, button[data-quick], button[data-mode] {
-            display: none !important;
-          }
-        }
-      `,
-    });
-    document.head.appendChild(style);
-  }
-
-  function expandAllTextareasForPrint() {
-    $$("textarea").forEach((ta) => {
-      // Expand to content height
-      ta.style.height = "auto";
-      ta.style.height = `${ta.scrollHeight}px`;
-    });
-  }
-
-  function exportPDF() {
-    expandAllTextareasForPrint();
-    window.print();
-  }
-
-  // -----------------------------
-  // Bind top controls
-  // -----------------------------
-  function bindTopControls() {
-    const addBtn = $("#btn-add-module");
-    const sel = $("#moduleSelector");
-    if (addBtn && sel) {
-      addBtn.addEventListener("click", () => {
-        const key = sel.value;
-        if (!key) return;
-        addModule(key);
-      });
-    }
-
-    const resetBtn = $("#btn-reset-stack");
-    if (resetBtn) resetBtn.addEventListener("click", resetStack);
-
-    const saveBtn = $("#btn-save-aum");
-    if (saveBtn) saveBtn.addEventListener("click", exportSession);
-
-    const loadBtn = $("#btn-load-aum");
-    const loadInput = $("#file-load-input");
-    if (loadBtn && loadInput) {
-      loadBtn.addEventListener("click", () => loadInput.click());
-      loadInput.addEventListener("change", () => {
-        const f = loadInput.files && loadInput.files[0];
-        if (!f) return;
-        handleLoadFile(f);
-        loadInput.value = "";
-      });
-    }
-
-    const uploadMediaBtn = $("#btn-upload-media");
-    const mediaInput = $("#media-upload-input");
-    if (uploadMediaBtn && mediaInput) {
-      const open = () => mediaInput.click();
-      uploadMediaBtn.addEventListener("click", open);
-      uploadMediaBtn.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") open();
-      });
-    }
-
-    const uploadDocsBtn = $("#btn-upload-docs");
-    const docInput = $("#doc-upload-input");
-    if (uploadDocsBtn && docInput) {
-      const open = () => docInput.click();
-      uploadDocsBtn.addEventListener("click", open);
-      uploadDocsBtn.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") open();
-      });
-    }
-
-    const pdfBtn = $("#btn-export-pdf");
-    if (pdfBtn) pdfBtn.addEventListener("click", exportPDF);
-
-    // Before/after print hooks
-    window.addEventListener("beforeprint", () => expandAllTextareasForPrint());
-    ensurePrintStyles();
-  }
-
-  // -----------------------------
-  // Init
-  // -----------------------------
-  function init() {
-    ensureWeightHeightBMI();
-    bindPatientInputs();
-    bindTopControls();
-    setEmptyStateVisibility();
-
-    // Autosave restore prompt:
-    maybeRestoreAutosave();
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+"use strict";
+const APP_VERSION = "aum-app-v5.0.0";
+const state = { patientData: {}, globalIntake: null, activeModules: [], meta: { version: APP_VERSION, updatedAt: null } };
+const AUTOSAVE_KEY = "aum_autosave_v2";
+let autosaveTimer = null;
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+function safeText(v) { if (v === null || v === undefined) return ""; return String(v); }
+function renderComponent(cfg) {
+if (cfg instanceof Node) return cfg;
+const tag = cfg?.tag || "div";
+const el = document.createElement(tag);
+const cls = cfg?.className || cfg?.class || cfg?.classes;
+if (cls) el.className = cls;
+if (cfg?.attrs) { for (const [k, v] of Object.entries(cfg.attrs)) { if (v === null || v === undefined) continue; el.setAttribute(k, String(v)); } }
+if (cfg?.dataset) { for (const [k, v] of Object.entries(cfg.dataset)) { el.dataset[k] = String(v); } }
+if (cfg?.text !== undefined) el.textContent = safeText(cfg.text);
+if (cfg?.children && Array.isArray(cfg.children)) {
+for (const child of cfg.children) {
+if (child === null || child === undefined) continue;
+if (child instanceof Node) el.appendChild(child);
+else if (typeof child === "string" || typeof child === "number") el.appendChild(document.createTextNode(String(child)));
+else el.appendChild(renderComponent(child));
+}
+}
+if (cfg?.on) { for (const [evt, handler] of Object.entries(cfg.on)) el.addEventListener(evt, handler); }
+return el;
+}
+function iconEl(faClass, extraClass = "") { return renderComponent({ tag: "i", className: `fa-solid ${faClass} ${extraClass}`.trim(), attrs: { "aria-hidden": "true" } }); }
+function todayStamp() { const d = new Date(); const yyyy = String(d.getFullYear()); const mm = String(d.getMonth() + 1).padStart(2, "0"); const dd = String(d.getDate()).padStart(2, "0"); return `${yyyy}-${mm}-${dd}`; }
+function downloadTextFile(filename, text, mime = "application/json;charset=utf-8") {
+const blob = new Blob([text], { type: mime });
+const url = URL.createObjectURL(blob);
+const a = renderComponent({ tag: "a", attrs: { href: url, download: filename } });
+document.body.appendChild(a);
+a.click();
+a.remove();
+setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+async function copyToClipboard(text) {
+try { await navigator.clipboard.writeText(text); toast("Copiado al portapapeles ✅"); return true; }
+catch (_) {
+try {
+const ta = renderComponent({ tag: "textarea", attrs: { "aria-hidden": "true" }, className: "fixed -top-[9999px] left-[-9999px]" });
+ta.value = text; document.body.appendChild(ta); ta.focus(); ta.select();
+const ok = document.execCommand("copy");
+ta.remove();
+if (ok) toast("Copiado al portapapeles ✅"); else toast("No se pudo copiar. Selecciona y copia manualmente.", "warning");
+return ok;
+} catch (e) { toast("No se pudo copiar. Selecciona y copia manualmente.", "warning"); return false; }
+}
+}
+function toast(message, kind = "info") {
+const hostId = "aum-toast-host";
+let host = document.getElementById(hostId);
+if (!host) { host = renderComponent({ tag: "div", attrs: { id: hostId }, className: "fixed bottom-4 left-1/2 -translate-x-1/2 z-[9999] space-y-2" }); document.body.appendChild(host); }
+const palette = kind === "warning" ? "bg-yellow-50 border-yellow-200 text-yellow-900" : kind === "danger" ? "bg-red-50 border-red-200 text-red-900" : "bg-white border-gray-200 text-gray-900";
+const item = renderComponent({ tag: "div", className: `px-4 py-2 rounded-2xl border shadow-lg text-sm font-semibold ${palette}`.trim(), text: message });
+host.appendChild(item);
+setTimeout(() => item.remove(), 2200);
+}
+const patientInputIds = ["kine-name","patient-name","patient-rut","patient-dob","patient-age","patient-address","patient-commune","patient-phone","patient-email","patient-insurance","patient-emergency-name","patient-emergency-phone","patient-occupation","patient-work-details","patient-sport"];
+function getPatientEl(id) { return document.getElementById(id); }
+function ensureWeightHeightBMI() {
+const ageInput = getPatientEl("patient-age");
+if (!ageInput) return;
+if (getPatientEl("patient-weight") && getPatientEl("patient-height") && getPatientEl("patient-bmi")) return;
+const ageCol = ageInput.closest("div");
+const grid = ageCol?.parentElement;
+if (!grid) return;
+const mkCol = (id, label, placeholder) => renderComponent({ tag: "div", className: "md:col-span-2", children: [renderComponent({ tag: "label", className: "aum-label", text: label }), renderComponent({ tag: "input", className: "aum-input", attrs: { id, type: "number", inputmode: "decimal", placeholder: placeholder || "" } })] });
+const weightCol = mkCol("patient-weight", "Peso (kg)", "—");
+const heightCol = mkCol("patient-height", "Talla (cm)", "—");
+const bmiCol = renderComponent({ tag: "div", className: "md:col-span-2", children: [renderComponent({ tag: "label", className: "aum-label", text: "IMC" }), renderComponent({ tag: "input", className: "aum-input bg-gray-50", attrs: { id: "patient-bmi", type: "text", readonly: "true", placeholder: "—" } })] });
+const idx = Array.from(grid.children).indexOf(ageCol);
+const insertAt = idx >= 0 ? idx + 1 : grid.children.length;
+grid.insertBefore(weightCol, grid.children[insertAt] || null);
+grid.insertBefore(heightCol, grid.children[insertAt + 1] || null);
+grid.insertBefore(bmiCol, grid.children[insertAt + 2] || null);
+const weightEl = getPatientEl("patient-weight");
+const heightEl = getPatientEl("patient-height");
+const bmiEl = getPatientEl("patient-bmi");
+const recalc = () => {
+const w = Number(weightEl?.value || "");
+const hcm = Number(heightEl?.value || "");
+if (!Number.isFinite(w) || !Number.isFinite(hcm) || w <= 0 || hcm <= 0) { if (bmiEl) bmiEl.value = ""; return; }
+const hm = hcm / 100;
+const bmi = w / (hm * hm);
+if (bmiEl) bmiEl.value = Number.isFinite(bmi) ? bmi.toFixed(1) : "";
+};
+if (weightEl) weightEl.addEventListener("input", recalc);
+if (heightEl) heightEl.addEventListener("input", recalc);
+}
+function bindPatientInputs() {
+ensureWeightHeightBMI();
+const allIds = [...patientInputIds, "patient-weight", "patient-height", "patient-bmi"];
+allIds.forEach((id) => {
+const el = getPatientEl(id);
+if (!el) return;
+el.addEventListener("input", () => { state.patientData[id] = el.value ?? ""; scheduleAutosave(); });
+});
+}
+const INTAKE_BRANCHES = [{ value: "MSK", label: "MSK" },{ value: "PF", label: "Piso pélvico" },{ value: "SPORT", label: "Deportiva" }];
+function ensureGlobalIntakeState() {
+if (state.globalIntake && typeof state.globalIntake === "object") return;
+state.globalIntake = { branch: "MSK", tests: {}, numeric: {}, text: {}, ui: { collapsed: { basics: false, comorb: false, alerts: false, outputs: true } }, computed: { globalRules: [] } };
+const defaults = { motivo: "", duracion: "", banderas_rojas_txt: "", diabetes: null, tiroides: null, cardio: null, osteoporosis: null, anticoagulantes: null, corticoides: null, autoinmune_inmunosup: null, cancer_previo: null, embarazo: null, postparto: null, depresion_ansiedad: null, tabaco: null, alcohol: null, alergias: "", meds_txt: "" };
+for (const [k, v] of Object.entries(defaults)) { if (k.endsWith("_txt") || typeof v === "string") state.globalIntake.text[k] = v; else state.globalIntake.tests[k] = v; }
+state.globalIntake.numeric.dolor_reposo = null;
+state.globalIntake.numeric.dolor_actividad = null;
+state.globalIntake.numeric.suenio = null;
+const pfDefaults = { pf_incontinencia_urinaria: null, pf_incontinencia_fecal: null, pf_urgencia: null, pf_prolapso_sensacion: null, pf_dolor_pelvico: null, pf_dolor_relaciones: null, pf_estreñimiento: null };
+for (const [k, v] of Object.entries(pfDefaults)) state.globalIntake.tests[k] = v;
+state.globalIntake.text.sport_objetivo = "";
+state.globalIntake.text.sport_disciplina = "";
+state.globalIntake.tests.sport_competitivo = null;
+state.globalIntake.text.sport_carga_semana = "";
+}
+function toggleIntakeSection(key) { ensureGlobalIntakeState(); state.globalIntake.ui.collapsed[key] = !state.globalIntake.ui.collapsed[key]; renderIntakeRemote(); scheduleAutosave(); }
+function sectionShell({ title, subtitle, icon, collapsed, onToggle, badges = [], children = [] }) {
+const chevron = iconEl("fa-chevron-down", "text-white/80 transition-transform");
+if (!collapsed) chevron.classList.add("rotate-180");
+const header = renderComponent({ tag: "button", className: "w-full text-left bg-brand-dark px-5 py-4 flex items-center justify-between gap-4", attrs: { type: "button" }, on: { click: onToggle }, children: [
+renderComponent({ tag: "div", className: "flex items-center gap-3 min-w-0", children: [
+renderComponent({ tag: "div", className: "w-10 h-10 rounded-full bg-brand-accent/20 flex items-center justify-center shrink-0", children: [iconEl(icon || "fa-clipboard-list", "text-brand-accent")] }),
+renderComponent({ tag: "div", className: "min-w-0", children: [
+renderComponent({ tag: "div", className: "text-white font-extrabold tracking-wide", text: title }),
+subtitle ? renderComponent({ tag: "div", className: "text-white/60 text-sm font-semibold mt-0.5", text: subtitle }) : null
+].filter(Boolean) })
+] }),
+renderComponent({ tag: "div", className: "flex items-center gap-2 shrink-0", children: [...badges, renderComponent({ tag: "span", className: "w-9 h-9 rounded-full flex items-center justify-center bg-white/10", children: [chevron] })] })
+] });
+const content = renderComponent({ tag: "div", className: "p-5 space-y-4", attrs: { "data-intake-content": title }, children });
+if (collapsed) content.hidden = true;
+return renderComponent({ tag: "section", className: "bg-white rounded-3xl shadow-lg overflow-hidden border border-black/5", children: [header, content] });
+}
+function infoPill(text, kind = "info") {
+const cls = kind === "danger" ? "bg-red-50 text-red-700 border-red-200" : kind === "warning" ? "bg-yellow-50 text-yellow-800 border-yellow-200" : "bg-blue-50 text-blue-700 border-blue-200";
+return renderComponent({ tag: "span", className: `text-xs font-extrabold px-2 py-1 rounded-full border ${cls}`.trim(), text });
+}
+function triControl({ value, onChange, withStrongVisual = true }) {
+const container = renderComponent({ tag: "div", className: "inline-flex rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-sm" });
+const mkBtn = (v, label) => renderComponent({ tag: "button", className: "px-3 py-2 text-xs font-extrabold tracking-wide transition-all", attrs: { type: "button", "data-tri": v }, text: label });
+container.appendChild(mkBtn("null", "No eval."));
+container.appendChild(mkBtn("false", "No"));
+container.appendChild(mkBtn("true", "Sí"));
+const apply = (val) => {
+const activeClasses = { null: withStrongVisual ? ["bg-gray-200", "text-gray-800"] : ["bg-brand-dark", "text-white"], false: withStrongVisual ? ["bg-red-600", "text-white"] : ["bg-brand-dark", "text-white"], true: withStrongVisual ? ["bg-emerald-600", "text-white"] : ["bg-brand-dark", "text-white"] };
+const borderClasses = { null: "border-gray-200", false: "border-red-300", true: "border-emerald-300" };
+container.classList.remove("border-gray-200", "border-red-300", "border-emerald-300");
+container.classList.add(borderClasses[val === null ? "null" : val ? "true" : "false"]);
+$$("button[data-tri]", container).forEach((b) => {
+const key = b.dataset.tri;
+const isActive = (key === "null" && val === null) || (key === "true" && val === true) || (key === "false" && val === false);
+b.className = "px-3 py-2 text-xs font-extrabold tracking-wide transition-all";
+if (isActive) b.classList.add(...activeClasses[key === "null" ? "null" : key === "true" ? "true" : "false"]);
+else b.classList.add("bg-white", "text-gray-600", "hover:bg-gray-50");
+});
+};
+container.addEventListener("click", (e) => {
+const btn = e.target.closest("button[data-tri]");
+if (!btn) return;
+const v = btn.dataset.tri;
+const next = v === "true" ? true : v === "false" ? false : null;
+onChange(next);
+apply(next);
+});
+apply(value);
+return container;
+}
+function quadControlPF({ value, onChange }) {
+const container = renderComponent({ tag: "div", className: "inline-flex rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-sm" });
+const mkBtn = (v, label) => renderComponent({ tag: "button", className: "px-3 py-2 text-xs font-extrabold tracking-wide transition-all", attrs: { type: "button", "data-quad": v }, text: label });
+container.appendChild(mkBtn("null", "No eval."));
+container.appendChild(mkBtn("false", "No"));
+container.appendChild(mkBtn("true", "Sí"));
+container.appendChild(mkBtn("pnr", "Pref. no resp."));
+const apply = (val) => {
+container.classList.remove("border-gray-200", "border-red-300", "border-emerald-300", "border-slate-300");
+const border = val === true ? "border-emerald-300" : val === false ? "border-red-300" : val === "pnr" ? "border-slate-300" : "border-gray-200";
+container.classList.add(border);
+$$("button[data-quad]", container).forEach((b) => {
+const key = b.dataset.quad;
+const isActive = (key === "null" && val === null) || (key === "true" && val === true) || (key === "false" && val === false) || (key === "pnr" && val === "pnr");
+b.className = "px-3 py-2 text-xs font-extrabold tracking-wide transition-all";
+if (isActive) {
+if (key === "true") b.classList.add("bg-emerald-600", "text-white");
+else if (key === "false") b.classList.add("bg-red-600", "text-white");
+else if (key === "pnr") b.classList.add("bg-slate-700", "text-white");
+else b.classList.add("bg-gray-200", "text-gray-800");
+} else b.classList.add("bg-white", "text-gray-600", "hover:bg-gray-50");
+});
+};
+container.addEventListener("click", (e) => {
+const btn = e.target.closest("button[data-quad]");
+if (!btn) return;
+const v = btn.dataset.quad;
+const next = v === "true" ? true : v === "false" ? false : v === "pnr" ? "pnr" : null;
+onChange(next);
+apply(next);
+});
+apply(value);
+return container;
+}
+function labeledRow(label, controlNode, hint = "") {
+return renderComponent({ tag: "div", className: "p-4 rounded-2xl border border-gray-200 bg-white", children: [
+renderComponent({ tag: "div", className: "flex items-start justify-between gap-4", children: [
+renderComponent({ tag: "div", className: "min-w-0", children: [
+renderComponent({ tag: "div", className: "font-extrabold text-brand-dark", text: label }),
+hint ? renderComponent({ tag: "div", className: "text-sm text-gray-600 mt-1", text: hint }) : null
+].filter(Boolean) }),
+renderComponent({ tag: "div", className: "shrink-0", children: [controlNode] })
+] })
+] });
+}
+function intakeTextField(id, label, placeholder = "—") {
+const input = renderComponent({ tag: "input", className: "aum-input", attrs: { type: "text", placeholder } });
+input.value = state.globalIntake.text[id] || "";
+input.addEventListener("input", () => { state.globalIntake.text[id] = input.value; scheduleAutosave(); });
+return labeledRow(label, input);
+}
+function intakeTextarea(id, label, placeholder = "—") {
+const ta = renderComponent({ tag: "textarea", className: "aum-input min-h-[96px] resize-y", attrs: { placeholder } });
+ta.value = state.globalIntake.text[id] || "";
+ta.addEventListener("input", () => { state.globalIntake.text[id] = ta.value; scheduleAutosave(); });
+return renderComponent({ tag: "div", className: "p-4 rounded-2xl border border-gray-200 bg-white", children: [renderComponent({ tag: "div", className: "font-extrabold text-brand-dark mb-2", text: label }), ta] });
+}
+function intakeNumeric(id, label, min = 0, max = 10, step = 1, hint = "") {
+const input = renderComponent({ tag: "input", className: "aum-input", attrs: { type: "number", inputmode: "decimal", min: String(min), max: String(max), step: String(step), placeholder: "—" } });
+const v = state.globalIntake.numeric[id];
+input.value = v === null || v === undefined ? "" : String(v);
+input.addEventListener("input", () => { const n = input.value === "" ? null : Number(input.value); state.globalIntake.numeric[id] = Number.isFinite(n) ? n : null; scheduleAutosave(); evaluateGlobalRulesAndRender(); });
+return labeledRow(label, input, hint);
+}
+function intakeTri(id, label, hint = "") {
+const val = state.globalIntake.tests[id] ?? null;
+const ctrl = triControl({ value: val, onChange: (next) => { state.globalIntake.tests[id] = next; scheduleAutosave(); evaluateGlobalRulesAndRender(); } });
+return labeledRow(label, ctrl, hint);
+}
+function intakePFQuad(id, label, hint = "") {
+const val = state.globalIntake.tests[id] ?? null;
+const ctrl = quadControlPF({ value: val, onChange: (next) => { state.globalIntake.tests[id] = next; scheduleAutosave(); evaluateGlobalRulesAndRender(); } });
+return labeledRow(label, ctrl, hint);
+}
+function intakeSelectBranch() {
+const select = renderComponent({ tag: "select", className: "aum-input cursor-pointer font-extrabold", children: INTAKE_BRANCHES.map((o) => renderComponent({ tag: "option", attrs: { value: o.value }, text: o.label })) });
+select.value = state.globalIntake.branch || "MSK";
+select.addEventListener("change", () => { state.globalIntake.branch = select.value; scheduleAutosave(); renderIntakeRemote(); evaluateGlobalRulesAndRender(); });
+return labeledRow("Rama del Intake", select, "Define el set de preguntas esenciales según el tipo de atención.");
+}
+function truthyTri(v) { return v === true; }
+function globalCtx() { return { patient: state.patientData || {}, intake: state.globalIntake || { tests: {}, numeric: {}, text: {}, branch: "MSK" }, modules: state.activeModules || [] }; }
+const GLOBAL_RULES = [
+{ id: "anticoagulantes", severity: "danger", title: "Anticoagulantes / alto riesgo de sangrado", description: "Evita técnicas invasivas (punción, electrolisis, etc.) sin autorización médica y plan de manejo del riesgo.", when: (ctx) => truthyTri(ctx.intake.tests.anticoagulantes), actions: ["Confirmar fármaco/dosis (warfarina, DOAC, antiagregantes) y última toma.","Consultar con médico si se planifica técnica invasiva o si hay hematomas/sangrado espontáneo.","Preferir estrategias no invasivas y educación + carga progresiva."], consider: ["Riesgo de hematoma, sangrado prolongado.","Precaución con masaje profundo y manipulación de tejidos."] },
+{ id: "diabetes", severity: "warning", title: "Diabetes / riesgo de cicatrización y neuropatía", description: "Ajusta carga y control de tejidos; monitoriza sensibilidad, perfusión y respuesta a ejercicio.", when: (ctx) => truthyTri(ctx.intake.tests.diabetes), actions: ["Screening de sensibilidad (si aplica), dolor neuropático y control glicémico.","Progresión de carga conservadora si hay tendinopatía y comorbilidades.","Educar sobre signos de irritación/infección en piel/tejidos."], consider: ["Neuropatía, menor tolerancia a carga, recuperación más lenta."] },
+{ id: "osteoporosis", severity: "warning", title: "Osteoporosis / riesgo de fractura", description: "Evita altas fuerzas/torques no controlados; prioriza progresión gradual, fuerza y equilibrio.", when: (ctx) => truthyTri(ctx.intake.tests.osteoporosis), actions: ["Evitar HVLA/manipulaciones de alta velocidad sin indicación clara.","Enseñar técnica y progresar cargas con control (fuerza/resistencia).","Si dolor agudo post-trauma o dolor nocturno severo: considerar evaluación médica."], consider: ["Riesgo de fractura por fragilidad, especialmente si hay dolor agudo o trauma mínimo."] },
+{ id: "corticoides", severity: "warning", title: "Uso de corticoides", description: "Considera riesgo tendinoso, piel frágil y comorbilidades asociadas; individualiza carga.", when: (ctx) => truthyTri(ctx.intake.tests.corticoides), actions: ["Confirmar tipo (sistémico vs local), duración y motivo.","Cautela con carga explosiva y progresiones bruscas, especialmente en tendones."], consider: ["Mayor riesgo de lesión tendinosa (dependiente de contexto) y fragilidad tisular."] },
+{ id: "cardio", severity: "warning", title: "Comorbilidad cardiovascular", description: "Precauciones de ejercicio: monitoriza síntomas, presión y tolerancia; prioriza seguridad.", when: (ctx) => truthyTri(ctx.intake.tests.cardio), actions: ["Indagar síntomas de alarma con ejercicio (dolor torácico, disnea desproporcionada, síncope).","Monitorear respuesta (RPE, disnea, presión si disponible).","Escalar progresión aeróbica/fortalecimiento según tolerancia."], consider: ["Riesgo aumentado en esfuerzos intensos; aplicar progresión graduada."] },
+{ id: "cancer_previo", severity: "info", title: "Cáncer previo (historia)", description: "Mantén screening de banderas rojas y coordina si hay síntomas sistémicos nuevos.", when: (ctx) => truthyTri(ctx.intake.tests.cancer_previo), actions: ["Preguntar por síntomas sistémicos nuevos (baja de peso no explicada, fiebre, sudoración nocturna).","Si dolor progresivo/nocturno sin explicación mecánica: derivar para evaluación médica."], consider: ["Mayor umbral de sospecha ante síntomas sistémicos o dolor atípico."] },
+{ id: "autoinmune_inmunosup", severity: "warning", title: "Autoinmune / inmunosupresión", description: "Riesgo de infección y alteración en recuperación; ajustar intervención y vigilancia.", when: (ctx) => truthyTri(ctx.intake.tests.autoinmune_inmunosup), actions: ["Confirmar fármacos inmunosupresores y estado general.","Cautela con técnicas invasivas y control de piel/tejidos."], consider: ["Mayor susceptibilidad a infección, fatiga, variabilidad de síntomas."] },
+{ id: "embarazo_postparto", severity: "info", title: "Embarazo / postparto", description: "Ajusta posiciones y carga; considera síntomas pélvicos, diástasis y fatiga.", when: (ctx) => truthyTri(ctx.intake.tests.embarazo) || truthyTri(ctx.intake.tests.postparto), actions: ["Evitar posiciones prolongadas supinas en etapas avanzadas (según tolerancia).","Integrar screening de piso pélvico si hay síntomas urinarios/pélvicos.","Progresar fuerza y retorno a actividad según síntomas y carga total."], consider: ["Cambios hormonales y de carga, tolerancia variable, relevancia del PF."] }
+];
+function evaluateGlobalRules() {
+const ctx = globalCtx();
+const out = [];
+for (const rule of GLOBAL_RULES) {
+let ok = false;
+try { ok = !!rule.when(ctx); } catch (_) { ok = false; }
+if (ok) out.push(rule);
+}
+const order = { danger: 0, warning: 1, info: 2 };
+out.sort((a, b) => (order[a.severity] ?? 9) - (order[b.severity] ?? 9));
+return out;
+}
+function renderRuleCard(rule) {
+const sev = rule.severity || "info";
+const palette = sev === "danger" ? { bg: "bg-red-50", border: "border-red-200", text: "text-red-800", icon: "fa-triangle-exclamation" } : sev === "warning" ? { bg: "bg-yellow-50", border: "border-yellow-200", text: "text-yellow-900", icon: "fa-triangle-exclamation" } : { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-900", icon: "fa-circle-info" };
+const listBlock = (title, items) => {
+if (!items || !items.length) return null;
+return renderComponent({ tag: "div", className: "mt-3", children: [
+renderComponent({ tag: "div", className: `text-xs font-extrabold uppercase tracking-wide ${palette.text}`.trim(), text: title }),
+renderComponent({ tag: "ul", className: "mt-2 list-disc pl-5 space-y-1 text-sm text-gray-800", children: items.map((t) => renderComponent({ tag: "li", text: t })) })
+] });
+};
+return renderComponent({ tag: "div", className: `p-4 rounded-2xl border ${palette.bg} ${palette.border}`.trim(), children: [
+renderComponent({ tag: "div", className: "flex items-start gap-3", children: [
+renderComponent({ tag: "div", className: `w-9 h-9 rounded-full flex items-center justify-center ${palette.bg}`.trim(), children: [iconEl(palette.icon, palette.text)] }),
+renderComponent({ tag: "div", className: "min-w-0", children: [
+renderComponent({ tag: "div", className: `font-extrabold ${palette.text}`.trim(), text: rule.title || "Alerta" }),
+rule.description ? renderComponent({ tag: "div", className: "text-sm text-gray-800 mt-1", text: rule.description }) : null,
+listBlock("Acciones ahora", rule.actions || rule.nextSteps || []),
+listBlock("Consideraciones", rule.consider || rule.considerations || [])
+].filter(Boolean) })
+] })
+] });
+}
+function evaluateGlobalRulesAndRender() {
+ensureGlobalIntakeState();
+state.globalIntake.computed.globalRules = evaluateGlobalRules();
+const alertsHost = $("#intake-global-alerts");
+if (alertsHost) {
+alertsHost.replaceChildren();
+const rules = state.globalIntake.computed.globalRules || [];
+if (!rules.length) {
+alertsHost.appendChild(renderComponent({ tag: "div", className: "p-4 rounded-2xl border border-gray-200 bg-gray-50 text-sm text-gray-700 font-semibold", text: "Sin alertas globales activas (según comorbilidades/medicación marcadas)." }));
+} else { rules.forEach((r) => alertsHost.appendChild(renderRuleCard(r))); }
+}
+const soapEl = $("#intake-soap-text");
+if (soapEl) soapEl.value = generateSOAP();
+const derEl = $("#intake-deriv-text");
+if (derEl) derEl.value = generateDerivacion();
+}
+function renderIntakeRemote() {
+ensureGlobalIntakeState();
+const root = $("#intake-remote-root");
+if (!root) return;
+root.replaceChildren();
+const activeRules = (state.globalIntake.computed.globalRules || []).length;
+const badges = [];
+if (activeRules > 0) badges.push(infoPill(`Alertas: ${activeRules}`, "warning"));
+const basicsCollapsed = !!state.globalIntake.ui.collapsed.basics;
+const comorbCollapsed = !!state.globalIntake.ui.collapsed.comorb;
+const alertsCollapsed = !!state.globalIntake.ui.collapsed.alerts;
+const outputsCollapsed = !!state.globalIntake.ui.collapsed.outputs;
+const basics = sectionShell({ title: "Intake Remoto Global", subtitle: "Siempre presente · ramas MSK / PF / Deportiva", icon: "fa-clipboard-check", collapsed: basicsCollapsed, onToggle: () => toggleIntakeSection("basics"), badges, children: [
+intakeSelectBranch(),
+renderComponent({ tag: "div", className: "grid grid-cols-1 md:grid-cols-2 gap-4", children: [
+intakeTextField("motivo", "Motivo principal (breve)", "Ej: dolor hombro al overhead"),
+intakeTextField("duracion", "Duración / evolución", "Ej: 3 semanas, progresivo"),
+intakeNumeric("dolor_reposo", "Dolor reposo (0–10)", 0, 10, 1),
+intakeNumeric("dolor_actividad", "Dolor actividad (0–10)", 0, 10, 1),
+intakeNumeric("suenio", "Impacto en sueño (0–10)", 0, 10, 1, "0 = sin impacto, 10 = no duerme por dolor")
+] }),
+intakeTextarea("banderas_rojas_txt", "Banderas rojas (texto libre / si aplica)", "Ej: fiebre, baja de peso, dolor nocturno no mecánico…"),
+renderIntakeBranchBlock()
+] });
+const comorb = sectionShell({ title: "Comorbilidades y medicación", subtitle: "Tri-estado · dispara reglas globales", icon: "fa-notes-medical", collapsed: comorbCollapsed, onToggle: () => toggleIntakeSection("comorb"), children: [
+renderComponent({ tag: "div", className: "grid grid-cols-1 md:grid-cols-2 gap-4", children: [
+intakeTri("diabetes", "Diabetes"),
+intakeTri("tiroides", "Tiroides"),
+intakeTri("cardio", "Cardiovascular"),
+intakeTri("osteoporosis", "Osteoporosis"),
+intakeTri("anticoagulantes", "Anticoagulantes / antiagregantes"),
+intakeTri("corticoides", "Corticoides (sistémicos o frecuentes)"),
+intakeTri("autoinmune_inmunosup", "Autoinmune / inmunosupresión"),
+intakeTri("cancer_previo", "Cáncer previo"),
+intakeTri("embarazo", "Embarazo"),
+intakeTri("postparto", "Postparto"),
+intakeTri("depresion_ansiedad", "Depresión / ansiedad (impacto relevante)"),
+intakeTri("tabaco", "Tabaco"),
+intakeTri("alcohol", "Alcohol (problemático)")
+] }),
+intakeTextarea("alergias", "Alergias", "—"),
+intakeTextarea("meds_txt", "Medicación relevante (texto libre)", "Ej: DOAC, estatinas, antidepresivos, etc.")
+] });
+const alerts = sectionShell({ title: "Alertas y consideraciones (motor global)", subtitle: "Acciones ahora · sugerencias de evaluación/plan", icon: "fa-triangle-exclamation", collapsed: alertsCollapsed, onToggle: () => toggleIntakeSection("alerts"), children: [renderComponent({ tag: "div", attrs: { id: "intake-global-alerts" }, className: "space-y-3" })] });
+const outputs = sectionShell({ title: "Salidas rápidas (SOAP / Derivación)", subtitle: "Se auto-actualiza · botón para copiar", icon: "fa-file-lines", collapsed: outputsCollapsed, onToggle: () => toggleIntakeSection("outputs"), children: [renderOutputsBlock()] });
+root.appendChild(renderComponent({ tag: "div", className: "space-y-4", children: [basics, comorb, alerts, outputs] }));
+evaluateGlobalRulesAndRender();
+}
+function renderOutputsBlock() {
+const soap = renderComponent({ tag: "textarea", className: "aum-input min-h-[140px] resize-y", attrs: { id: "intake-soap-text", placeholder: "SOAP aparecerá aquí…" } });
+soap.value = generateSOAP();
+const deriv = renderComponent({ tag: "textarea", className: "aum-input min-h-[160px] resize-y", attrs: { id: "intake-deriv-text", placeholder: "Derivación aparecerá aquí…" } });
+deriv.value = generateDerivacion();
+const mkCopyBtn = (label, getText) => renderComponent({ tag: "button", className: "px-4 py-2 rounded-xl bg-brand-dark text-white text-sm font-extrabold hover:bg-gray-800 transition-all hide-on-pdf", attrs: { type: "button" }, text: label, on: { click: () => copyToClipboard(getText()) } });
+return renderComponent({ tag: "div", className: "space-y-4", children: [
+renderComponent({ tag: "div", className: "p-4 rounded-2xl border border-gray-200 bg-white", children: [
+renderComponent({ tag: "div", className: "flex items-start justify-between gap-3", children: [renderComponent({ tag: "div", className: "font-extrabold text-brand-dark", text: "Resumen SOAP" }), mkCopyBtn("Copiar SOAP", () => soap.value)] }),
+renderComponent({ tag: "div", className: "mt-3", children: [soap] })
+] }),
+renderComponent({ tag: "div", className: "p-4 rounded-2xl border border-gray-200 bg-white", children: [
+renderComponent({ tag: "div", className: "flex items-start justify-between gap-3", children: [renderComponent({ tag: "div", className: "font-extrabold text-brand-dark", text: "Borrador de derivación" }), mkCopyBtn("Copiar derivación", () => deriv.value)] }),
+renderComponent({ tag: "div", className: "mt-3", children: [deriv] })
+] })
+] });
+}
+function renderIntakeBranchBlock() {
+const b = state.globalIntake.branch || "MSK";
+if (b === "PF") {
+return renderComponent({ tag: "div", className: "p-4 rounded-2xl border border-gray-200 bg-gray-50", children: [
+renderComponent({ tag: "div", className: "font-extrabold text-brand-dark", text: "Rama PF (Piso pélvico)" }),
+renderComponent({ tag: "div", className: "text-sm text-gray-700 mt-1", text: "Incluye opción “Prefiero no responder” en preguntas sensibles." }),
+renderComponent({ tag: "div", className: "grid grid-cols-1 md:grid-cols-2 gap-4 mt-4", children: [
+intakePFQuad("pf_incontinencia_urinaria", "Incontinencia urinaria"),
+intakePFQuad("pf_urgencia", "Urgencia miccional"),
+intakePFQuad("pf_incontinencia_fecal", "Incontinencia fecal/gases"),
+intakePFQuad("pf_estreñimiento", "Estreñimiento"),
+intakePFQuad("pf_prolapso_sensacion", "Sensación de bulto / prolapso"),
+intakePFQuad("pf_dolor_pelvico", "Dolor pélvico"),
+intakePFQuad("pf_dolor_relaciones", "Dolor en relaciones sexuales")
+] })
+] });
+}
+if (b === "SPORT") {
+return renderComponent({ tag: "div", className: "p-4 rounded-2xl border border-gray-200 bg-gray-50", children: [
+renderComponent({ tag: "div", className: "font-extrabold text-brand-dark", text: "Rama Deportiva" }),
+renderComponent({ tag: "div", className: "grid grid-cols-1 md:grid-cols-2 gap-4 mt-4", children: [
+intakeTextField("sport_disciplina", "Disciplina/deporte", "Ej: running, crossfit, tenis"),
+intakeTextField("sport_objetivo", "Objetivo (return to sport / performance)", "Ej: volver a competir 10K"),
+intakeTri("sport_competitivo", "¿Compite actualmente?"),
+intakeTextField("sport_carga_semana", "Carga semanal (texto libre)", "Ej: 4 sesiones + 25 km")
+] })
+] });
+}
+return renderComponent({ tag: "div", className: "p-4 rounded-2xl border border-gray-200 bg-gray-50", children: [
+renderComponent({ tag: "div", className: "font-extrabold text-brand-dark", text: "Rama MSK" }),
+renderComponent({ tag: "div", className: "text-sm text-gray-700 mt-1", text: "Usa módulos específicos del Stack para razonamiento por segmento." })
+] });
+}
+function getName(id, fallback = "") { const v = state.patientData?.[id]; return (v && String(v).trim()) || fallback; }
+function aggregateTopHypotheses(n) {
+const all = [];
+state.activeModules.forEach((m) => { const list = Array.isArray(m?.computed?.hypotheses) ? m.computed.hypotheses : []; list.forEach((h) => all.push({ ...h, moduleKey: m.key, moduleId: m.instanceId })); });
+all.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+return all.slice(0, n);
+}
+function generateSOAP() {
+ensureGlobalIntakeState();
+const pName = getName("patient-name", "Paciente");
+const edad = getName("patient-age", "");
+const motivo = (state.globalIntake.text.motivo || "").trim();
+const dur = (state.globalIntake.text.duracion || "").trim();
+const dr = state.globalIntake.numeric.dolor_reposo;
+const da = state.globalIntake.numeric.dolor_actividad;
+const sueño = state.globalIntake.numeric.suenio;
+const hyp = aggregateTopHypotheses(3);
+const outcomes = [];
+state.activeModules.forEach((m) => { if (m?.computed?.spadi?.totalPct !== null && m?.computed?.spadi?.totalPct !== undefined) outcomes.push(`SPADI: ${m.computed.spadi.totalPct.toFixed(0)}%`); if (m?.computed?.dash?.total !== null && m?.computed?.dash?.total !== undefined) outcomes.push(`DASH: ${m.computed.dash.total.toFixed(0)}`); });
+const sLines = [`S: ${pName}${edad ? ` (${edad} años)` : ""}. ${motivo || "Motivo no especificado."}${dur ? ` Duración: ${dur}.` : ""}`, `Dolor: reposo ${dr ?? "—"}/10 · actividad ${da ?? "—"}/10 · sueño ${sueño ?? "—"}/10.`];
+const oLines = [`O: Módulos activos: ${state.activeModules.length || 0}.`, outcomes.length ? `Outcomes: ${outcomes.join(" · ")}.` : "Outcomes: —"];
+const aLines = [`A: ${hyp.length ? hyp.map((h, i) => `${i + 1}) ${h.title} (${h.score})`).join(" · ") : "Hipótesis no definidas aún."}`];
+const pLines = [];
+const g = (state.globalIntake.computed.globalRules || []).slice(0, 3);
+if (g.length) pLines.push(`Consideraciones globales: ${g.map((r) => r.title).join(" · ")}.`);
+const planBullets = [];
+state.activeModules.forEach((m) => { const derived = derivePlan(m); const short = derived?.bullets?.slice(0, 3) || []; if (short.length) planBullets.push(`${m.title || m.key}: ${short.join(" / ")}`); });
+if (planBullets.length) pLines.push(`Plan inicial (resumen): ${planBullets.join(" | ")}`); else pLines.push("Plan inicial: —");
+return [sLines.join("\n"), oLines.join("\n"), aLines.join("\n"), `P: ${pLines.join(" ")}`].join("\n\n");
+}
+function generateDerivacion() {
+ensureGlobalIntakeState();
+const kine = getName("kine-name", "Kinesiólogo/a");
+const pName = getName("patient-name", "Paciente");
+const rut = getName("patient-rut", "");
+const edad = getName("patient-age", "");
+const motivo = (state.globalIntake.text.motivo || "").trim();
+const dur = (state.globalIntake.text.duracion || "").trim();
+const redFlags = (state.globalIntake.text.banderas_rojas_txt || "").trim();
+const gRules = (state.globalIntake.computed.globalRules || []).filter((r) => r.severity === "danger" || r.severity === "warning");
+const hyp = aggregateTopHypotheses(3);
+const hypLine = hyp.length ? hyp.map((h, i) => `${i + 1}) ${h.title}`).join(" · ") : "—";
+const lines = [`A quien corresponda,`,``,`Derivo a ${pName}${edad ? ` (${edad} años)` : ""}${rut ? `, RUT: ${rut}` : ""} para evaluación médica/imagen/criterio según contexto clínico.`,``,`Motivo: ${motivo || "—"}`, dur ? `Evolución: ${dur}` : null, redFlags ? `Banderas rojas / puntos de atención: ${redFlags}` : null, gRules.length ? `Consideraciones (comorbilidades/medicación): ${gRules.map((r) => r.title).join(" · ")}` : null, `Hipótesis funcionales principales: ${hypLine}`,``,`Atte.,`,`${kine}`].filter(Boolean);
+return lines.join("\n");
+}
+"""
+// ===== app.js PART 2/3 =====
+};
+function getTemplates() { const modules = window.clinicalModules; if (!modules || typeof modules !== "object") return {}; return modules; }
+function fillModuleSelector() {
+const sel = document.getElementById("moduleSelector");
+if (!sel) return;
+const templates = getTemplates();
+const keys = Object.keys(templates);
+sel.replaceChildren();
+keys.forEach((k) => { const tpl = templates[k]; const opt = renderComponent({ tag: "option", attrs: { value: k }, text: tpl?.title || k }); sel.appendChild(opt); });
+}
+function newInstanceId() { return `m_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`; }
+function ensureModuleState(m, tpl) {
+if (!m.tests) m.tests = {};
+if (!m.numeric) m.numeric = {};
+if (!m.text) m.text = {};
+if (!m.ui) m.ui = {};
+if (!m.ui.collapsedSections) m.ui.collapsedSections = {};
+if (!m.ui.quickInclude) m.ui.quickInclude = {};
+if (!m.ui.mode) m.ui.mode = "full";
+if (!m.computed) m.computed = {};
+if (tpl?.sections) {
+tpl.sections.forEach((sec) => {
+(sec.fields || []).forEach((f) => {
+if (!f || !f.id) return;
+if (f.type === "boolean" || f.type === "triBool" || f.type === "checkbox") {
+if (!(f.id in m.tests)) m.tests[f.id] = null;
+const sevKey = `sev_${f.id}`;
+if (!(sevKey in m.text)) m.text[sevKey] = "";
+}
+if (f.type === "number" || f.type === "numeric") { if (!(f.id in m.numeric)) m.numeric[f.id] = null; }
+if (f.type === "text" || f.type === "textarea" || f.type === "select") { if (!(f.id in m.text)) m.text[f.id] = ""; }
+});
+});
+}
+if (tpl?.sections) {
+tpl.sections.forEach((sec, idx) => {
+const t = (sec.title || "").toLowerCase();
+if (t.includes("spadi") || t.includes("dash") || t.includes("quickdash")) { if (!(idx in m.ui.collapsedSections)) m.ui.collapsedSections[idx] = true; }
+});
+}
+}
+function addSelectedModule() {
+const sel = document.getElementById("moduleSelector");
+if (!sel) return;
+const key = sel.value;
+const tpl = getTemplates()[key];
+if (!tpl) return toast("No se encontró el módulo seleccionado.", "warning");
+const instanceId = newInstanceId();
+const m = { instanceId, key, title: tpl.title || key, icon: tpl.icon || "fa-layer-group", tests: {}, numeric: {}, text: {}, ui: { mode: "quick" }, computed: {} };
+ensureModuleState(m, tpl);
+state.activeModules.push(m);
+state.meta.updatedAt = new Date().toISOString();
+renderActiveTags();
+renderClinicalStack();
+scheduleAutosave();
+}
+function removeModule(instanceId) { state.activeModules = state.activeModules.filter((m) => m.instanceId !== instanceId); renderActiveTags(); renderClinicalStack(); scheduleAutosave(); }
+function resetStack() {
+if (!confirm("¿Resetear el stack clínico? Se perderán los módulos actuales (puedes exportar .aum antes).")) return;
+state.activeModules = [];
+state.meta.updatedAt = new Date().toISOString();
+renderActiveTags();
+renderClinicalStack();
+scheduleAutosave();
+}
+function isSectionEssential(tpl, section, idx) {
+if (section?.quick === true || section?.essential === true) return true;
+const title = (section?.title || "").toLowerCase();
+if (title.includes("bandera") || title.includes("red flag") || title.includes("irrit")) return true;
+if (title.includes("clasific") || title.includes("hipótesis") || title.includes("hipotes")) return true;
+if (title.includes("plan") || title.includes("trat")) return true;
+if (title.includes("spadi") || title.includes("dash") || title.includes("quickdash")) return true;
+const qp = tpl?.quickProfile;
+if (qp?.sections && Array.isArray(qp.sections)) { return qp.sections.some((s) => String(s).toLowerCase() === title); }
+return idx <= 1;
+}
+function shouldRenderSection(m, tpl, section, idx) {
+if (m.ui.mode !== "quick") return true;
+if (isSectionEssential(tpl, section, idx)) return true;
+return !!m.ui.quickInclude[idx];
+}
+function fieldLabel(text) { return renderComponent({ tag: "div", className: "font-extrabold text-brand-dark", text }); }
+function fieldHint(text) { if (!text) return null; return renderComponent({ tag: "div", className: "text-sm text-gray-600 mt-1", text }); }
+function severitySelect(current, onChange) {
+const sel = renderComponent({ tag: "select", className: "aum-input !py-2 !px-3 !text-sm font-extrabold cursor-pointer", children: [
+renderComponent({ tag: "option", attrs: { value: "" }, text: "Severidad (opcional)" }),
+renderComponent({ tag: "option", attrs: { value: "Leve" }, text: "Leve" }),
+renderComponent({ tag: "option", attrs: { value: "Moderado" }, text: "Moderado" }),
+renderComponent({ tag: "option", attrs: { value: "Severo" }, text: "Severo" })
+] });
+sel.value = current || "";
+sel.addEventListener("change", () => onChange(sel.value));
+return sel;
+}
+function triBoolWithSeverity({ m, field }) {
+const val = m.tests[field.id] ?? null;
+const tri = triControl({ value: val, onChange: (next) => { m.tests[field.id] = next; if (next !== true) m.text[`sev_${field.id}`] = ""; scheduleAutosave(); refreshAfterModuleChange(m); } });
+const sevKey = `sev_${field.id}`;
+const sev = m.text[sevKey] || "";
+const sevWrap = renderComponent({ tag: "div", className: "mt-3", children: [] });
+const updateSevUI = () => {
+sevWrap.replaceChildren();
+if (m.tests[field.id] === true) {
+sevWrap.appendChild(renderComponent({ tag: "div", className: "grid grid-cols-1 md:grid-cols-2 gap-3 items-center", children: [
+renderComponent({ tag: "div", className: "text-sm font-extrabold text-gray-700", text: "Severidad" }),
+severitySelect(sev, (v) => { m.text[sevKey] = v; scheduleAutosave(); refreshAfterModuleChange(m); })
+] }));
+}
+};
+updateSevUI();
+tri.addEventListener("click", () => setTimeout(updateSevUI, 0));
+return renderComponent({ tag: "div", className: "p-4 rounded-2xl border border-gray-200 bg-white", children: [
+fieldLabel(field.label || field.title || field.id),
+fieldHint(field.hint || field.help || ""),
+renderComponent({ tag: "div", className: "mt-3", children: [tri] }),
+sevWrap
+] });
+}
+function textField({ m, field }) {
+const input = renderComponent({ tag: field.type === "textarea" ? "textarea" : "input", className: "aum-input", attrs: field.type === "textarea" ? { placeholder: field.placeholder || "—" } : { type: "text", placeholder: field.placeholder || "—" } });
+input.value = m.text[field.id] || "";
+input.addEventListener("input", () => { m.text[field.id] = input.value; scheduleAutosave(); refreshAfterModuleChange(m); });
+return renderComponent({ tag: "div", className: "p-4 rounded-2xl border border-gray-200 bg-white", children: [fieldLabel(field.label || field.title || field.id), fieldHint(field.hint || field.help || ""), renderComponent({ tag: "div", className: "mt-3", children: [input] })].filter(Boolean) });
+}
+function numericField({ m, field }) {
+const min = field.min ?? 0;
+const max = field.max ?? 10;
+const step = field.step ?? 1;
+const input = renderComponent({ tag: "input", className: "aum-input", attrs: { type: "number", inputmode: "decimal", min: String(min), max: String(max), step: String(step), placeholder: field.placeholder || "—" } });
+const v = m.numeric[field.id];
+input.value = v === null || v === undefined ? "" : String(v);
+input.addEventListener("input", () => { const n = input.value === "" ? null : Number(input.value); m.numeric[field.id] = Number.isFinite(n) ? n : null; scheduleAutosave(); refreshAfterModuleChange(m); });
+return renderComponent({ tag: "div", className: "p-4 rounded-2xl border border-gray-200 bg-white", children: [fieldLabel(field.label || field.title || field.id), fieldHint(field.hint || field.help || ""), renderComponent({ tag: "div", className: "mt-3", children: [input] })].filter(Boolean) });
+}
+function selectField({ m, field }) {
+const opts = Array.isArray(field.options) ? field.options : [];
+const select = renderComponent({ tag: "select", className: "aum-input cursor-pointer font-extrabold", children: [renderComponent({ tag: "option", attrs: { value: "" }, text: field.placeholder || "—" }), ...opts.map((o) => { if (typeof o === "string") return renderComponent({ tag: "option", attrs: { value: o }, text: o }); return renderComponent({ tag: "option", attrs: { value: o.value }, text: o.label || o.value }); })] });
+select.value = m.text[field.id] || "";
+select.addEventListener("change", () => { m.text[field.id] = select.value; scheduleAutosave(); refreshAfterModuleChange(m); });
+return renderComponent({ tag: "div", className: "p-4 rounded-2xl border border-gray-200 bg-white", children: [fieldLabel(field.label || field.title || field.id), fieldHint(field.hint || field.help || ""), renderComponent({ tag: "div", className: "mt-3", children: [select] })].filter(Boolean) });
+}
+function renderField({ m, field }) {
+if (!field || !field.id) return null;
+const t = field.type || "text";
+if (t === "boolean" || t === "triBool" || t === "checkbox") return triBoolWithSeverity({ m, field });
+if (t === "number" || t === "numeric") return numericField({ m, field });
+if (t === "select") return selectField({ m, field });
+if (t === "textarea" || t === "text") return textField({ m, field });
+return textField({ m, field: { ...field, type: "text" } });
+}
+function sectionHeaderBadges(m, sectionTitle) {
+const t = (sectionTitle || "").toLowerCase();
+const badges = [];
+if (t.includes("spadi")) {
+const sp = m?.computed?.spadi;
+if (sp && sp.totalPct !== null && sp.totalPct !== undefined) {
+const label = `SPADI ${sp.totalPct.toFixed(0)}%${sp.complete ? "" : ` · incompleto ${sp.answered}/${sp.expected}`}`;
+badges.push(infoPill(label, sp.complete ? "info" : "warning"));
+}
+}
+if (t.includes("dash")) {
+const da = m?.computed?.dash;
+if (da && da.total !== null && da.total !== undefined) {
+const label = `DASH ${da.total.toFixed(0)}${da.complete ? "" : ` · incompleto ${da.answered}/${da.expected}`}`;
+badges.push(infoPill(label, da.complete ? "info" : "warning"));
+}
+}
+return badges;
+}
+function outcomesPreviewNode(m, sectionTitle) {
+const t = (sectionTitle || "").toLowerCase();
+if (t.includes("spadi")) {
+const sp = m?.computed?.spadi;
+if (!sp || sp.totalPct === null || sp.totalPct === undefined) return null;
+return renderComponent({ tag: "div", className: "p-4 bg-gray-50 border-t border-gray-100 text-sm text-gray-800", children: [
+renderComponent({ tag: "div", className: "font-extrabold text-brand-dark", text: `SPADI: ${sp.totalPct.toFixed(0)}% (${spadiSeverityLabel(sp.totalPct)})` }),
+renderComponent({ tag: "div", className: "mt-1", text: spadiInterpretation(sp.totalPct) }),
+!sp.complete ? renderComponent({ tag: "div", className: "mt-2 font-extrabold text-yellow-800", text: `Incompleto: ${sp.answered}/${sp.expected} ítems.` }) : null,
+renderComponent({ tag: "div", className: "mt-2 text-gray-700", text: "Recomendación: usa el score para guiar metas funcionales y dosificación según irritabilidad/tolerancia." })
+].filter(Boolean) });
+}
+if (t.includes("dash")) {
+const da = m?.computed?.dash;
+if (!da || da.total === null || da.total === undefined) return null;
+return renderComponent({ tag: "div", className: "p-4 bg-gray-50 border-t border-gray-100 text-sm text-gray-800", children: [
+renderComponent({ tag: "div", className: "font-extrabold text-brand-dark", text: `DASH: ${da.total.toFixed(0)} (${dashSeverityLabel(da.total)})` }),
+renderComponent({ tag: "div", className: "mt-1", text: dashInterpretation(da.total) }),
+!da.complete ? renderComponent({ tag: "div", className: "mt-2 font-extrabold text-yellow-800", text: `Incompleto: ${da.answered}/${da.expected} ítems.` }) : null,
+renderComponent({ tag: "div", className: "mt-2 text-gray-700", text: "Recomendación: reevalúa para seguimiento (MCID/seguimiento clínico) y ajusta plan." })
+].filter(Boolean) });
+}
+return null;
+}
+function renderSection({ m, tpl, section, idx }) {
+const collapsed = !!m.ui.collapsedSections[idx];
+const essential = isSectionEssential(tpl, section, idx);
+const isQuick = m.ui.mode === "quick";
+const isIncluded = shouldRenderSection(m, tpl, section, idx);
+if (isQuick && !essential && !isIncluded) {
+return renderComponent({ tag: "section", className: "bg-white rounded-3xl shadow-lg overflow-hidden border border-black/5", children: [
+renderComponent({ tag: "div", className: "bg-brand-dark px-5 py-4 flex items-center justify-between gap-3", children: [
+renderComponent({ tag: "div", className: "text-white font-extrabold tracking-wide", text: section.title || `Sección ${idx + 1}` }),
+renderComponent({ tag: "button", className: "hide-on-pdf px-3 py-2 rounded-xl bg-white/10 text-white text-xs font-extrabold hover:bg-white/20 transition-all", attrs: { type: "button" }, text: "Incluir (Rápido)", on: { click: () => { m.ui.quickInclude[idx] = true; renderClinicalStack(); scheduleAutosave(); } } })
+] }),
+renderComponent({ tag: "div", className: "p-4 text-sm text-gray-700 bg-gray-50", text: "Oculto en Modo Rápido (no esencial). Puedes incluirlo si lo necesitas." })
+] });
+}
+const badges = sectionHeaderBadges(m, section.title);
+const preview = outcomesPreviewNode(m, section.title);
+const chevron = iconEl("fa-chevron-down", "text-white/80 transition-transform");
+if (!collapsed) chevron.classList.add("rotate-180");
+const header = renderComponent({ tag: "button", className: "w-full text-left bg-brand-dark px-5 py-4 flex items-center justify-between gap-4", attrs: { type: "button" }, on: { click: () => { m.ui.collapsedSections[idx] = !m.ui.collapsedSections[idx]; renderClinicalStack(); scheduleAutosave(); } }, children: [
+renderComponent({ tag: "div", className: "min-w-0", children: [renderComponent({ tag: "div", className: "text-white font-extrabold tracking-wide", text: section.title || `Sección ${idx + 1}` }), section.subtitle ? renderComponent({ tag: "div", className: "text-white/60 text-sm font-semibold mt-0.5", text: section.subtitle }) : null].filter(Boolean) }),
+renderComponent({ tag: "div", className: "flex items-center gap-2 shrink-0", children: [...badges, renderComponent({ tag: "span", className: "w-9 h-9 rounded-full flex items-center justify-center bg-white/10", children: [chevron] })] })
+] });
+const content = renderComponent({ tag: "div", className: "p-5 space-y-4", children: (section.fields || []).map((f) => renderField({ m, field: f })).filter(Boolean) });
+const previewWrap = renderComponent({ tag: "div", children: preview ? [preview] : [] });
+if (!preview) previewWrap.hidden = true;
+if (collapsed) content.hidden = true;
+if (preview) previewWrap.hidden = !collapsed;
+return renderComponent({ tag: "section", className: "bg-white rounded-3xl shadow-lg overflow-hidden border border-black/5", children: [header, previewWrap, content] });
+}
+function getExpectedCounts(tpl, prefix) {
+let expected = 0;
+if (!tpl?.sections) return expected;
+tpl.sections.forEach((sec) => { (sec.fields || []).forEach((f) => { if (!f?.id) return; if (String(f.id).startsWith(prefix)) expected += 1; }); });
+return expected;
+}
+function calcSPADI(module, tpl) {
+const expectedPain = getExpectedCounts(tpl, "spadi_p");
+const expectedDis = getExpectedCounts(tpl, "spadi_d");
+const expected = expectedPain + expectedDis;
+let painSum = 0, painAns = 0, disSum = 0, disAns = 0;
+for (const [k, v] of Object.entries(module.numeric || {})) {
+if (!k.startsWith("spadi_")) continue;
+if (v === null || v === undefined || v === "") continue;
+const num = Number(v);
+if (!Number.isFinite(num)) continue;
+if (k.startsWith("spadi_p")) { painSum += num; painAns += 1; }
+else if (k.startsWith("spadi_d")) { disSum += num; disAns += 1; }
+}
+if (painAns === 0 && disAns === 0) return { totalPct: null, painPct: null, disPct: null, answered: 0, expected, complete: false };
+const painPct = painAns ? (painSum / (painAns * 10)) * 100 : null;
+const disPct = disAns ? (disSum / (disAns * 10)) * 100 : null;
+const totalPct = (() => { const parts = []; if (painPct !== null) parts.push(painPct); if (disPct !== null) parts.push(disPct); if (!parts.length) return null; return parts.reduce((a, b) => a + b, 0) / parts.length; })();
+const answered = painAns + disAns;
+const complete = expected ? answered >= expected : answered > 0;
+return { totalPct, painPct, disPct, answered, expected, complete };
+}
+function calcQuickDASH(module, tpl) {
+const expected = getExpectedCounts(tpl, "dash_q");
+let sum = 0, answered = 0;
+for (const [k, v] of Object.entries(module.numeric || {})) {
+if (!k.startsWith("dash_q")) continue;
+if (v === null || v === undefined || v === "") continue;
+const num = Number(v);
+if (!Number.isFinite(num)) continue;
+sum += num; answered += 1;
+}
+if (answered === 0) return { total: null, answered: 0, expected, complete: false };
+const mean = sum / answered;
+const total = (mean - 1) * 25;
+const complete = expected ? answered >= expected : answered >= 10;
+return { total, answered, expected, complete };
+}
+function spadiSeverityLabel(pct) { if (pct < 21) return "leve"; if (pct < 41) return "moderado"; if (pct < 61) return "severo"; return "muy severo"; }
+function dashSeverityLabel(score) { if (score < 21) return "leve"; if (score < 41) return "moderado"; if (score < 61) return "severo"; return "muy severo"; }
+function spadiInterpretation(pct) { if (pct < 21) return "Limitación baja; objetivo: recuperar función específica y tolerancia a carga."; if (pct < 41) return "Limitación moderada; prioriza control de dolor + exposición progresiva a tareas clave."; if (pct < 61) return "Limitación alta; fase temprana: control de irritabilidad + carga dosificada y educación."; return "Limitación muy alta; considerar screening de factores agravantes, adherencia, sueño y derivación si banderas rojas."; }
+function dashInterpretation(score) { if (score < 21) return "Discapacidad baja; enfoca en tareas funcionales y progresión específica."; if (score < 41) return "Discapacidad moderada; prioriza tareas limitantes + control de dolor y carga."; if (score < 61) return "Discapacidad alta; reduce irritabilidad y reintroduce gradualmente tareas clave."; return "Discapacidad muy alta; revisar diagnóstico diferencial, comorbilidades y necesidad de derivación."; }
+function humanizeId(id) { return String(id || "").replace(/^cls_/, "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()); }
+function computeHypothesisRanking(m, tpl) {
+const list = [];
+const rules = tpl?.hypothesisRules;
+if (Array.isArray(rules) && rules.length) {
+rules.forEach((h) => {
+const why = [];
+let score = 0;
+(h.rules || []).forEach((r) => {
+try {
+const ok = typeof r.when === "function" ? r.when(m, state) : false;
+if (ok) { score += Number(r.points || 0); if (r.why) why.push(r.why); }
+} catch (_) {}
+});
+if (score > 0 || h.alwaysShow) list.push({ id: h.id || h.title, title: h.title || humanizeId(h.id), score, why });
+});
+} else {
+const candidates = Object.entries(m.tests || {}).filter(([k, v]) => String(k).startsWith("cls_"));
+candidates.forEach(([k, v]) => {
+const why = [];
+let score = 0;
+if (v === true) {
+score += 100;
+why.push("Marcado como Sí (clasificación).");
+const sev = (m.text || {})[`sev_${k}`] || "";
+if (sev) { score += sev === "Severo" ? 15 : sev === "Moderado" ? 10 : sev === "Leve" ? 5 : 0; why.push(`Severidad: ${sev}.`); }
+} else if (v === null) { score += 5; why.push("No evaluado: considera completar para mejorar ranking."); }
+list.push({ id: k, title: humanizeId(k), score, why });
+});
+if (!candidates.length) {
+const positives = Object.entries(m.tests || {}).filter(([_, v]) => v === true).slice(0, 6);
+if (positives.length) list.push({ id: "hipotesis_mecanica", title: "Hipótesis mecánica (heurística)", score: 30 + positives.length * 2, why: positives.map(([k]) => `Positivo: ${humanizeId(k)}`) });
+}
+}
+list.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+m.computed.hypotheses = list.slice(0, 3);
+m.computed.hypothesesAll = list;
+}
+function renderHypothesesCard(m) {
+const top = Array.isArray(m?.computed?.hypotheses) ? m.computed.hypotheses : [];
+const all = Array.isArray(m?.computed?.hypothesesAll) ? m.computed.hypothesesAll : top;
+if (!all.length) return renderComponent({ tag: "div", className: "p-4 rounded-2xl border border-gray-200 bg-gray-50 text-sm text-gray-700 font-semibold", text: "Aún no hay hipótesis rankeables. Marca clasificación (cls_*) y tests clave." });
+const item = (h, idx) => renderComponent({ tag: "div", className: "p-4 rounded-2xl border border-gray-200 bg-white", children: [
+renderComponent({ tag: "div", className: "flex items-start justify-between gap-3", children: [renderComponent({ tag: "div", className: "font-extrabold text-brand-dark", text: `${idx + 1}. ${h.title}` }), infoPill(`Score ${h.score}`, h.score >= 80 ? "info" : "warning")] }),
+h.why?.length ? renderComponent({ tag: "ul", className: "mt-2 list-disc pl-5 space-y-1 text-sm text-gray-800", children: h.why.slice(0, 5).map((w) => renderComponent({ tag: "li", text: w })) }) : null
+].filter(Boolean) });
+return renderComponent({ tag: "div", className: "space-y-3", children: top.map((h, i) => item(h, i)) });
+}
+function evalRuleCondition(cond, m) {
+if (!cond) return false;
+if (typeof cond === "function") return !!cond(m);
+if (typeof cond === "string") return m.tests?.[cond] === true;
+if (cond.id) { const v = m.tests?.[cond.id]; return cond.is === v; }
+const any = Array.isArray(cond.any) ? cond.any : null;
+const all = Array.isArray(cond.all) ? cond.all : null;
+const not = Array.isArray(cond.not) ? cond.not : null;
+let ok = true;
+if (any) ok = any.some((id) => m.tests?.[id] === true);
+if (ok && all) ok = all.every((id) => m.tests?.[id] === true);
+if (ok && not) ok = not.every((id) => m.tests?.[id] === true);
+return ok;
+}
+function evaluateModuleLogic(m, tpl) {
+const rules = Array.isArray(tpl?.logicRules) ? tpl.logicRules : [];
+const out = [];
+rules.forEach((r) => {
+let ok = false;
+try { if (r.when) ok = evalRuleCondition(r.when, m); else if (r.any || r.all || r.not) ok = evalRuleCondition(r, m); }
+catch (_) { ok = false; }
+if (!ok) return;
+out.push({ id: r.id || r.title || Math.random().toString(16).slice(2), severity: r.severity || "info", title: r.title || "Alerta", description: r.description || r.desc || "", actions: r.actions || r.nextSteps || r.checklist || [], consider: r.consider || r.considerations || [] });
+});
+const order = { danger: 0, warning: 1, info: 2 };
+out.sort((a, b) => (order[a.severity] ?? 9) - (order[b.severity] ?? 9));
+m.computed.moduleRules = out;
+}
+function renderModuleRules(m) {
+const rules = Array.isArray(m?.computed?.moduleRules) ? m.computed.moduleRules : [];
+if (!rules.length) return renderComponent({ tag: "div", className: "p-4 rounded-2xl border border-gray-200 bg-gray-50 text-sm text-gray-700 font-semibold", text: "Sin alertas/acciones activas (según lo marcado)." });
+return renderComponent({ tag: "div", className: "space-y-3", children: rules.map((r) => renderRuleCard(r)) });
+}
+function getIrritability(m) {
+const val = (m.text || {}).irritabilidad || (m.text || {}).fase || "";
+if (typeof val !== "string") return "";
+const v = val.toLowerCase();
+if (v.includes("alta")) return "alta";
+if (v.includes("moder")) return "moderada";
+if (v.includes("baja")) return "baja";
+if (v.includes("agud")) return "alta";
+if (v.includes("subag")) return "moderada";
+if (v.includes("cron")) return "baja";
+return "";
+}
+function derivePlan(m) {
+const ir = getIrritability(m);
+const plan = { phase: ir || "no_definida", bullets: [], dosage: [] };
+plan.bullets.push("Educación: dolor, carga, expectativas y señales de alarma.");
+plan.bullets.push("Carga progresiva: exposición gradual a tareas limitantes.");
+plan.bullets.push("Fortalecimiento específico + control motor según hipótesis.");
+if (!ir) { plan.dosage.push("Define irritabilidad/fase para dosificar (frecuencia, repeticiones, RPE, progreso)."); return plan; }
+if (ir === "alta") { plan.dosage.push("Fase alta irritabilidad: isométricos/ROM tolerado, frecuencia alta, baja carga (RPE 2–4)."); plan.dosage.push("Evitar picos de dolor >2/10 durante y >24h post."); }
+else if (ir === "moderada") { plan.dosage.push("Fase moderada: isotónicos submáximos, 2–4 sesiones/sem, RPE 4–6, progresión semanal."); plan.dosage.push("Monitorizar respuesta 24–48h."); }
+else if (ir === "baja") { plan.dosage.push("Fase baja: fuerza/ potencia según objetivo, 2–3 sesiones/sem, RPE 6–8, progresión por criterios."); plan.dosage.push("Integrar tareas específicas (deporte/ADL) y retorno gradual."); }
+return plan;
+}
+function renderPlanCard(m) {
+const plan = derivePlan(m);
+const hasDosage = plan.phase !== "no_definida";
+return renderComponent({ tag: "div", className: "p-4 rounded-2xl border border-gray-200 bg-white", children: [
+renderComponent({ tag: "div", className: "flex items-start justify-between gap-3", children: [renderComponent({ tag: "div", className: "font-extrabold text-brand-dark", text: "Plan sugerido (C): Checklist + dosificación" }), infoPill(hasDosage ? `Irritabilidad: ${plan.phase}` : "Sin irritabilidad", hasDosage ? "info" : "warning")] }),
+renderComponent({ tag: "div", className: "mt-3", children: [renderComponent({ tag: "div", className: "text-xs font-extrabold uppercase tracking-wide text-gray-500", text: "Checklist" }), renderComponent({ tag: "ul", className: "mt-2 list-disc pl-5 space-y-1 text-sm text-gray-800", children: plan.bullets.map((b) => renderComponent({ tag: "li", text: b })) })] }),
+renderComponent({ tag: "div", className: "mt-3", children: [renderComponent({ tag: "div", className: "text-xs font-extrabold uppercase tracking-wide text-gray-500", text: hasDosage ? "Dosificación (según fase)" : "Dosificación (pendiente)" }), renderComponent({ tag: "ul", className: "mt-2 list-disc pl-5 space-y-1 text-sm text-gray-800", children: plan.dosage.map((d) => renderComponent({ tag: "li", text: d })) })] })
+] });
+}
+"""
+// ===== app.js PART 3/3 =====
+function moduleHeader(m) {
+const mode = m.ui.mode || "full";
+const mkModeBtn = (label, val) => renderComponent({ tag: "button", className: `hide-on-pdf px-3 py-2 rounded-xl text-xs font-extrabold transition-all ${mode === val ? "bg-white text-brand-dark" : "bg-white/10 text-white hover:bg-white/20"}`.trim(), attrs: { type: "button" }, text: label, on: { click: (e) => { e.preventDefault(); m.ui.mode = val; renderClinicalStack(); scheduleAutosave(); } } });
+return renderComponent({ tag: "div", className: "bg-brand-dark px-6 py-5 flex items-start justify-between gap-4", children: [
+renderComponent({ tag: "div", className: "flex items-start gap-4 min-w-0", children: [
+renderComponent({ tag: "div", className: "w-12 h-12 rounded-2xl bg-brand-accent/20 flex items-center justify-center shrink-0", children: [iconEl(m.icon || "fa-layer-group", "text-brand-accent text-lg")] }),
+renderComponent({ tag: "div", className: "min-w-0", children: [
+renderComponent({ tag: "div", className: "text-white font-extrabold tracking-wide text-lg truncate", text: m.title || m.key }),
+renderComponent({ tag: "div", className: "text-white/60 text-sm font-semibold mt-0.5 truncate", text: mode === "quick" ? "Modo Rápido (5 min): esenciales" : "Modo Completo" })
+] })
+] }),
+renderComponent({ tag: "div", className: "flex items-center gap-2 shrink-0", children: [
+mkModeBtn("Rápido", "quick"),
+mkModeBtn("Completo", "full"),
+renderComponent({ tag: "button", className: "hide-on-pdf w-10 h-10 rounded-2xl bg-white/10 text-white hover:bg-red-600 transition-all flex items-center justify-center", attrs: { type: "button", title: "Quitar módulo" }, children: [iconEl("fa-trash")], on: { click: () => removeModule(m.instanceId) } })
+] })
+] });
+}
+function buildModuleCard(m) {
+const tpl = getTemplates()[m.key];
+if (!tpl) return null;
+ensureModuleState(m, tpl);
+m.computed.spadi = calcSPADI(m, tpl);
+m.computed.dash = calcQuickDASH(m, tpl);
+computeHypothesisRanking(m, tpl);
+evaluateModuleLogic(m, tpl);
+const sections = (tpl.sections || []).map((sec, idx) => renderSection({ m, tpl, section: sec, idx })).filter(Boolean);
+const topBlocks = renderComponent({ tag: "div", className: "p-6 space-y-4", children: [
+renderComponent({ tag: "div", className: "text-xs font-extrabold uppercase tracking-wide text-gray-500", text: "Ranking Top 3 hipótesis (reglas transparentes)" }),
+renderHypothesesCard(m),
+renderComponent({ tag: "div", className: "text-xs font-extrabold uppercase tracking-wide text-gray-500 mt-2", text: "Alertas → acciones (motor por módulo)" }),
+renderModuleRules(m),
+renderComponent({ tag: "div", className: "text-xs font-extrabold uppercase tracking-wide text-gray-500 mt-2", text: "Plan sugerido" }),
+renderPlanCard(m)
+] });
+return renderComponent({ tag: "article", className: "aum-module-card bg-white rounded-3xl shadow-xl overflow-hidden border border-black/5", dataset: { instanceId: m.instanceId }, children: [moduleHeader(m), topBlocks, renderComponent({ tag: "div", className: "p-6 space-y-4", children: sections })] });
+}
+function refreshAfterModuleChange(m) {
+const tpl = getTemplates()[m.key];
+if (!tpl) return;
+m.computed.spadi = calcSPADI(m, tpl);
+m.computed.dash = calcQuickDASH(m, tpl);
+computeHypothesisRanking(m, tpl);
+evaluateModuleLogic(m, tpl);
+evaluateGlobalRulesAndRender();
+renderClinicalStack();
+}
+function renderEmptyState() {
+const empty = document.getElementById("empty-state");
+if (!empty) return;
+empty.hidden = state.activeModules.length > 0;
+}
+function renderClinicalStack() {
+const stack = document.getElementById("clinical-stack");
+if (!stack) return;
+stack.replaceChildren();
+state.activeModules.forEach((m) => { const card = buildModuleCard(m); if (card) stack.appendChild(card); });
+renderEmptyState();
+}
+function renderActiveTags() {
+const container = document.getElementById("active-tags-container");
+if (!container) return;
+container.replaceChildren();
+const tags = state.activeModules.map((m) => renderComponent({ tag: "span", className: "inline-flex items-center gap-2 px-3 py-2 rounded-full bg-brand-dark text-white text-xs font-extrabold shadow-sm", children: [iconEl(m.icon || "fa-layer-group", "text-brand-accent"), renderComponent({ tag: "span", text: m.title || m.key })] }));
+if (!tags.length) { container.appendChild(renderComponent({ tag: "span", className: "text-sm text-gray-600 font-semibold", text: "Sin módulos en el stack (agrega uno desde el selector)." })); return; }
+tags.forEach((t) => container.appendChild(t));
+}
+function exportAUM() {
+ensureGlobalIntakeState();
+const payload = { appVersion: APP_VERSION, exportedAt: new Date().toISOString(), patientData: state.patientData || {}, globalIntake: state.globalIntake || null, activeModules: state.activeModules || [] };
+const filename = `AllUMoves_${todayStamp()}.aum`;
+downloadTextFile(filename, JSON.stringify(payload, null, 2), "application/json;charset=utf-8");
+toast("Export .aum generado ✅");
+}
+function importAUMFromObject(obj) {
+if (!obj || typeof obj !== "object") throw new Error("Archivo inválido.");
+state.patientData = obj.patientData && typeof obj.patientData === "object" ? obj.patientData : {};
+state.globalIntake = obj.globalIntake && typeof obj.globalIntake === "object" ? obj.globalIntake : null;
+state.activeModules = Array.isArray(obj.activeModules) ? obj.activeModules : [];
+ensureGlobalIntakeState();
+Object.entries(state.patientData).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.value = val ?? ""; });
+const weightEl = document.getElementById("patient-weight");
+const heightEl = document.getElementById("patient-height");
+if (weightEl && state.patientData["patient-weight"] !== undefined) weightEl.value = state.patientData["patient-weight"];
+if (heightEl && state.patientData["patient-height"] !== undefined) heightEl.value = state.patientData["patient-height"];
+if (weightEl) weightEl.dispatchEvent(new Event("input"));
+const templates = getTemplates();
+state.activeModules.forEach((m) => { const tpl = templates[m.key]; if (tpl) ensureModuleState(m, tpl); });
+renderIntakeRemote();
+renderActiveTags();
+renderClinicalStack();
+state.meta.updatedAt = new Date().toISOString();
+scheduleAutosave();
+toast("Import .aum cargado ✅");
+}
+function importAUM(file) {
+if (!file) return;
+const reader = new FileReader();
+reader.onload = () => {
+try { const text = String(reader.result || ""); const obj = JSON.parse(text); importAUMFromObject(obj); }
+catch (e) { console.error(e); toast("Error leyendo .aum. Verifica el archivo.", "danger"); }
+};
+reader.readAsText(file);
+}
+function scheduleAutosave() {
+if (autosaveTimer) clearTimeout(autosaveTimer);
+autosaveTimer = setTimeout(() => {
+try {
+ensureGlobalIntakeState();
+const payload = { appVersion: APP_VERSION, savedAt: new Date().toISOString(), patientData: state.patientData || {}, globalIntake: state.globalIntake || null, activeModules: state.activeModules || [] };
+localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(payload));
+} catch (e) {}
+}, 250);
+}
+function tryRestoreAutosave() {
+try {
+const raw = localStorage.getItem(AUTOSAVE_KEY);
+if (!raw) return;
+const obj = JSON.parse(raw);
+if (!obj || typeof obj !== "object") return;
+state.patientData = obj.patientData || {};
+state.globalIntake = obj.globalIntake || null;
+state.activeModules = Array.isArray(obj.activeModules) ? obj.activeModules : [];
+ensureGlobalIntakeState();
+Object.entries(state.patientData).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.value = val ?? ""; });
+ensureWeightHeightBMI();
+renderIntakeRemote();
+renderActiveTags();
+renderClinicalStack();
+toast("Sesión restaurada (autosave) ✅");
+} catch (_) {}
+}
+function setupPreprintHandlers() {
+let oldHeights = new Map();
+const expandTextareas = () => { oldHeights = new Map(); $$("textarea").forEach((ta) => { oldHeights.set(ta, ta.style.height || ""); ta.style.height = "auto"; ta.style.height = `${ta.scrollHeight}px`; }); };
+const restoreTextareas = () => { oldHeights.forEach((h, ta) => { try { ta.style.height = h; } catch (_) {} }); oldHeights.clear(); };
+window.addEventListener("beforeprint", () => { expandTextareas(); });
+window.addEventListener("afterprint", () => { restoreTextareas(); });
+}
+function bindControls() {
+const btnAdd = document.getElementById("btn-add-module");
+if (btnAdd) btnAdd.addEventListener("click", addSelectedModule);
+const btnReset = document.getElementById("btn-reset-stack");
+if (btnReset) btnReset.addEventListener("click", resetStack);
+const btnSave = document.getElementById("btn-save-aum");
+if (btnSave) btnSave.addEventListener("click", exportAUM);
+const btnLoad = document.getElementById("btn-load-aum");
+const fileInput = document.getElementById("file-load-input");
+if (btnLoad && fileInput) {
+btnLoad.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", () => { const f = fileInput.files?.[0]; importAUM(f); fileInput.value = ""; });
+}
+}
+function init() {
+ensureGlobalIntakeState();
+fillModuleSelector();
+bindPatientInputs();
+bindControls();
+setupPreprintHandlers();
+tryRestoreAutosave();
+renderIntakeRemote();
+renderActiveTags();
+renderClinicalStack();
+console.log(`[AUM] app.js loaded: ${APP_VERSION}`);
+}
+document.addEventListener("DOMContentLoaded", init);
 })();
