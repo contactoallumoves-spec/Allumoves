@@ -193,6 +193,7 @@
   // Intake remoto global: helpers & state
   // -----------------------------
   let intakeFieldIndex = { all: [], comorbidities: [], medications: [], branches: {} };
+  const emptyIntakeDerived = () => ({ alerts: [], evaluation: [], treatment: [] });
 
   function getIntakeConfig() {
     try {
@@ -212,6 +213,10 @@
       (sec.fields || []).forEach((f) => out.push(f));
     });
     return out;
+  }
+
+  function makeIntakeSectionKey(scope, sectionId) {
+    return `${scope}:${sectionId}`;
   }
 
   function buildEmptyIntakeState() {
@@ -237,11 +242,23 @@
       });
     };
 
-    register(cfg.comorbidities?.fields, "comorbidities");
-    register(cfg.medications?.fields, "medications");
+    if (cfg.comorbidities) {
+      const key = makeIntakeSectionKey("global", "comorbidities");
+      uiCollapsed[key] = false;
+      register(cfg.comorbidities.fields, "comorbidities");
+    }
+    if (cfg.medications) {
+      const key = makeIntakeSectionKey("global", "medications");
+      uiCollapsed[key] = false;
+      register(cfg.medications.fields, "medications");
+    }
+
     (cfg.branches || []).forEach((b) => {
-      register(collectSectionFields(b.sections), "branch", b.key);
-      uiCollapsed[b.key] = false;
+      (b.sections || []).forEach((sec, idx) => {
+        const secKey = makeIntakeSectionKey(b.key, idx);
+        uiCollapsed[secKey] = false;
+        register(sec.fields, "branch", b.key);
+      });
     });
 
     return { values, uiCollapsed };
@@ -262,6 +279,7 @@
   const state = {
     patientData: {},
     intake: buildEmptyIntakeState(),
+    intakeDerived: { global: emptyIntakeDerived(), scopes: {} },
     activeModules: [], // [{instanceId, key, title, icon, tests, numeric, text, ui, computed}]
     meta: { version: APP_VERSION, updatedAt: null },
   };
@@ -440,6 +458,17 @@
     if (!state.intake) state.intake = buildEmptyIntakeState();
     state.intake.values[id] = value;
     renderAllIntakeInsights();
+    evaluateAllLogic();
+    scheduleAutosave();
+  }
+
+  function toggleIntakeSection(secKey) {
+    if (!state.intake || !state.intake.uiCollapsed) return;
+    state.intake.uiCollapsed[secKey] = !state.intake.uiCollapsed[secKey];
+    const content = $(`[data-intake-section-content="${secKey}"]`);
+    const chev = $(`[data-intake-chevron="${secKey}"]`);
+    if (content) content.hidden = !!state.intake.uiCollapsed[secKey];
+    if (chev) chev.classList.toggle("rotate-180", !state.intake.uiCollapsed[secKey]);
     scheduleAutosave();
   }
 
@@ -456,9 +485,20 @@
     return scopes.includes("all") || scopes.includes(branchKey);
   }
 
+  function getModuleIntakeScope(module, tpl) {
+    if (module?.scope) return module.scope;
+    if (tpl?.scope) return tpl.scope;
+    const cfg = getIntakeConfig();
+    if (cfg && Array.isArray(cfg.branches)) {
+      const match = cfg.branches.find((b) => b.key === module?.key || b.key === tpl?.key);
+      if (match) return match.key;
+    }
+    return "all";
+  }
+
   function deriveIntakeOutcomes(branchKey) {
     const cfg = getIntakeConfig();
-    if (!cfg) return { alerts: [], evaluation: [], treatment: [] };
+    if (!cfg) return emptyIntakeDerived();
 
     const ctx = {
       branchKey,
@@ -497,8 +537,21 @@
     });
   }
 
+  function uniqueList(list = []) {
+    const seen = new Set();
+    const out = [];
+    list.forEach((item) => {
+      const key = String(item || "").trim();
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      out.push(item);
+    });
+    return out;
+  }
+
   function renderIntakeResults(branchKey) {
     const result = deriveIntakeOutcomes(branchKey);
+    state.intakeDerived.scopes[branchKey] = result;
 
     const alertsWrap = $(`[data-intake-alerts="${branchKey}"]`);
     if (alertsWrap) {
@@ -526,6 +579,8 @@
   function renderAllIntakeInsights() {
     const cfg = getIntakeConfig();
     if (!cfg) return;
+    state.intakeDerived = { global: emptyIntakeDerived(), scopes: {} };
+    state.intakeDerived.global = deriveIntakeOutcomes("all");
     (cfg.branches || []).forEach((b) => renderIntakeResults(b.key));
   }
 
@@ -584,36 +639,67 @@
     });
   }
 
-  function renderIntakeSection(section) {
+  function renderIntakeSection(section, branchKey, secIndex) {
     const gridCls = section.style === "grid2" ? "grid grid-cols-1 md:grid-cols-2 gap-3" : "grid grid-cols-1 gap-3";
-    return renderComponent({
+    const secKey = makeIntakeSectionKey(branchKey || "global", secIndex);
+    const isCollapsed = !!state.intake?.uiCollapsed?.[secKey];
+    const content = renderComponent({
       tag: "div",
-      className: "rounded-2xl border border-gray-100 bg-white overflow-hidden",
+      attrs: { "data-intake-section-content": secKey },
+      className: "p-4",
+      hidden: isCollapsed,
       children: [
         renderComponent({
           tag: "div",
-          className: "px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center gap-2",
+          className: gridCls,
+          children: (section.fields || []).map((f) => renderIntakeField(f)),
+        }),
+      ],
+    });
+
+    const chevron = renderComponent({
+      tag: "i",
+      className: `fa-solid fa-chevron-down transition-transform ${isCollapsed ? "" : "rotate-180"}`.trim(),
+      attrs: { "data-intake-chevron": secKey, "aria-hidden": "true" },
+    });
+
+    const header = renderComponent({
+      tag: "button",
+      className: "w-full text-left flex items-center justify-between gap-3 px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors",
+      attrs: { type: "button" },
+      on: {
+        click: () => toggleIntakeSection(secKey),
+      },
+      children: [
+        renderComponent({
+          tag: "div",
+          className: "flex items-center gap-3 min-w-0",
           children: [
             renderComponent({
               tag: "div",
               className: "w-8 h-8 rounded-full bg-brand-accent/15 flex items-center justify-center text-brand-accent",
               children: [iconEl(section.icon || "fa-clipboard-list")],
             }),
-            renderComponent({ tag: "div", className: "font-extrabold text-brand-dark", text: section.title || "Sección" }),
-          ],
-        }),
-        renderComponent({
-          tag: "div",
-          className: "p-4",
-          children: [
             renderComponent({
               tag: "div",
-              className: gridCls,
-              children: (section.fields || []).map((f) => renderIntakeField(f)),
+              className: "min-w-0",
+              children: [
+                renderComponent({ tag: "div", className: "font-extrabold text-brand-dark", text: section.title || "Sección" }),
+                section.subtitle
+                  ? renderComponent({ tag: "div", className: "text-xs text-gray-500", text: section.subtitle })
+                  : null,
+              ],
             }),
           ],
         }),
+        chevron,
       ],
+    });
+
+    return renderComponent({
+      tag: "div",
+      className: "rounded-2xl border border-gray-100 bg-white overflow-hidden",
+      children: [header, content],
     });
   }
 
@@ -678,7 +764,7 @@
           tag: "div",
           className: "p-5 space-y-4",
           children: [
-            ...(branch.sections || []).map((sec) => renderIntakeSection(sec)),
+            ...(branch.sections || []).map((sec, idx) => renderIntakeSection(sec, branch.key, idx)),
             renderIntakeResultsGrid(branch.key),
           ],
         }),
@@ -695,8 +781,8 @@
 
     if (cfg.comorbidities || cfg.medications) {
       const topGrid = renderComponent({ tag: "div", className: "grid grid-cols-1 lg:grid-cols-2 gap-4" });
-      if (cfg.comorbidities) topGrid.appendChild(renderIntakeSection(cfg.comorbidities));
-      if (cfg.medications) topGrid.appendChild(renderIntakeSection(cfg.medications));
+      if (cfg.comorbidities) topGrid.appendChild(renderIntakeSection(cfg.comorbidities, "global", "comorbidities"));
+      if (cfg.medications) topGrid.appendChild(renderIntakeSection(cfg.medications, "global", "medications"));
       root.appendChild(topGrid);
     }
 
@@ -757,6 +843,7 @@
       instanceId: makeInstanceId(template.key),
       key: template.key,
       title: template.title,
+      scope: template.scope || "all",
       icon: template.icon || "fa-notes-medical",
       tests: {},
       numeric: {},
@@ -1706,6 +1793,10 @@
       if (ok) triggered.push(rule);
     }
 
+    const scopeKey = getModuleIntakeScope(module, tpl);
+    const intakeScope = state.intakeDerived.scopes[scopeKey] || emptyIntakeDerived();
+    intakeScope.alerts.forEach((r) => triggered.push(r));
+
     if (triggered.length === 0) return;
 
     // Render in order: danger -> warning -> info
@@ -1774,12 +1865,44 @@
     );
   }
 
+  function renderModuleIntakeConsiderations(module, tpl) {
+    const wrap = $(`[data-intake-considerations="${module.instanceId}"]`);
+    if (!wrap) return;
+
+    wrap.replaceChildren();
+
+    const scopeKey = getModuleIntakeScope(module, tpl);
+    const scoped = state.intakeDerived.scopes[scopeKey] || emptyIntakeDerived();
+    const global = state.intakeDerived.global || emptyIntakeDerived();
+
+    const evalList = uniqueList([...(global.evaluation || []), ...(scoped.evaluation || [])]);
+    const txList = uniqueList([...(global.treatment || []), ...(scoped.treatment || [])]);
+
+    const card = (title, list, emptyText, icon) =>
+      renderComponent({
+        tag: "div",
+        className: "rounded-2xl border border-gray-100 bg-white p-4 space-y-2",
+        children: [
+          renderComponent({
+            tag: "div",
+            className: "flex items-center gap-2 text-xs font-extrabold uppercase text-brand-dark",
+            children: [iconEl(icon || "fa-clipboard-list"), renderComponent({ tag: "span", text: title })],
+          }),
+          intakeList(list, emptyText),
+        ],
+      });
+
+    wrap.appendChild(card("Consideraciones de evaluación", evalList, "Sin consideraciones especiales desde el intake.", "fa-magnifying-glass"));
+    wrap.appendChild(card("Consideraciones de tratamiento", txList, "Sin ajustes relevantes de tratamiento desde el intake.", "fa-hand-holding-medical"));
+  }
+
   function evaluateAllLogic() {
     state.activeModules.forEach((m) => {
       const tpl = getModuleTemplate(m.key);
       evaluateModuleLogic(m, tpl);
       updateModuleScores(m, tpl);
       renderPlanCard(m, tpl);
+      renderModuleIntakeConsiderations(m, tpl);
     });
   }
 
@@ -2085,6 +2208,15 @@
     // Alerts container
     body.appendChild(renderComponent({ tag: "div", attrs: { "data-alerts": module.instanceId }, className: "space-y-3" }));
 
+    // Intake considerations container (evaluation + treatment)
+    body.appendChild(
+      renderComponent({
+        tag: "div",
+        attrs: { "data-intake-considerations": module.instanceId },
+        className: "grid grid-cols-1 md:grid-cols-2 gap-3",
+      })
+    );
+
     // Plan container (auto)
     body.appendChild(renderComponent({ tag: "div", attrs: { "data-plan": module.instanceId }, className: "space-y-3" }));
 
@@ -2129,6 +2261,7 @@
     // First derived render
     renderPlanCard(module, tpl);
     evaluateModuleLogic(module, tpl);
+    renderModuleIntakeConsiderations(module, tpl);
     updateModuleScores(module, tpl);
   }
 
@@ -2235,6 +2368,7 @@
       m.ui = m.ui || { collapsed: {}, mode: "complete" };
       m.ui.mode = m.ui.mode || "complete";
       m.ui.collapsed = m.ui.collapsed || {};
+      m.scope = m.scope || tpl.scope || "all";
       renderModuleCard(m, tpl);
     });
 
