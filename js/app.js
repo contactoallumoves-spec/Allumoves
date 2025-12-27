@@ -1323,8 +1323,9 @@
 
     // Seed defaults from fields
     (template.sections || []).forEach((sec, secIndex) => {
-      // Default collapse: SPADI/DASH collapsed, others expanded
-      moduleState.ui.collapsed[secIndex] = isOutcomeSectionTitle(sec.title) ? true : false;
+      // Default collapse: honor explicit flag, SPADI/DASH collapsed, others expanded
+      const collapseExplicit = sec.collapsed === true;
+      moduleState.ui.collapsed[secIndex] = collapseExplicit ? true : isOutcomeSectionTitle(sec.title);
 
       (sec.fields || []).forEach((f) => {
         if (!f || !f.id) return;
@@ -2740,6 +2741,24 @@
           module.tests[field.id] = next;
           afterChange();
         },
+      });
+    }
+
+    if (field.type === "select") {
+      return renderComponent({
+        tag: "div",
+        attrs: { "data-field": `${module.instanceId}:${field.id}` },
+        children: [
+          selectField({
+            value: module.text[field.id] || "",
+            field,
+            options: field.options || [],
+            onChange: (v) => {
+              module.text[field.id] = v;
+              afterChange();
+            },
+          }),
+        ],
       });
     }
 

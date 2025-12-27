@@ -127,6 +127,17 @@
     );
   }
 
+  const mmtOptions = [
+    { value: "", label: "— Seleccionar —" },
+    { value: "5", label: "5/5 (fuerte, sin dolor)" },
+    { value: "4plus", label: "4+/5" },
+    { value: "4", label: "4/5" },
+    { value: "4minus", label: "4-/5" },
+    { value: "3plus", label: "3+/5" },
+    { value: "3", label: "≤3/5" },
+    { value: "dolor", label: "Dolor inhibidor" },
+  ];
+
   // ---------------------------------------
   // Intake remoto global (siempre visible)
   // ---------------------------------------
@@ -872,105 +883,137 @@
           ],
         },
 
-        // 3) Inspección completa
+        // 3) Inspección (postura, escápula, atrofias, color/edema)
         {
-          title: "Inspección",
+          title: "Inspección (postura, escápula, atrofias, color/edema)",
           icon: "fa-eye",
           style: "card",
           fields: [
-            { id: "atrofia_supra", label: "Atrofia supraespinoso (fosa supraespinosa)", type: "boolean" },
-            { id: "atrofia_infra", label: "Atrofia infraespinoso (fosa infraespinosa)", type: "boolean" },
-            { id: "signo_popeye", label: "Signo 'Popeye' (bíceps)", type: "boolean" },
-            { id: "edema", label: "Edema", type: "boolean" },
-            { id: "eritema", label: "Eritema / cambios de color", type: "boolean" },
-            { id: "temp_aumentada", label: "Temperatura local aumentada", type: "boolean" },
-            { id: "asimetria_clavicular", label: "Asimetría clavicular / AC", type: "boolean" },
+            { id: "inspeccion_postura_global", label: "Postura global (cervical/torácica/escápula)", type: "textarea", placeholder: "Alineación, cifosis/ lordosis, reposo escapular y respiración." },
             { id: "postura_protraccion", label: "Protracción / hombro anteriorizado", type: "boolean" },
             { id: "elevacion_hombro", label: "Elevación de hombro (compensación)", type: "boolean" },
             { id: "escapula_alada", label: "Escápula alada", type: "boolean" },
             { id: "dyskinesis_escapular", label: "Disquinesia escapular (observación dinámica)", type: "boolean" },
             { id: "ritmo_alterado", label: "Ritmo escápulo-humeral alterado", type: "boolean" },
+            { id: "atrofia_supra", label: "Atrofia supraespinoso (fosa supraespinosa)", type: "boolean" },
+            { id: "atrofia_infra", label: "Atrofia infraespinoso (fosa infraespinosa)", type: "boolean" },
+            { id: "atrofia_deltoides", label: "Atrofia deltoides / cara lateral hombro", type: "boolean" },
+            { id: "signo_popeye", label: "Signo 'Popeye' (bíceps)", type: "boolean" },
+            { id: "asimetria_clavicular", label: "Asimetría clavicular / AC", type: "boolean" },
             { id: "cicatrices", label: "Cicatrices / antecedentes quirúrgicos visibles", type: "boolean" },
+            { id: "eritema", label: "Eritema / cambios de color", type: "boolean" },
+            { id: "edema", label: "Edema visible", type: "boolean" },
+            { id: "equimosis", label: "Equimosis / hematoma", type: "boolean" },
+            { id: "temp_aumentada", label: "Temperatura local aumentada", type: "boolean" },
+            { id: "inspeccion_color_edema", label: "Color / edema (detalle)", type: "textarea", placeholder: "Eritema, cianosis, edema localizado o difuso." },
             { id: "inspeccion_notas", label: "Notas de inspección", type: "textarea", placeholder: "Describe hallazgos relevantes." },
           ],
         },
 
-        // 4) Palpación completa
+        // 4) Palpación completa (puntos relevantes)
         {
-          title: "Palpación",
+          title: "Palpación completa",
           icon: "fa-hand",
           style: "card",
           fields: [
             { id: "dolor_ac_palp", label: "Dolor a palpación articulación AC", type: "boolean" },
+            { id: "dolor_acromion_palp", label: "Dolor acromion / espina escapular", type: "boolean" },
             { id: "dolor_bicipital_palp", label: "Dolor corredera bicipital", type: "boolean" },
+            { id: "dolor_coracoides_palp", label: "Dolor región coracoides", type: "boolean" },
             { id: "dolor_supra_insercion_palp", label: "Dolor inserción supraespinoso (tubérculo mayor)", type: "boolean" },
             { id: "dolor_infra_palp", label: "Dolor infraespinoso / redondo menor", type: "boolean" },
             { id: "dolor_subescapular_palp", label: "Dolor subescapular / surco", type: "boolean" },
-            { id: "dolor_coracoides_palp", label: "Dolor región coracoides", type: "boolean" },
+            { id: "dolor_deltoides_palp", label: "Dolor deltoides (anterior/lateral/posterior)", type: "boolean" },
             { id: "dolor_trapecio_palp", label: "Dolor trapecio/elevador escápula", type: "boolean" },
             { id: "dolor_pectoral_menor_palp", label: "Dolor pectoral menor", type: "boolean" },
             { id: "dolor_cervicoescapular_palp", label: "Dolor cervico-escapular", type: "boolean" },
+            { id: "dolor_borde_escapular", label: "Dolor borde medial escápula / romboides", type: "boolean" },
             { id: "dolor_oseo_focal", label: "Dolor óseo focal (clavícula/húmero proximal)", type: "boolean" },
             { id: "crepitacion", label: "Crepitación / fricción palpable", type: "boolean" },
             { id: "palpacion_notas", label: "Notas de palpación", type: "textarea", placeholder: "Puntos gatillo, dolor focal, respuesta al tacto, etc." },
           ],
         },
 
-        // 5) ROM activo
+        // 5) ROM activo + pasivo + dolor (bilateral y % dif)
         {
-          title: "ROM Activo (AROM)",
+          title: "ROM Activo + Pasivo + Dolor (bilateral)",
           icon: "fa-ruler-combined",
           style: "card",
           fields: [
-            { id: "flexion_a", label: "Flexión", type: "numeric", unit: "°", min: 0, max: 180, normal: 170, limited: 120, bilateral: true },
-            { id: "abduccion_a", label: "Abducción", type: "numeric", unit: "°", min: 0, max: 180, normal: 170, limited: 120, bilateral: true },
-            { id: "extension_a", label: "Extensión", type: "numeric", unit: "°", min: 0, max: 70, normal: 60, limited: 40, bilateral: true },
-            { id: "er0_a", label: "Rotación Externa (0° Abd)", type: "numeric", unit: "°", min: 0, max: 100, normal: 80, limited: 50, bilateral: true },
-            { id: "er90_a", label: "Rotación Externa (90° Abd)", type: "numeric", unit: "°", min: 0, max: 120, normal: 100, limited: 70, bilateral: true },
-            { id: "ir90_a", label: "Rotación Interna (90° Abd)", type: "numeric", unit: "°", min: 0, max: 90, normal: 70, limited: 45, bilateral: true },
+            { id: "flexion_a", label: "Flexión AROM", type: "numeric", unit: "°", min: 0, max: 180, normal: 170, limited: 120, bilateral: true },
+            { id: "abduccion_a", label: "Abducción AROM", type: "numeric", unit: "°", min: 0, max: 180, normal: 170, limited: 120, bilateral: true },
+            { id: "extension_a", label: "Extensión AROM", type: "numeric", unit: "°", min: 0, max: 70, normal: 60, limited: 40, bilateral: true },
+            { id: "er0_a", label: "Rotación Externa (0° Abd) AROM", type: "numeric", unit: "°", min: 0, max: 100, normal: 80, limited: 50, bilateral: true },
+            { id: "er90_a", label: "Rotación Externa (90° Abd) AROM", type: "numeric", unit: "°", min: 0, max: 120, normal: 100, limited: 70, bilateral: true },
+            { id: "ir90_a", label: "Rotación Interna (90° Abd) AROM", type: "numeric", unit: "°", min: 0, max: 90, normal: 70, limited: 45, bilateral: true },
+            { id: "flexion_p", label: "Flexión PROM", type: "numeric", unit: "°", min: 0, max: 180, normal: 175, limited: 130, bilateral: true },
+            { id: "abduccion_p", label: "Abducción PROM", type: "numeric", unit: "°", min: 0, max: 180, normal: 175, limited: 130, bilateral: true },
+            { id: "er0_p", label: "Rotación Externa (0° Abd) PROM", type: "numeric", unit: "°", min: 0, max: 100, normal: 85, limited: 55, bilateral: true },
+            { id: "er90_p", label: "Rotación Externa (90° Abd) PROM", type: "numeric", unit: "°", min: 0, max: 120, normal: 105, limited: 75, bilateral: true },
+            { id: "ir90_p", label: "Rotación Interna (90° Abd) PROM", type: "numeric", unit: "°", min: 0, max: 90, normal: 75, limited: 50, bilateral: true },
             { id: "arco_doloroso", label: "Arco doloroso (clínico)", type: "boolean", help: "Marcar si el dolor aparece en un rango específico de elevación." },
             { id: "compensaciones", label: "Compensaciones (hombro elevado, tronco, escápula)", type: "boolean" },
             { id: "ir_mano_espalda", label: "IR funcional (mano a espalda) — nivel", type: "text", placeholder: "Ej: T7, T12, glúteo" },
-            { id: "arom_notas", label: "Notas AROM", type: "textarea", placeholder: "Dolor, tope, calidad de movimiento, etc." },
-          ],
-        },
-
-        // 6) ROM pasivo
-        {
-          title: "ROM Pasivo (PROM)",
-          icon: "fa-arrows-left-right-to-line",
-          style: "card",
-          fields: [
-            { id: "flexion_p", label: "Flexión", type: "numeric", unit: "°", min: 0, max: 180, normal: 175, limited: 130, bilateral: true },
-            { id: "abduccion_p", label: "Abducción", type: "numeric", unit: "°", min: 0, max: 180, normal: 175, limited: 130, bilateral: true },
-            { id: "er0_p", label: "Rotación Externa (0° Abd)", type: "numeric", unit: "°", min: 0, max: 100, normal: 85, limited: 55, bilateral: true },
-            { id: "er90_p", label: "Rotación Externa (90° Abd)", type: "numeric", unit: "°", min: 0, max: 120, normal: 105, limited: 75, bilateral: true },
-            { id: "ir90_p", label: "Rotación Interna (90° Abd)", type: "numeric", unit: "°", min: 0, max: 90, normal: 75, limited: 50, bilateral: true },
             { id: "patron_capsular", label: "Patrón capsular (sospecha) — ER limitada > Abd/Flex", type: "boolean" },
             { id: "endfeel_duro", label: "End-feel duro/abrupto", type: "boolean" },
-            { id: "prom_notas", label: "Notas PROM", type: "textarea", placeholder: "End-feel, dolor, rigidez, capsular vs no-capsular." },
+            { id: "dolor_movimiento_activo", label: "Dolor AROM (rango y calidad)", type: "textarea", placeholder: "Dolor inicial/fin de rango, fatiga, sensación de tope." },
+            { id: "dolor_movimiento_pasivo", label: "Dolor PROM (rango y calidad)", type: "textarea", placeholder: "Dolor capsular/pericapsular, irritabilidad, fin de rango." },
+            { id: "rom_diff_flex_pct", label: "Diferencia % flexión (L/R)", type: "numeric", unit: "%", min: 0, max: 100, normal: 5, limited: 20, bilateral: false, help: "(lado menor / lado mayor) × 100. Útil para seguimiento." },
+            { id: "rom_diff_abd_pct", label: "Diferencia % abducción (L/R)", type: "numeric", unit: "%", min: 0, max: 100, normal: 5, limited: 20, bilateral: false },
+            { id: "rom_diff_rot_ext_pct", label: "Diferencia % rotación externa (L/R)", type: "numeric", unit: "%", min: 0, max: 100, normal: 5, limited: 20, bilateral: false },
+            { id: "rom_diff_rot_int_pct", label: "Diferencia % rotación interna (L/R)", type: "numeric", unit: "%", min: 0, max: 100, normal: 5, limited: 20, bilateral: false },
+            { id: "rom_diff_funcional_pct", label: "Diferencia % funcional (IR mano a espalda / tareas)", type: "numeric", unit: "%", min: 0, max: 100, normal: 5, limited: 25, bilateral: false, help: "Percepción funcional entre lados; documenta % de brecha." },
+            { id: "arom_notas", label: "Notas AROM/PROM", type: "textarea", placeholder: "Dolor, tope, calidad de movimiento, comparativa L/R." },
+            { id: "prom_notas", label: "End-feel / rigidez (detalle)", type: "textarea", placeholder: "Capsular vs no capsular, irritabilidad y respuesta post prueba." },
           ],
         },
 
-        // 7) Fuerza manual (global)
+        // 6) Fuerza: bloque MMT + alternativa dinamometría (selector)
         {
-          title: "Fuerza Manual (MMT / Resistencia)",
+          title: "Fuerza (MMT + Dinamometría)",
           icon: "fa-dumbbell",
           style: "card",
           fields: [
+            {
+              id: "fuerza_modalidad",
+              label: "Selector fuerza (MMT / dinamometría)",
+              type: "select",
+              options: [
+                { value: "", label: "— Seleccionar —" },
+                { value: "mmt", label: "MMT (escala 0-5)" },
+                { value: "hhd", label: "Dinamometría (HHD)" },
+                { value: "mixto", label: "Mixto (ambos métodos)" },
+              ],
+            },
             { id: "debilidad_marcada", label: "Debilidad marcada (clínica)", type: "boolean", help: "Incapacidad clara vs inhibición por dolor." },
             { id: "dolor_contra_resistencia", label: "Dolor con resistencia (cualquier dirección)", type: "boolean" },
-            { id: "fuerza_manual_global", label: "Evaluación manual global (RC, deltoides, escápula, patrón)", type: "textarea", placeholder: "Describe MMT, dolor, control, fatiga, compensaciones." },
-            { id: "fuerza_musculos_detalle", label: "Detalle por músculo (manual)", type: "textarea", placeholder: "Ej: ER 4-/5 dolor, Abd 4/5, Serrato 4/5, Trapecio inf 3+/5, etc." },
-          ],
-        },
-
-        // 8) Dinamometría (seccionado)
-        {
-          title: "Dinamometría (registro bilateral)",
-          icon: "fa-gauge-high",
-          style: "card",
-          fields: [
+            { id: "mmt_flexion", label: "MMT Flexión", type: "select", options: mmtOptions },
+            { id: "mmt_abduccion", label: "MMT Abducción / scaption", type: "select", options: mmtOptions },
+            { id: "mmt_scaption", label: "MMT Elevación en escápula", type: "select", options: mmtOptions },
+            { id: "mmt_er0", label: "MMT Rotación Externa (0°)", type: "select", options: mmtOptions },
+            { id: "mmt_er90", label: "MMT Rotación Externa (90°)", type: "select", options: mmtOptions },
+            { id: "mmt_ir0", label: "MMT Rotación Interna (0°)", type: "select", options: mmtOptions },
+            { id: "mmt_extension", label: "MMT Extensión", type: "select", options: mmtOptions },
+            { id: "mmt_deltoides_post", label: "MMT Deltoides posterior / horizontal abd", type: "select", options: mmtOptions },
+            { id: "mmt_serrato", label: "MMT Serrato anterior (push-up plus / wall slide)", type: "select", options: mmtOptions },
+            { id: "mmt_trap_medio", label: "MMT Trapecio medio / retractores", type: "select", options: mmtOptions },
+            { id: "mmt_trap_inferior", label: "MMT Trapecio inferior", type: "select", options: mmtOptions },
+            { id: "mmt_romboides", label: "MMT Romboides", type: "select", options: mmtOptions },
+            { id: "mmt_biceps", label: "MMT Bíceps", type: "select", options: mmtOptions },
+            { id: "mmt_triceps", label: "MMT Tríceps", type: "select", options: mmtOptions },
+            { id: "fuerza_manual_global", label: "Evaluación manual global", type: "textarea", placeholder: "Describe patrón RC, deltoides, escápula, control y fatiga." },
+            { id: "fuerza_musculos_detalle", label: "Notas MMT (dolor/síntomas)", type: "textarea", placeholder: "Ej: ER 4-/5 dolor posterolateral; Serrato 4/5 fatiga." },
+            {
+              id: "dinamometria_modalidad",
+              label: "Modalidad dinamometría",
+              type: "select",
+              options: [
+                { value: "", label: "— Seleccionar —" },
+                { value: "hhd_isometrico", label: "HHD isométrico" },
+                { value: "dinamometro_mano", label: "Dinamómetro mano / empuñadura" },
+                { value: "isocinetico", label: "Isocinético / laboratorio" },
+              ],
+            },
             { id: "dyn_unidad", label: "Unidad / protocolo", type: "text", placeholder: "Ej: N, kgf, N/kg · posición y palanca" },
             { id: "dyn_er0", label: "ER (0° Abd)", type: "numeric", unit: "", min: 0, max: 1000, normal: 0, limited: 0, bilateral: true, help: "Registra valor L/R con el mismo protocolo." },
             { id: "dyn_ir0", label: "IR (0° Abd)", type: "numeric", unit: "", min: 0, max: 1000, normal: 0, limited: 0, bilateral: true },
@@ -982,7 +1025,7 @@
           ],
         },
 
-        // 9) Control motor y escápula
+        // 7) Control motor y escápula
         {
           title: "Control Motor & Escápula",
           icon: "fa-person-running",
@@ -1279,6 +1322,30 @@
           },
         },
 
+        // Traumatic cuff suspicion integrating edad/trauma
+        {
+          id: "cluster-traumatic-rc",
+          severity: "warning",
+          title: "Contexto traumático: sospecha de rotura del manguito",
+          description:
+            "Trauma significativo + incapacidad de elevar el brazo y pruebas específicas (Drop Arm / ER Lag) o edad ≥45 elevan la sospecha de rotura. Considera imagen según impacto funcional.",
+          scoreValue: 13,
+          criteria: [
+            { id: "trauma_significativo", source: "tests", label: "Trauma significativo", weight: 4 },
+            { id: "incapacidad_elevar_brazo", source: "tests", label: "Incapacidad elevar brazo", weight: 4 },
+            { id: "drop_arm", source: "tests", label: "Drop Arm (+)", weight: 3 },
+            { id: "er_lag_sign", source: "tests", label: "ER Lag Sign (+)", weight: 2 },
+            { id: "patient-age", source: "patient", label: "Edad ≥45", weight: 1, type: "numeric", minValue: 45, missingLabel: "Registrar edad" },
+          ],
+          when: (s, p) => {
+            const age = Number(p?.["patient-age"]);
+            const ageFlag = Number.isFinite(age) ? age >= 45 : false;
+            const trauma = s.tests.trauma_significativo === true && s.tests.incapacidad_elevar_brazo === true;
+            const cuffTests = s.tests.drop_arm === true || s.tests.er_lag_sign === true;
+            return trauma && (cuffTests || ageFlag);
+          },
+        },
+
         // Capsulitis / stiff shoulder suspicion
         {
           id: "cluster-stiff-shoulder",
@@ -1303,6 +1370,19 @@
               ageOk
             );
           },
+        },
+
+        // Rigidez post-trauma / post-inmovilización
+        {
+          id: "rule-post-trauma-stiffness",
+          severity: "info",
+          title: "Rigidez secundaria a trauma o inmovilización",
+          description:
+            "Trauma significativo con patrón capsular o end-feel duro sugiere rigidez secundaria. Dosifica progresión de movilidad y monitorea dolor nocturno.",
+          when: (s) =>
+            s.tests.trauma_significativo === true &&
+            s.tests.rigidez === true &&
+            (s.tests.patron_capsular === true || s.tests.endfeel_duro === true),
         },
 
         // Instability anterior
@@ -1334,6 +1414,28 @@
             { id: "ac_notas", source: "text", label: "Notas AC documentadas", weight: 1, type: "text", missingLabel: "Documentar notas AC" },
           ],
           when: (s) => s.tests.cross_body_adduction === true && s.tests.dolor_ac_palp === true,
+        },
+
+        // RCRSP + rango etario / carga repetitiva
+        {
+          id: "rule-rcrsp-age-load",
+          severity: "info",
+          title: "Dolor relacionado a carga (RCRSP) en rango etario típico",
+          description:
+            "Edad 30–65 sin trauma mayor + signos RCRSP (arco doloroso, Hawkins/Jobe/infraespinoso) orientan a manejo de carga progresiva y control escapular.",
+          criteria: [
+            { id: "arco_doloroso", source: "tests", label: "Arco doloroso", weight: 3 },
+            { id: "hawkins", source: "tests", label: "Hawkins-Kennedy (+)", weight: 3 },
+            { id: "jobe", source: "tests", label: "Jobe/Empty Can (+)", weight: 3 },
+            { id: "infraspinatus_test", source: "tests", label: "Resistencia ER dolor/debilidad", weight: 3 },
+            { id: "patient-age", source: "patient", label: "Edad 30-65", weight: 2, type: "numeric", minValue: 30, maxValue: 65, missingLabel: "Registrar edad" },
+          ],
+          when: (s, p) => {
+            const age = Number(p?.["patient-age"]);
+            const ageOk = Number.isFinite(age) ? age >= 30 && age <= 65 : false;
+            const signs = [s.tests.arco_doloroso === true, s.tests.hawkins === true, s.tests.jobe === true, s.tests.infraspinatus_test === true].filter(Boolean).length >= 3;
+            return ageOk && signs && s.tests.trauma_significativo !== true;
+          },
         },
 
         // Irritability guidance
