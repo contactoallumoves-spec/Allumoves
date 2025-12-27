@@ -139,6 +139,167 @@
   ];
 
   // ---------------------------------------
+  // Reusable builders (replicable modules)
+  // ---------------------------------------
+  const prefixedId = (prefix, id) => (prefix ? `${prefix}_${id}` : id);
+
+  function mapIds(prefix, fields) {
+    return fields.map((f) => ({ ...f, id: prefixedId(prefix, f.id) }));
+  }
+
+  function buildRedFlagsSection({ prefix = "", title = "Banderas Rojas & Derivación", icon = "fa-triangle-exclamation", fast = true } = {}) {
+    const baseFields = [
+      { id: "antecedente_cancer", label: "Antecedente de cáncer", type: "boolean", help: "Especialmente reciente o sin controles." },
+      { id: "perdida_peso", label: "Pérdida de peso inexplicada", type: "boolean" },
+      { id: "fiebre", label: "Fiebre / escalofríos", type: "boolean" },
+      { id: "riesgo_infeccion", label: "Riesgo de infección (inmunosupresión, drogas EV, herida, posqx)", type: "boolean" },
+      { id: "trauma_significativo", label: "Trauma significativo (caída/choque)", type: "boolean" },
+      { id: "deformidad_visible", label: "Deformidad visible / sospecha de luxación", type: "boolean" },
+      { id: "dolor_nocturno_no_mecanico", label: "Dolor nocturno no mecánico (no cambia con postura/carga)", type: "boolean" },
+      { id: "dolor_reposo_intenso", label: "Dolor intenso en reposo (desproporcionado)", type: "boolean" },
+      { id: "incapacidad_elevar_brazo", label: "Déficit motor agudo en la zona (ej. incapacidad de elevar/sostener)", type: "boolean" },
+      { id: "deficit_neuro_progresivo", label: "Déficit neurológico progresivo (fuerza/sensibilidad)", type: "boolean" },
+      { id: "dolor_pecho_disnea", label: "Dolor torácico / disnea (tamizaje)", type: "boolean" },
+      { id: "redflags_notas", label: "Notas / decisión (derivación, imagen, urgencias)", type: "textarea", placeholder: "Registra lo relevante y tu conducta." },
+    ];
+    return {
+      title,
+      icon,
+      style: "card",
+      fast,
+      fields: mapIds(prefix, baseFields),
+    };
+  }
+
+  function buildIrritabilityFields({ prefix = "", includePain = true } = {}) {
+    const fields = [];
+    if (includePain) {
+      fields.push(mkPROMField(prefixedId(prefix, "dolor_eva"), "Dolor actual (0–10)", 0, 10, "/10", 0, 5, "Escala EVA/END"));
+    }
+    fields.push(
+      { id: "irritabilidad", label: "Irritabilidad (para dosificación)", type: "text", placeholder: "Alta / Media / Baja" },
+      { id: "patron_24h", label: "Patrón 24h (sueño, mañana, carga)", type: "text", placeholder: "Ej: peor noche, rigidez AM, etc." },
+      { id: "dolor_nocturno", label: "Dolor nocturno (clínico)", type: "boolean" }
+    );
+    return mapIds(prefix, fields);
+  }
+
+  function buildPromLikertSection({ title, icon, idPrefix, items, quickConfig, introId, introPlaceholder, style = "card" }) {
+    return {
+      title,
+      icon: icon || "fa-clipboard-list",
+      style,
+      fields: [
+        introId ? { id: prefixedId(idPrefix, introId), label: "Instrucción", type: "text", placeholder: introPlaceholder || "" } : null,
+        ...(items || []).map(([id, label]) =>
+          withQuickConfig(
+            mkPROMField(
+              prefixedId(idPrefix, id),
+              label,
+              quickConfig?.primaryValue ?? 0,
+              quickConfig?.secondaryValue || 10,
+              "",
+              quickConfig?.primaryValue ?? 0,
+              quickConfig?.secondaryValue ?? 10,
+              quickConfig?.help || ""
+            ),
+            quickConfig
+          )
+        ),
+      ].filter(Boolean),
+    };
+  }
+
+  function buildStrengthSection({ prefix = "", movements = [], includeDynamometry = true, extraFields = [] } = {}) {
+    const mmtFields = movements.map((mvt) => ({
+      id: prefixedId(prefix, `mmt_${mvt.id}`),
+      label: mvt.label,
+      type: "select",
+      options: mmtOptions,
+    }));
+
+    const dynFields = includeDynamometry
+      ? movements
+          .filter((mvt) => !mvt.skipDyn)
+          .map((mvt) => {
+            const dynId = mvt.dynId || mvt.id;
+            const dynLabel = mvt.dynLabel || `${mvt.label} (dinamometría)`;
+            return {
+              id: prefixedId(prefix, `dyn_${dynId}`),
+              label: dynLabel,
+              type: "numeric",
+              unit: "",
+              min: 0,
+              max: 1000,
+              normal: 0,
+              limited: 0,
+              bilateral: true,
+            };
+          })
+      : [];
+
+    return {
+      title: "Fuerza (MMT + Dinamometría)",
+      icon: "fa-dumbbell",
+      style: "card",
+      fields: [
+        {
+          id: prefixedId(prefix, "fuerza_modalidad"),
+          label: "Selector fuerza (MMT / dinamometría)",
+          type: "select",
+          options: [
+            { value: "", label: "— Seleccionar —" },
+            { value: "mmt", label: "MMT (escala 0-5)" },
+            { value: "hhd", label: "Dinamometría (HHD)" },
+            { value: "mixto", label: "Mixto (ambos métodos)" },
+          ],
+        },
+        { id: prefixedId(prefix, "debilidad_marcada"), label: "Debilidad marcada (clínica)", type: "boolean", help: "Incapacidad clara vs inhibición por dolor." },
+        { id: prefixedId(prefix, "dolor_contra_resistencia"), label: "Dolor con resistencia (cualquier dirección)", type: "boolean" },
+        ...mmtFields,
+        ...extraFields.map((f) => ({ ...f, id: prefixedId(prefix, f.id) })),
+        includeDynamometry
+          ? {
+              id: prefixedId(prefix, "dinamometria_modalidad"),
+              label: "Modalidad dinamometría",
+              type: "select",
+              options: [
+                { value: "", label: "— Seleccionar —" },
+                { value: "hhd_isometrico", label: "HHD isométrico" },
+                { value: "dinamometro_mano", label: "Dinamómetro mano / empuñadura" },
+                { value: "isocinetico", label: "Isocinético / laboratorio" },
+              ],
+            }
+          : null,
+        includeDynamometry ? { id: prefixedId(prefix, "dyn_unidad"), label: "Unidad / protocolo", type: "text", placeholder: "Ej: N, kgf, N/kg · posición y palanca" } : null,
+        ...dynFields,
+        includeDynamometry ? { id: prefixedId(prefix, "dyn_notas"), label: "Notas dinamometría", type: "textarea", placeholder: "Protocolo, posición, dolor, confiabilidad." } : null,
+      ].filter(Boolean),
+    };
+  }
+
+  function logicRuleTemplate({ id, severity = "info", title, description, criteria = [], when, scoreValue, hypothesis }) {
+    return { id, severity, title, description, criteria, when, scoreValue, hypothesis };
+  }
+
+  const shoulderStrengthMovements = [
+    { id: "flexion", label: "MMT Flexión", dynLabel: "Flexión" },
+    { id: "abduccion", label: "MMT Abducción / scaption", dynId: "abd_scaption", dynLabel: "Abducción (scaption)" },
+    { id: "scaption", label: "MMT Elevación en escápula", skipDyn: true },
+    { id: "er0", label: "MMT Rotación Externa (0°)", dynLabel: "ER (0° Abd)" },
+    { id: "er90", label: "MMT Rotación Externa (90°)", skipDyn: true },
+    { id: "ir0", label: "MMT Rotación Interna (0°)", dynLabel: "IR (0° Abd)" },
+    { id: "extension", label: "MMT Extensión", dynLabel: "Extensión" },
+    { id: "deltoides_post", label: "MMT Deltoides posterior / horizontal abd", skipDyn: true },
+    { id: "serrato", label: "MMT Serrato anterior (push-up plus / wall slide)", skipDyn: true },
+    { id: "trap_medio", label: "MMT Trapecio medio / retractores", dynId: "row", dynLabel: "Tracción (row) / retractores" },
+    { id: "trap_inferior", label: "MMT Trapecio inferior", skipDyn: true },
+    { id: "romboides", label: "MMT Romboides", skipDyn: true },
+    { id: "biceps", label: "MMT Bíceps", skipDyn: true },
+    { id: "triceps", label: "MMT Tríceps", skipDyn: true },
+  ];
+
+  // ---------------------------------------
   // Intake remoto global (siempre visible)
   // ---------------------------------------
   const intakeRemoteConfig = {
@@ -972,26 +1133,7 @@
       icon: "fa-person-rays",
       sections: [
         // 1) Red Flags / Derivación
-        {
-          title: "Banderas Rojas & Derivación",
-          icon: "fa-triangle-exclamation",
-          style: "card",
-          fast: true,
-          fields: [
-            { id: "antecedente_cancer", label: "Antecedente de cáncer", type: "boolean", help: "Especialmente reciente o sin controles." },
-            { id: "perdida_peso", label: "Pérdida de peso inexplicada", type: "boolean" },
-            { id: "fiebre", label: "Fiebre / escalofríos", type: "boolean" },
-            { id: "riesgo_infeccion", label: "Riesgo de infección (inmunosupresión, drogas EV, herida, posqx)", type: "boolean" },
-            { id: "trauma_significativo", label: "Trauma significativo (caída/choque)", type: "boolean" },
-            { id: "deformidad_visible", label: "Deformidad visible / sospecha de luxación", type: "boolean" },
-            { id: "dolor_nocturno_no_mecanico", label: "Dolor nocturno no mecánico (no cambia con postura/carga)", type: "boolean" },
-            { id: "dolor_reposo_intenso", label: "Dolor intenso en reposo (desproporcionado)", type: "boolean" },
-            { id: "incapacidad_elevar_brazo", label: "Incapacidad de elevar el brazo activamente tras trauma", type: "boolean" },
-            { id: "deficit_neuro_progresivo", label: "Déficit neurológico progresivo (fuerza/sensibilidad)", type: "boolean" },
-            { id: "dolor_pecho_disnea", label: "Dolor torácico / disnea (tamizaje)", type: "boolean" },
-            { id: "redflags_notas", label: "Notas / decisión (derivación, imagen, urgencias)", type: "textarea", placeholder: "Registra lo relevante y tu conducta." },
-          ],
-        },
+        buildRedFlagsSection(),
 
         // 2) Anamnesis específica
         {
@@ -1004,12 +1146,9 @@
             { id: "dominancia", label: "Dominancia", type: "text", placeholder: "Diestro / Zurdo" },
             { id: "inicio", label: "Inicio", type: "text", placeholder: "Agudo / Subagudo / Gradual" },
             { id: "mecanismo", label: "Mecanismo / detonante", type: "text", placeholder: "Trauma, sobrecarga, overhead, etc." },
-            mkPROMField("dolor_eva", "Dolor actual (0–10)", 0, 10, "/10", 0, 5, "Escala EVA/END"),
+            ...buildIrritabilityFields({ includePain: true }),
             { id: "dolor_localizacion", label: "Localización dolor", type: "text", placeholder: "Anterolateral, AC, bicipital, posterior, etc." },
             { id: "dolor_irradia", label: "¿Irradia? (brazo/mano/escápula)", type: "text", placeholder: "Describe patrón" },
-            { id: "irritabilidad", label: "Irritabilidad (para dosificación)", type: "text", placeholder: "Alta / Media / Baja" }, // app.js lo convierte en select
-            { id: "patron_24h", label: "Patrón 24h (sueño, mañana, carga)", type: "text", placeholder: "Ej: peor noche, rigidez AM, etc." },
-            { id: "dolor_nocturno", label: "Dolor nocturno (clínico)", type: "boolean" },
             { id: "rigidez", label: "Rigidez / sensación de tope", type: "boolean" },
             { id: "chasquidos", label: "Chasquidos / bloqueos", type: "boolean" },
             { id: "sensacion_inestabilidad", label: "Sensación de inestabilidad/aprehensión", type: "boolean" },
@@ -1106,61 +1245,13 @@
         },
 
         // 6) Fuerza: bloque MMT + alternativa dinamometría (selector)
-        {
-          title: "Fuerza (MMT + Dinamometría)",
-          icon: "fa-dumbbell",
-          style: "card",
-          fields: [
-            {
-              id: "fuerza_modalidad",
-              label: "Selector fuerza (MMT / dinamometría)",
-              type: "select",
-              options: [
-                { value: "", label: "— Seleccionar —" },
-                { value: "mmt", label: "MMT (escala 0-5)" },
-                { value: "hhd", label: "Dinamometría (HHD)" },
-                { value: "mixto", label: "Mixto (ambos métodos)" },
-              ],
-            },
-            { id: "debilidad_marcada", label: "Debilidad marcada (clínica)", type: "boolean", help: "Incapacidad clara vs inhibición por dolor." },
-            { id: "dolor_contra_resistencia", label: "Dolor con resistencia (cualquier dirección)", type: "boolean" },
-            { id: "mmt_flexion", label: "MMT Flexión", type: "select", options: mmtOptions },
-            { id: "mmt_abduccion", label: "MMT Abducción / scaption", type: "select", options: mmtOptions },
-            { id: "mmt_scaption", label: "MMT Elevación en escápula", type: "select", options: mmtOptions },
-            { id: "mmt_er0", label: "MMT Rotación Externa (0°)", type: "select", options: mmtOptions },
-            { id: "mmt_er90", label: "MMT Rotación Externa (90°)", type: "select", options: mmtOptions },
-            { id: "mmt_ir0", label: "MMT Rotación Interna (0°)", type: "select", options: mmtOptions },
-            { id: "mmt_extension", label: "MMT Extensión", type: "select", options: mmtOptions },
-            { id: "mmt_deltoides_post", label: "MMT Deltoides posterior / horizontal abd", type: "select", options: mmtOptions },
-            { id: "mmt_serrato", label: "MMT Serrato anterior (push-up plus / wall slide)", type: "select", options: mmtOptions },
-            { id: "mmt_trap_medio", label: "MMT Trapecio medio / retractores", type: "select", options: mmtOptions },
-            { id: "mmt_trap_inferior", label: "MMT Trapecio inferior", type: "select", options: mmtOptions },
-            { id: "mmt_romboides", label: "MMT Romboides", type: "select", options: mmtOptions },
-            { id: "mmt_biceps", label: "MMT Bíceps", type: "select", options: mmtOptions },
-            { id: "mmt_triceps", label: "MMT Tríceps", type: "select", options: mmtOptions },
+        buildStrengthSection({
+          movements: shoulderStrengthMovements,
+          extraFields: [
             { id: "fuerza_manual_global", label: "Evaluación manual global", type: "textarea", placeholder: "Describe patrón RC, deltoides, escápula, control y fatiga." },
             { id: "fuerza_musculos_detalle", label: "Notas MMT (dolor/síntomas)", type: "textarea", placeholder: "Ej: ER 4-/5 dolor posterolateral; Serrato 4/5 fatiga." },
-            {
-              id: "dinamometria_modalidad",
-              label: "Modalidad dinamometría",
-              type: "select",
-              options: [
-                { value: "", label: "— Seleccionar —" },
-                { value: "hhd_isometrico", label: "HHD isométrico" },
-                { value: "dinamometro_mano", label: "Dinamómetro mano / empuñadura" },
-                { value: "isocinetico", label: "Isocinético / laboratorio" },
-              ],
-            },
-            { id: "dyn_unidad", label: "Unidad / protocolo", type: "text", placeholder: "Ej: N, kgf, N/kg · posición y palanca" },
-            { id: "dyn_er0", label: "ER (0° Abd)", type: "numeric", unit: "", min: 0, max: 1000, normal: 0, limited: 0, bilateral: true, help: "Registra valor L/R con el mismo protocolo." },
-            { id: "dyn_ir0", label: "IR (0° Abd)", type: "numeric", unit: "", min: 0, max: 1000, normal: 0, limited: 0, bilateral: true },
-            { id: "dyn_abd_scaption", label: "Abducción (scaption)", type: "numeric", unit: "", min: 0, max: 1000, normal: 0, limited: 0, bilateral: true },
-            { id: "dyn_flex", label: "Flexión", type: "numeric", unit: "", min: 0, max: 1000, normal: 0, limited: 0, bilateral: true },
-            { id: "dyn_ext", label: "Extensión", type: "numeric", unit: "", min: 0, max: 1000, normal: 0, limited: 0, bilateral: true },
-            { id: "dyn_row", label: "Tracción (row) / retractores", type: "numeric", unit: "", min: 0, max: 1000, normal: 0, limited: 0, bilateral: true },
-            { id: "dyn_notas", label: "Notas dinamometría", type: "textarea", placeholder: "Protocolo, posición, dolor, confiabilidad." },
           ],
-        },
+        }),
 
         // 7) Control motor y escápula
         {
@@ -1292,29 +1383,34 @@
         },
 
         // 17) SPADI (colapsado por defecto por app.js)
-        {
-          title: "SPADI — Dolor (0–10) y Discapacidad (0–10)",
-          icon: "fa-clipboard-list",
-          style: "card",
-          fields: [
-            { id: "spadi_info", label: "Instrucción", type: "text", placeholder: "0=sin dolor/dificultad · 10=peor/ imposible" },
-            ...spadiPainItems.map(([id, label]) => withQuickConfig(mkPROMField(id, label, 0, 10, "", 0, 5, "0–10"), spadiQuick)),
-            ...spadiDisItems.map(([id, label]) => withQuickConfig(mkPROMField(id, label, 0, 10, "", 0, 5, "0–10"), spadiQuick)),
-            { id: "spadi_notas", label: "Notas SPADI", type: "textarea", placeholder: "Contexto de respuestas, cambios relevantes." },
-          ],
-        },
+        (() => {
+          const base = buildPromLikertSection({
+            title: "SPADI — Dolor (0–10) y Discapacidad (0–10)",
+            icon: "fa-clipboard-list",
+            idPrefix: "",
+            items: [...spadiPainItems, ...spadiDisItems],
+            quickConfig: spadiQuick,
+            introId: "spadi_info",
+            introPlaceholder: "0=sin dolor/dificultad · 10=peor/ imposible",
+            style: "card",
+          });
+          return { ...base, fields: [...base.fields, { id: "spadi_notas", label: "Notas SPADI", type: "textarea", placeholder: "Contexto de respuestas, cambios relevantes." }] };
+        })(),
 
         // 18) DASH core (colapsado por defecto por app.js)
-        {
-          title: "DASH — Cuestionario (Core 30 ítems)",
-          icon: "fa-list-check",
-          style: "grid2",
-          fields: [
-            { id: "dash_info", label: "Instrucción", type: "text", placeholder: "0=No aplica · 1=Sin dificultad · 5=Incapaz" },
-            ...dashCoreItems.map(([id, label]) => withQuickConfig(mkDashField(id, label), dashQuick)),
-            { id: "dash_notas", label: "Notas DASH", type: "textarea", placeholder: "Contexto, tareas relevantes, etc." },
-          ],
-        },
+        (() => {
+          const base = buildPromLikertSection({
+            title: "DASH — Cuestionario (Core 30 ítems)",
+            icon: "fa-list-check",
+            idPrefix: "",
+            items: dashCoreItems,
+            quickConfig: dashQuick,
+            introId: "dash_info",
+            introPlaceholder: "0=No aplica · 1=Sin dificultad · 5=Incapaz",
+            style: "grid2",
+          });
+          return { ...base, fields: [...base.fields, { id: "dash_notas", label: "Notas DASH", type: "textarea", placeholder: "Contexto, tareas relevantes, etc." }] };
+        })(),
 
         // 19) DASH módulos (colapsado por defecto por app.js)
         {
@@ -1584,6 +1680,260 @@
             "Si hay irritabilidad alta, prioriza educación + manejo de carga + dosis baja/moderada, evitando picos de dolor y vigilando respuesta 24h.",
           when: (s) => String(s.text.irritabilidad || "").toLowerCase().includes("alta"),
         },
+      ],
+    },
+    rodilla: {
+      key: "rodilla",
+      title: "Rodilla",
+      scope: "msk",
+      icon: "fa-person-walking",
+      sections: [
+        buildRedFlagsSection({ prefix: "rodilla" }),
+        {
+          title: "Anamnesis + irritabilidad (rodilla)",
+          icon: "fa-clipboard-question",
+          style: "grid2",
+          fast: true,
+          fields: [
+            { id: "rodilla_lado", label: "Lado sintomático", type: "text", placeholder: "Izq / Der / Bilateral" },
+            { id: "rodilla_mecanismo", label: "Mecanismo / gesto gatillante", type: "textarea", placeholder: "Trauma, salto, torsión, sobreuso, etc." },
+            ...buildIrritabilityFields({ prefix: "rodilla", includePain: true }),
+            { id: "rodilla_bloqueo", label: "Bloqueo / chasquido mecánico", type: "boolean" },
+            { id: "rodilla_inestabilidad", label: "Sensación de inestabilidad", type: "boolean" },
+            { id: "rodilla_objetivo", label: "Objetivo funcional", type: "textarea", placeholder: "Subir/bajar escaleras, correr, deporte." },
+          ],
+        },
+        buildStrengthSection({
+          prefix: "rodilla",
+          movements: [
+            { id: "extension", label: "MMT Extensión (cuádriceps)", dynLabel: "Extensión (cuádriceps)" },
+            { id: "flexion", label: "MMT Flexión (isquios)", dynLabel: "Flexión (isquios)" },
+            { id: "cadera_abd", label: "MMT Abducción de cadera", dynLabel: "Abducción de cadera" },
+          ],
+          extraFields: [
+            { id: "rodilla_pruebas_funcionales", label: "Pruebas funcionales", type: "textarea", placeholder: "Sentadilla, step down, salto, dolor/estrategia." },
+          ],
+        }),
+        (() => {
+          const base = buildPromLikertSection({
+            title: "PROMs funcionales (rodilla)",
+            icon: "fa-list-check",
+            idPrefix: "rodilla_prom",
+            items: [
+              ["dolor_sentar", "Dolor al estar sentado prolongado"],
+              ["dolor_escaleras", "Dolor al subir/bajar escaleras"],
+              ["dolor_correr", "Dolor al correr / trotar"],
+              ["limitacion_sentadilla", "Limitación en sentadilla / agacharse"],
+              ["hinchazon", "Hinchazón post actividad (0–10)"],
+            ],
+            quickConfig: spadiQuick,
+            introId: "info",
+            introPlaceholder: "0=sin problema · 10=peor nivel",
+            style: "card",
+          });
+          return { ...base, fields: [...base.fields, { id: "rodilla_prom_notas", label: "Notas PROMs", type: "textarea", placeholder: "Contexto de síntomas / actividad." }] };
+        })(),
+      ],
+      logicRules: [
+        logicRuleTemplate({
+          id: "rodilla-trauma-bloqueo",
+          severity: "warning",
+          title: "Trauma + bloqueo mecánico",
+          description: "Considera descartar lesión meniscal/estructural si hay bloqueo + trauma significativo.",
+          scoreValue: 8,
+          when: (s) => s.tests?.rodilla_trauma_significativo === true && s.tests?.rodilla_bloqueo === true,
+        }),
+      ],
+    },
+    cadera: {
+      key: "cadera",
+      title: "Cadera",
+      scope: "msk",
+      icon: "fa-person-chalkboard",
+      sections: [
+        buildRedFlagsSection({ prefix: "cadera" }),
+        {
+          title: "Anamnesis + irritabilidad (cadera)",
+          icon: "fa-clipboard-question",
+          style: "grid2",
+          fast: true,
+          fields: [
+            { id: "cadera_lado", label: "Lado sintomático", type: "text", placeholder: "Izq / Der / Bilateral" },
+            { id: "cadera_mecanismo", label: "Mecanismo / carga", type: "textarea", placeholder: "Overuse, impacto, torsión, postparto, etc." },
+            ...buildIrritabilityFields({ prefix: "cadera", includePain: true }),
+            { id: "cadera_pinch", label: "Pinchazo / dolor en flexión", type: "boolean" },
+            { id: "cadera_rango_limitado", label: "Limitación de rango percibida", type: "boolean" },
+            { id: "cadera_objetivo", label: "Objetivo funcional", type: "textarea", placeholder: "Caminar, correr, cargar, deportes de impacto." },
+          ],
+        },
+        buildStrengthSection({
+          prefix: "cadera",
+          movements: [
+            { id: "flexion", label: "MMT Flexión", dynLabel: "Flexión" },
+            { id: "extension", label: "MMT Extensión / glúteo máximo", dynLabel: "Extensión / glúteo máximo" },
+            { id: "abduccion", label: "MMT Abducción (glúteo medio)", dynLabel: "Abducción (glúteo medio)" },
+            { id: "rot_ext", label: "MMT Rotación externa", dynLabel: "Rotación externa" },
+            { id: "rot_int", label: "MMT Rotación interna", dynLabel: "Rotación interna" },
+          ],
+          extraFields: [
+            { id: "cadera_pruebas_funcionales", label: "Pruebas funcionales", type: "textarea", placeholder: "Single leg stance, puente, step down, dolor/estrategia." },
+          ],
+        }),
+        (() => {
+          const base = buildPromLikertSection({
+            title: "PROMs funcionales (cadera)",
+            icon: "fa-list-check",
+            idPrefix: "cadera_prom",
+            items: [
+              ["dolor_ponerse_calcetines", "Dolor/dificultad para ponerse calcetines/calzado"],
+              ["dolor_sentar", "Dolor al sentarse o levantarse de silla"],
+              ["dolor_carga", "Dolor con carga (correr, saltar)"],
+              ["rigidez_manana", "Rigidez matinal"],
+              ["limitacion_sueño", "Alteración de sueño por dolor"],
+            ],
+            quickConfig: spadiQuick,
+            introId: "info",
+            introPlaceholder: "0=sin problema · 10=peor nivel",
+            style: "card",
+          });
+          return { ...base, fields: [...base.fields, { id: "cadera_prom_notas", label: "Notas PROMs", type: "textarea", placeholder: "Contexto de actividad/síntomas." }] };
+        })(),
+      ],
+      logicRules: [
+        logicRuleTemplate({
+          id: "cadera-pinching",
+          severity: "warning",
+          title: "Dolor tipo pinzamiento",
+          description: "Pinzamiento flexión + rango limitado puede requerir ajuste de carga y progresión gradual.",
+          scoreValue: 6,
+          when: (s) => s.tests?.cadera_pinch === true && s.tests?.cadera_rango_limitado === true,
+        }),
+      ],
+    },
+    piso: {
+      key: "piso",
+      title: "Piso Pélvico",
+      scope: "piso",
+      icon: "fa-toilet-paper",
+      sections: [
+        buildRedFlagsSection({ prefix: "piso" }),
+        {
+          title: "Síntomas y objetivos",
+          icon: "fa-heart",
+          style: "grid2",
+          fast: true,
+          fields: [
+            { id: "piso_tiempo_evolucion", label: "Tiempo de evolución", type: "select", options: [{ value: "", label: "— Seleccionar —" }, { value: "agudo", label: "Agudo" }, { value: "subagudo", label: "Subagudo" }, { value: "cronico", label: "Crónico" }] },
+            { id: "piso_contexto", label: "Contexto (postparto, entrenamiento, cirugía)", type: "text", placeholder: "Describe el contexto principal" },
+            { id: "piso_perdidas", label: "Pérdidas urinarias / fecales", type: "boolean" },
+            { id: "piso_dolor", label: "Dolor pélvico / sexual", type: "boolean" },
+            { id: "piso_prolapso_sensacion", label: "Sensación de peso/prolapso", type: "boolean" },
+            { id: "piso_redflag_sangrado", label: "Sangrado o secreción anómala", type: "boolean" },
+            { id: "piso_redflag_fiebre", label: "Fiebre + dolor pélvico no mecánico", type: "boolean" },
+            { id: "piso_objetivo", label: "Objetivo funcional", type: "textarea", placeholder: "Control de pérdidas, retorno a deporte, bienestar." },
+          ],
+        },
+        buildStrengthSection({
+          prefix: "piso",
+          movements: [
+            { id: "gluteo_medio", label: "MMT Glúteo medio", dynLabel: "Glúteo medio" },
+            { id: "gluteo_max", label: "MMT Glúteo máximo", dynLabel: "Glúteo máximo" },
+            { id: "core_profundo", label: "MMT/Control core profundo", skipDyn: true },
+          ],
+          extraFields: [
+            { id: "piso_control_respiratorio", label: "Control respiratorio / sinergia", type: "textarea", placeholder: "Sinergia diafragma-periné, presión intraabdominal." },
+          ],
+        }),
+        (() => {
+          const base = buildPromLikertSection({
+            title: "PROMs piso pélvico (0–10)",
+            icon: "fa-list-check",
+            idPrefix: "piso_prom",
+            items: [
+              ["presion_esfuerzo", "Sensación de presión con esfuerzo"],
+              ["micciones_nocturnas", "Micciones nocturnas (frecuencia percibida)"],
+              ["impacto_sexual", "Impacto en actividad sexual"],
+              ["impacto_social", "Impacto en actividades sociales"],
+            ],
+            quickConfig: spadiQuick,
+            introId: "info",
+            introPlaceholder: "0=sin problema · 10=peor nivel",
+            style: "card",
+          });
+          return { ...base, fields: [...base.fields, { id: "piso_prom_notas", label: "Notas PROMs", type: "textarea", placeholder: "Consentimiento, privacidad, contexto." }] };
+        })(),
+      ],
+      logicRules: [
+        logicRuleTemplate({
+          id: "piso-redflags",
+          severity: "danger",
+          title: "Alerta pélvica",
+          description: "Sangrado, fiebre o dolor no mecánico requieren derivación médica.",
+          scoreValue: 10,
+          when: (s) => s.tests?.piso_redflag_sangrado === true || s.tests?.piso_redflag_fiebre === true,
+        }),
+      ],
+    },
+    entrenamiento: {
+      key: "entrenamiento",
+      title: "Entrenamiento / Return to Sport",
+      scope: "sport",
+      icon: "fa-person-running",
+      sections: [
+        buildRedFlagsSection({ prefix: "entrenamiento" }),
+        {
+          title: "Contexto deportivo e irritabilidad",
+          icon: "fa-clipboard-question",
+          style: "grid2",
+          fast: true,
+          fields: [
+            { id: "entrenamiento_disciplina", label: "Disciplina / deporte", type: "text", placeholder: "Crossfit, running, fútbol, etc." },
+            { id: "entrenamiento_evento", label: "Evento/competencia próxima", type: "text", placeholder: "Fecha, tipo de evento" },
+            ...buildIrritabilityFields({ prefix: "entrenamiento", includePain: true }),
+            { id: "entrenamiento_carga_reciente", label: "Cambio de carga aguda", type: "select", options: [{ value: "", label: "— Seleccionar —" }, { value: "aumento", label: "Aumento brusco" }, { value: "retorno", label: "Retorno tras pausa" }, { value: "descarga", label: "Semana de descarga" }] },
+            { id: "entrenamiento_objetivo", label: "Objetivo de retorno", type: "textarea", placeholder: "Minimizar síntomas, rendimiento, competición." },
+          ],
+        },
+        buildStrengthSection({
+          prefix: "entrenamiento",
+          movements: [
+            { id: "sentadilla", label: "MMT/Fuerza patrón sentadilla", dynLabel: "Dinamometría / patrón sentadilla", skipDyn: true },
+            { id: "empuje", label: "MMT Empuje", dynLabel: "Empuje" },
+            { id: "traccion", label: "MMT Tracción", dynLabel: "Tracción" },
+            { id: "core", label: "Control core", skipDyn: true },
+          ],
+          extraFields: [
+            { id: "entrenamiento_pruebas", label: "Pruebas funcionales / biométricas", type: "textarea", placeholder: "CMJ, salto, Y-balance, velocidad, dolor." },
+          ],
+        }),
+        (() => {
+          const base = buildPromLikertSection({
+            title: "PROMs de rendimiento / carga",
+            icon: "fa-list-check",
+            idPrefix: "entrenamiento_prom",
+            items: [
+              ["confianza", "Confianza para entrenar / competir"],
+              ["fatiga", "Fatiga percibida"],
+              ["dolor_entrenando", "Dolor durante el entrenamiento"],
+              ["dolor_post24h", "Dolor 24h post entrenamiento"],
+            ],
+            quickConfig: dashQuick,
+            introId: "info",
+            introPlaceholder: "1=Sin limitación · 5=Incapaz / muy limitado",
+            style: "card",
+          });
+          return { ...base, fields: [...base.fields, { id: "entrenamiento_prom_notas", label: "Notas PROMs", type: "textarea", placeholder: "Contexto de competición/volumen." }] };
+        })(),
+      ],
+      logicRules: [
+        logicRuleTemplate({
+          id: "entrenamiento-carga-alta",
+          severity: "info",
+          title: "Carga aguda elevada",
+          description: "Si la carga reciente aumentó o hay fatiga alta, ajustar progresión y control 24-48h.",
+          scoreValue: 5,
+          when: (s) => s.text?.entrenamiento_carga_reciente === "aumento" || s.text?.entrenamiento_carga_reciente === "retorno",
+        }),
       ],
     },
   };
