@@ -134,11 +134,11 @@
                 <p class="text-sm text-brand-grey uppercase tracking-widest ml-1">Clinical Suite</p>
             </div>
             <div class="flex gap-3 hide-on-pdf">
-                <button id="btn-load-aum" type="button" class="bg-white border border-brand-accent text-brand-grey hover:text-brand-dark hover:border-brand-dark px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-sm flex items-center gap-2">
+                <button id="btn-load-aum" type="button" class="bg-white border border-brand-accent text-brand-grey hover:text-brand-dark hover:border-brand-dark px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-sm flex items-center gap-2 min-h-[44px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-accent">
                   <i class="fa-solid fa-upload"></i> Cargar .aum
                 </button>
 
-                <button id="btn-save-aum" type="button" class="bg-brand-dark text-brand-light px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-800 transition-all shadow-md flex items-center gap-2">
+                <button id="btn-save-aum" type="button" class="bg-brand-dark text-brand-light px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-800 transition-all shadow-md flex items-center gap-2 min-h-[44px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent">
                   <i class="fa-solid fa-floppy-disk"></i> Guardar Sesión
                 </button>
 
@@ -291,7 +291,7 @@
                     <label class="block text-xs text-brand-accent/80 mb-2 uppercase tracking-wider font-semibold">Añadir Evaluación Específica</label>
                     <div class="flex gap-2">
                         <div class="relative flex-grow">
-                            <select id="moduleSelector" class="w-full appearance-none bg-white/10 border border-white/20 text-white rounded-lg pl-4 pr-10 py-2.5 outline-none focus:bg-white/20 focus:border-brand-accent transition-colors cursor-pointer">
+                            <select id="moduleSelector" class="w-full appearance-none bg-white/10 border border-white/20 text-white rounded-lg pl-4 pr-10 py-2.5 outline-none focus:bg-white/20 focus:border-brand-accent transition-colors cursor-pointer min-h-[44px]">
                                 <option value="">Seleccionar Zona...</option>
                                 <option value="hombro">Hombro</option>
                                 <option value="codo">Codo / Muñeca</option>
@@ -301,12 +301,13 @@
                                 <option value="tobillo">Tobillo / Pie</option>
                                 <option value="neuro">Neurodinamia</option>
                                 <option value="piso">Piso Pélvico</option>
+                                <option value="entrenamiento">Entrenamiento / Return to Sport</option>
                             </select>
                             <div class="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-brand-accent">
                                 <i class="fa-solid fa-chevron-down text-xs"></i>
                             </div>
                         </div>
-                        <button id="btn-add-module" type="button" class="bg-brand-accent hover:bg-brand-light text-brand-dark px-6 py-2.5 rounded-lg font-bold shadow-lg transition-all transform active:scale-95 flex items-center gap-2">
+                        <button id="btn-add-module" type="button" class="bg-brand-accent hover:bg-brand-light text-brand-dark px-6 py-2.5 rounded-lg font-bold shadow-lg transition-all transform active:scale-95 flex items-center gap-2 min-h-[44px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-dark">
                           <i class="fa-solid fa-plus"></i> Añadir
                         </button>
                     </div>
@@ -369,11 +370,11 @@
     <!-- FOOTER FLOTANTE -->
     <div class="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 hide-on-pdf">
         <div class="bg-white/90 backdrop-blur-md border border-gray-200 shadow-2xl rounded-full px-6 py-3 flex items-center gap-4">
-            <button id="btn-reset-stack" type="button" class="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors" title="Limpiar todo">
+            <button id="btn-reset-stack" type="button" class="w-11 h-11 rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500" title="Limpiar todo">
               <i class="fa-solid fa-trash-can"></i>
             </button>
             <div class="h-6 w-px bg-gray-300"></div>
-            <button id="btn-export-pdf" type="button" class="bg-brand-dark text-white px-6 py-2 rounded-full font-bold shadow-lg hover:shadow-xl hover:bg-gray-800 transition-all transform hover:-translate-y-0.5 flex items-center gap-2">
+            <button id="btn-export-pdf" type="button" class="bg-brand-dark text-white px-6 py-2 rounded-full font-bold shadow-lg hover:shadow-xl hover:bg-gray-800 transition-all transform hover:-translate-y-0.5 flex items-center gap-2 min-h-[44px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent">
               Exportar PDF <i class="fa-solid fa-file-export"></i>
             </button>
         </div>
