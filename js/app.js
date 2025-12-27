@@ -12,6 +12,7 @@
   // Globals / State
   // -----------------------------
   const APP_VERSION = "aum-app-v4.0.0";
+  const SCHEMA_VERSION = 2;
 
   const AUTOSAVE_KEY = "aum_autosave_v1";
   let autosaveTimer = null;
@@ -25,6 +26,32 @@
   function safeText(v) {
     if (v === null || v === undefined) return "";
     return String(v);
+  }
+
+  // Delegated event registry (single listener per event type)
+  const delegatedHandlers = { click: new WeakMap(), input: new WeakMap(), change: new WeakMap() };
+
+  function registerDelegated(el, type, handler) {
+    if (!el || !delegatedHandlers[type]) return;
+    delegatedHandlers[type].set(el, handler);
+  }
+
+  function dispatchDelegated(event) {
+    const map = delegatedHandlers[event.type];
+    if (!map) return;
+    let node = event.target;
+    while (node && node !== document.body) {
+      const fn = map.get(node);
+      if (fn) {
+        fn(event);
+        return;
+      }
+      node = node.parentElement;
+    }
+  }
+
+  function bindDelegatedListeners() {
+    ["click", "input", "change"].forEach((evt) => document.body.addEventListener(evt, dispatchDelegated));
   }
 
   function normalizeTriEntry(raw) {
@@ -179,14 +206,23 @@
     return `${yyyy}-${mm}-${dd}`;
   }
 
-  function downloadTextFile(filename, text) {
-    const blob = new Blob([text], { type: "application/json;charset=utf-8" });
+  function downloadTextFile(filename, text, mime = "application/json;charset=utf-8") {
+    const blob = new Blob([text], { type: mime });
     const url = URL.createObjectURL(blob);
     const a = renderComponent({ tag: "a", attrs: { href: url, download: filename } });
     document.body.appendChild(a);
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  async function copyToClipboard(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   // -----------------------------
@@ -279,12 +315,26 @@
   // -----------------------------
   // Globals / State
   // -----------------------------
+  const defaultPrintSelection = () => ({
+    identity: true,
+    intake: true,
+    clinical: true,
+    observations: true,
+    outputs: true,
+  });
+
+  const defaultOutputsState = () => ({ soap: null, referral: null });
+  const defaultNotesState = () => ({ anamnesis: "" });
+
   const state = {
     patientData: {},
     intake: buildEmptyIntakeState(),
     intakeDerived: { global: emptyIntakeDerived(), scopes: {} },
     activeModules: [], // [{instanceId, key, title, icon, tests, numeric, text, ui, computed}]
-    meta: { version: APP_VERSION, updatedAt: null },
+    meta: { version: APP_VERSION, schemaVersion: SCHEMA_VERSION, updatedAt: null },
+    printSelection: defaultPrintSelection(),
+    outputs: defaultOutputsState(),
+    notes: defaultNotesState(),
   };
 
   const livePanelRefs = {
@@ -376,29 +426,31 @@
     grid.insertBefore(heightCol, weightCol.nextSibling);
     grid.insertBefore(bmiCol, heightCol.nextSibling);
 
-    // Attach listeners
     const weight = getPatientEl("patient-weight");
     const height = getPatientEl("patient-height");
     const bmi = getPatientEl("patient-bmi");
-    const onChange = () => {
-      const w = Number(weight.value);
-      const hCm = Number(height.value);
-      if (Number.isFinite(w) && w > 0 && Number.isFinite(hCm) && hCm > 0) {
-        const h = hCm / 100;
-        const bmiVal = w / (h * h);
-        bmi.value = Number.isFinite(bmiVal) ? bmiVal.toFixed(1) : "-";
-        setPatientData("patient-weight", w);
-        setPatientData("patient-height", hCm);
-        setPatientData("patient-bmi", bmi.value);
-      } else {
-        bmi.value = "-";
-        setPatientData("patient-weight", weight.value ? w : "");
-        setPatientData("patient-height", height.value ? hCm : "");
-        setPatientData("patient-bmi", "");
-      }
-    };
-    weight.addEventListener("input", onChange);
-    height.addEventListener("input", onChange);
+    const onChange = () => updateAnthropometrics(weight, height, bmi);
+    registerDelegated(weight, "input", onChange);
+    registerDelegated(height, "input", onChange);
+  }
+
+  function updateAnthropometrics(weightEl, heightEl, bmiEl) {
+    if (!weightEl || !heightEl || !bmiEl) return;
+    const w = Number(weightEl.value);
+    const hCm = Number(heightEl.value);
+    if (Number.isFinite(w) && w > 0 && Number.isFinite(hCm) && hCm > 0) {
+      const h = hCm / 100;
+      const bmiVal = w / (h * h);
+      bmiEl.value = Number.isFinite(bmiVal) ? bmiVal.toFixed(1) : "-";
+      setPatientData("patient-weight", w);
+      setPatientData("patient-height", hCm);
+      setPatientData("patient-bmi", bmiEl.value);
+    } else {
+      bmiEl.value = "-";
+      setPatientData("patient-weight", weightEl.value ? w : "");
+      setPatientData("patient-height", heightEl.value ? hCm : "");
+      setPatientData("patient-bmi", "");
+    }
   }
 
   function computeAgeFromDOB(dobStr) {
@@ -426,31 +478,25 @@
       state.patientData[id] = el.value ?? "";
     }
 
-    // Attach listeners
-    for (const id of patientInputIds) {
+    patientInputIds.forEach((id) => {
       const el = getPatientEl(id);
-      if (!el) continue;
+      if (!el) return;
+      if (id === "patient-age") return;
 
       if (id === "patient-dob") {
-        el.addEventListener("change", () => {
+        registerDelegated(el, "change", () => {
           const age = computeAgeFromDOB(el.value);
           const ageEl = getPatientEl("patient-age");
           if (ageEl) ageEl.value = age || "-";
           setPatientData("patient-dob", el.value);
           setPatientData("patient-age", age || "");
-          // re-evaluate logic where age matters
           evaluateAllLogic();
         });
-        continue;
+        return;
       }
 
-      if (id === "patient-age") {
-        // read-only - keep in state
-        continue;
-      }
-
-      el.addEventListener("input", () => setPatientData(id, el.value));
-    }
+      registerDelegated(el, "input", () => setPatientData(id, el.value));
+    });
 
     // Backward-compat for inline onchange="calculateAge()"
     window.calculateAge = () => {
@@ -470,13 +516,30 @@
         const sel = nodes.find((n) => n.checked);
         setPatientData(stateKey, sel ? sel.value : "");
       };
-      nodes.forEach((node) => node.addEventListener("change", sync));
+      nodes.forEach((node) => registerDelegated(node, "change", sync));
       sync();
     };
 
     bindRadioGroup("dominance", "patient-dominance");
     bindRadioGroup("sex", "patient-sex");
     bindRadioGroup("consent", "patient-consent");
+  }
+
+  function bindNotesInputs() {
+    const anamnesis = $("#general-anamnesis");
+    if (anamnesis) {
+      registerDelegated(anamnesis, "input", () => {
+        state.notes.anamnesis = anamnesis.value;
+        scheduleAutosave();
+      });
+    }
+  }
+
+  function syncNotesUI() {
+    const anamnesis = $("#general-anamnesis");
+    if (anamnesis) {
+      anamnesis.value = state.notes.anamnesis || "";
+    }
   }
 
   // -----------------------------
@@ -644,13 +707,16 @@
               className: "flex items-center justify-between mb-2",
               children: [
                 renderComponent({ tag: "div", className: "text-xs font-extrabold uppercase text-brand-dark tracking-wide", text: "Panel en tiempo real" }),
-                renderComponent({
-                  tag: "button",
-                  className: "text-brand-dark text-sm font-semibold px-3 py-1 rounded-full bg-brand-accent/40 hover:bg-brand-accent/60 transition-colors",
-                  attrs: { type: "button" },
-                  text: "Cerrar",
-                  on: { click: () => setDrawerOpen(false) },
-                }),
+                (() => {
+                  const btn = renderComponent({
+                    tag: "button",
+                    className: "text-brand-dark text-sm font-semibold px-3 py-1 rounded-full bg-brand-accent/40 hover:bg-brand-accent/60 transition-colors",
+                    attrs: { type: "button" },
+                    text: "Cerrar",
+                  });
+                  registerDelegated(btn, "click", () => setDrawerOpen(false));
+                  return btn;
+                })(),
               ],
             }),
             drawerContent,
@@ -663,9 +729,9 @@
       tag: "button",
       className: "lg:hidden fixed bottom-28 right-4 z-50 bg-brand-dark text-white px-4 py-3 rounded-full shadow-xl flex items-center gap-2",
       attrs: { type: "button", "aria-pressed": "false" },
-      on: { click: () => setDrawerOpen(!livePanelRefs.drawer?.classList.contains("translate-y-0")) },
       children: [iconEl("fa-chart-line"), renderComponent({ tag: "span", className: "font-bold text-sm", text: "Panel" })],
     });
+    registerDelegated(toggle, "click", () => setDrawerOpen(!livePanelRefs.drawer?.classList.contains("translate-y-0")));
 
     document.body.appendChild(desktop);
     document.body.appendChild(drawer);
@@ -1136,9 +1202,6 @@
       tag: "button",
       className: "w-full text-left flex items-center justify-between gap-3 px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors",
       attrs: { type: "button" },
-      on: {
-        click: () => toggleIntakeSection(secKey),
-      },
       children: [
         renderComponent({
           tag: "div",
@@ -1164,6 +1227,7 @@
         chevron,
       ],
     });
+    registerDelegated(header, "click", () => toggleIntakeSection(secKey));
 
     return renderComponent({
       tag: "div",
@@ -1472,33 +1536,34 @@
           tag: "div",
           className: "flex items-center gap-2",
           children: [
-            renderComponent({
-              tag: "div",
-              className: "flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-1",
-              children: [
-                { tag: "button", className: "aum-choice px-2.5 py-1 rounded-md text-sm font-bold", attrs: { type: "button", "data-tri": "null", title: "No evaluado" }, text: "—" },
-                { tag: "button", className: "aum-choice px-2.5 py-1 rounded-md text-sm font-bold", attrs: { type: "button", "data-tri": "false", title: "Negativo" }, text: "−" },
-                { tag: "button", className: "aum-choice px-2.5 py-1 rounded-md text-sm font-bold", attrs: { type: "button", "data-tri": "true", title: "Positivo" }, text: "+" },
-              ],
-              on: {
-                click: (e) => {
-                  const btn = e.target.closest("button[data-tri]");
-                  if (!btn) return;
-                  const v = btn.dataset.tri;
-                  const next = v === "true" ? true : v === "false" ? false : null;
-                  if (enableSeverity) {
-                    const current = normalizeTriEntry(module.tests?.[field.id]);
-                    const payload = triEntry(next, next === true ? current.severity : null);
-                    onChange(payload);
-                    setTriButtonState(container, payload);
-                    updateSeverityUI(payload);
-                  } else {
-                    onChange(next);
-                    setTriButtonState(container, next);
-                  }
-                },
-              },
-            }),
+            (() => {
+              const triGroup = renderComponent({
+                tag: "div",
+                className: "flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-1",
+                children: [
+                  { tag: "button", className: "aum-choice px-2.5 py-1 rounded-md text-sm font-bold", attrs: { type: "button", "data-tri": "null", title: "No evaluado" }, text: "—" },
+                  { tag: "button", className: "aum-choice px-2.5 py-1 rounded-md text-sm font-bold", attrs: { type: "button", "data-tri": "false", title: "Negativo" }, text: "−" },
+                  { tag: "button", className: "aum-choice px-2.5 py-1 rounded-md text-sm font-bold", attrs: { type: "button", "data-tri": "true", title: "Positivo" }, text: "+" },
+                ],
+              });
+              registerDelegated(triGroup, "click", (e) => {
+                const btn = e.target.closest("button[data-tri]");
+                if (!btn) return;
+                const v = btn.dataset.tri;
+                const next = v === "true" ? true : v === "false" ? false : null;
+                if (enableSeverity) {
+                  const current = normalizeTriEntry(module.tests?.[field.id]);
+                  const payload = triEntry(next, next === true ? current.severity : null);
+                  onChange(payload);
+                  setTriButtonState(container, payload);
+                  updateSeverityUI(payload);
+                } else {
+                  onChange(next);
+                  setTriButtonState(container, next);
+                }
+              });
+              return triGroup;
+            })(),
           ],
         }),
       ],
@@ -1522,18 +1587,16 @@
             text: opt.label,
           })
         ),
-        on: {
-          click: (e) => {
-            const btn = e.target.closest("button[data-severity]");
-            if (!btn) return;
-            const sel = btn.dataset.severity;
-            const current = normalizeTriEntry(module.tests?.[field.id]);
-            const payload = triEntry(true, sel);
-            onChange(payload);
-            setTriButtonState(container, payload);
-            updateSeverityUI(payload);
-          },
-        },
+      });
+      registerDelegated(severityWrap, "click", (e) => {
+        const btn = e.target.closest("button[data-severity]");
+        if (!btn) return;
+        const sel = btn.dataset.severity;
+        const current = normalizeTriEntry(module.tests?.[field.id]);
+        const payload = triEntry(true, sel);
+        onChange(payload);
+        setTriButtonState(container, payload);
+        updateSeverityUI(payload);
       });
       container.appendChild(
         renderComponent({
@@ -1558,7 +1621,6 @@
       });
     }
 
-    // Initialize
     setTriButtonState(container, initial);
     updateSeverityUI(initial);
 
@@ -1572,7 +1634,7 @@
       attrs: { id: field.id, placeholder: field.placeholder || "" },
     });
     ta.value = value || "";
-    ta.addEventListener("input", () => onChange(ta.value));
+    registerDelegated(ta, "input", () => onChange(ta.value));
     return renderComponent({
       tag: "div",
       className: "p-3 bg-white rounded-xl border border-gray-100",
@@ -1590,7 +1652,7 @@
       attrs: { type: "text", id: field.id, placeholder: field.placeholder || "" },
     });
     input.value = value || "";
-    input.addEventListener("input", () => onChange(input.value));
+    registerDelegated(input, "input", () => onChange(input.value));
     return renderComponent({
       tag: "div",
       className: "p-3 bg-white rounded-xl border border-gray-100",
@@ -1609,7 +1671,7 @@
       children: options.map((o) => renderComponent({ tag: "option", attrs: { value: o.value }, text: o.label })),
     });
     select.value = value || "";
-    select.addEventListener("change", () => onChange(select.value));
+    registerDelegated(select, "change", () => onChange(select.value));
     return renderComponent({
       tag: "div",
       className: "p-3 bg-white rounded-xl border border-gray-100",
@@ -1621,10 +1683,9 @@
   }
 
   function numericTriple({ module, field, value, side, onValueChange, onAfterChange, diffRef }) {
-    // Local UI mode per field/side
     const modeKey = `${field.id}:${side || "S"}`;
     module.ui.modes = module.ui.modes || {};
-    if (!module.ui.modes[modeKey]) module.ui.modes[modeKey] = "slider"; // slider | exact | quick
+    if (!module.ui.modes[modeKey]) module.ui.modes[modeKey] = "slider";
     let currentValue = value;
 
     const valLabel = renderComponent({
@@ -1647,15 +1708,13 @@
       tag: "div",
       className: "flex items-center gap-1",
       children: [modeBtn("slider", "Barra"), modeBtn("exact", "Exacto"), modeBtn("quick", "Rápido")],
-      on: {
-        click: (e) => {
-          const b = e.target.closest("button[data-mode]");
-          if (!b) return;
-          module.ui.modes[modeKey] = b.dataset.mode;
-          updateModeUI();
-          scheduleAutosave();
-        },
-      },
+    });
+    registerDelegated(modeBar, "click", (e) => {
+      const b = e.target.closest("button[data-mode]");
+      if (!b) return;
+      module.ui.modes[modeKey] = b.dataset.mode;
+      updateModeUI();
+      scheduleAutosave();
     });
 
     const slider = renderComponent({
@@ -1698,16 +1757,14 @@
           text: btn.label,
         })
       ),
-      on: {
-        click: (e) => {
-          const b = e.target.closest("button[data-quick]");
-          if (!b) return;
-          const cfg = quickButtons.find((q) => q.key === b.dataset.quick);
-          if (!cfg) return;
-          setValue(cfg.value ?? null);
-          onAfterChange?.();
-        },
-      },
+    });
+    registerDelegated(quickWrap, "click", (e) => {
+      const b = e.target.closest("button[data-quick]");
+      if (!b) return;
+      const cfg = quickButtons.find((q) => q.key === b.dataset.quick);
+      if (!cfg) return;
+      setValue(cfg.value ?? null);
+      onAfterChange?.();
     });
 
     const modeArea = renderComponent({
@@ -1735,16 +1792,12 @@
         renderComponent({
           tag: "div",
           className: "flex items-center gap-2 shrink-0",
-          children: [
-            renderComponent({ tag: "div", className: "flex items-center", children: [valLabel, unitLabel] }),
-            modeBar,
-          ],
+          children: [renderComponent({ tag: "div", className: "flex items-center", children: [valLabel, unitLabel] }), modeBar],
         }),
       ],
     });
 
     function setValue(next) {
-      // reflect in controls
       currentValue = next;
       valLabel.textContent = next === null || next === "" || next === undefined ? "—" : String(next);
       slider.value = String(next ?? 0);
@@ -1755,13 +1808,13 @@
       scheduleAutosave();
     }
 
-    slider.addEventListener("input", () => setValue(Number(slider.value)));
-    slider.addEventListener("change", () => onAfterChange?.());
-    exact.addEventListener("input", () => {
+    registerDelegated(slider, "input", () => setValue(Number(slider.value)));
+    registerDelegated(slider, "change", () => onAfterChange?.());
+    registerDelegated(exact, "input", () => {
       const v = exact.value === "" ? null : Number(exact.value);
       setValue(Number.isFinite(v) ? v : null);
     });
-    exact.addEventListener("change", () => onAfterChange?.());
+    registerDelegated(exact, "change", () => onAfterChange?.());
 
     function setActiveModeButtons() {
       $$("button[data-mode]", modeBar).forEach((b) => {
@@ -1784,13 +1837,11 @@
       slider.hidden = mode !== "slider";
       exact.hidden = mode !== "exact";
       quickWrap.hidden = mode !== "quick";
-      // keep controls synced
       slider.value = String(currentValue ?? 0);
       exact.value = currentValue ?? "";
       refreshQuickButtons();
     }
 
-    // init
     updateModeUI();
     setActiveModeButtons();
 
@@ -1865,10 +1916,7 @@
         renderComponent({
           tag: "div",
           className: "flex items-center justify-between",
-          children: [
-            renderComponent({ tag: "div", className: "text-sm font-bold text-brand-dark", text: field.label }),
-            diffText,
-          ],
+          children: [renderComponent({ tag: "div", className: "text-sm font-bold text-brand-dark", text: field.label }), diffText],
         })
       );
       wrap.appendChild(cols);
@@ -1876,7 +1924,6 @@
       return wrap;
     }
 
-    // unilateral
     return numericTriple({
       module,
       field,
@@ -1887,8 +1934,7 @@
       onAfterChange,
     });
   }
-
-  // -----------------------------
+// -----------------------------
   // Module scoring (SPADI / DASH)
   // -----------------------------
   function isNum(v) {
@@ -2597,17 +2643,15 @@
       className: "px-3 py-2 rounded-lg bg-brand-dark text-white text-sm font-bold hover:bg-gray-800 transition-all",
       attrs: { type: "button" },
       text: "Insertar en “Plan inicial”",
-      on: {
-        click: () => {
-          const target = $(`[data-field="${module.instanceId}:plan_inicial"] textarea, [data-field="${module.instanceId}:plan_inicial"] input`);
-          const lines = ["", plan.phase, ...plan.planA.bullets.map((x) => `• ${x}`), "", ...plan.planB.bullets.map((x) => `• ${x}`), ""].join("\n");
-          if (target) {
-            target.value = (target.value || "") + lines;
-            module.text.plan_inicial = target.value;
-            scheduleAutosave();
-          }
-        },
-      },
+    });
+    registerDelegated(btnInsert, "click", () => {
+      const target = $(`[data-field="${module.instanceId}:plan_inicial"] textarea, [data-field="${module.instanceId}:plan_inicial"] input`);
+      const lines = ["", plan.phase, ...plan.planA.bullets.map((x) => `• ${x}`), "", ...plan.planB.bullets.map((x) => `• ${x}`), ""].join("\n");
+      if (target) {
+        target.value = (target.value || "") + lines;
+        module.text.plan_inicial = target.value;
+        scheduleAutosave();
+      }
     });
 
     const notice =
@@ -2878,7 +2922,6 @@
       tag: "button",
       className: "w-full text-left flex items-center justify-between gap-3 p-4 bg-gray-50 hover:bg-gray-100 transition-colors",
       attrs: { type: "button" },
-      on: { click: () => toggleSection(module.instanceId, secIndex) },
       children: [
         renderComponent({
           tag: "div",
@@ -2906,6 +2949,7 @@
         chevron,
       ],
     });
+    registerDelegated(header, "click", () => toggleSection(module.instanceId, secIndex));
 
     return renderComponent({
       tag: "div",
@@ -2969,50 +3013,54 @@
                   attrs: { "data-mode-chip": module.instanceId },
                   text: module.ui.mode === "fast" ? "Modo Rápido (5 min)" : "Modo Completo",
                 }),
-                renderComponent({
-                  tag: "div",
-                  className: "flex items-center gap-1 bg-white/10 rounded-full border border-white/20 p-1",
-                  on: {
-                    click: (e) => {
-                      const btn = e.target.closest(`button[data-mode-button=\"${module.instanceId}\"]`);
-                      if (!btn) return;
-                      setModuleMode(module, btn.dataset.mode);
-                    },
-                  },
-                  children: [
-                    renderComponent({
-                      tag: "button",
-                      className: "aum-choice px-3 py-1 rounded-full text-xs font-bold text-white/80",
-                      attrs: {
-                        type: "button",
-                        "data-mode-button": module.instanceId,
-                        "data-mode": "fast",
-                        style: "--aum-choice-bg: rgba(255,255,255,0.08); --aum-choice-color: #E5E7EB; --aum-choice-border: rgba(255,255,255,0.28); --aum-choice-active-bg: #F5EFE5; --aum-choice-active-color: #102024; --aum-choice-active-border: #F5EFE5;",
-                      },
-                      text: "Modo Rápido",
-                    }),
-                    renderComponent({
-                      tag: "button",
-                      className: "aum-choice px-3 py-1 rounded-full text-xs font-bold text-white/80",
-                      attrs: {
-                        type: "button",
-                        "data-mode-button": module.instanceId,
-                        "data-mode": "complete",
-                        style: "--aum-choice-bg: rgba(255,255,255,0.08); --aum-choice-color: #E5E7EB; --aum-choice-border: rgba(255,255,255,0.28); --aum-choice-active-bg: #F5EFE5; --aum-choice-active-color: #102024; --aum-choice-active-border: #F5EFE5;",
-                      },
-                      text: "Modo Completo",
-                    }),
-                  ],
-                }),
+                (() => {
+                  const wrap = renderComponent({
+                    tag: "div",
+                    className: "flex items-center gap-1 bg-white/10 rounded-full border border-white/20 p-1",
+                    children: [
+                      renderComponent({
+                        tag: "button",
+                        className: "aum-choice px-3 py-1 rounded-full text-xs font-bold text-white/80",
+                        attrs: {
+                          type: "button",
+                          "data-mode-button": module.instanceId,
+                          "data-mode": "fast",
+                          style: "--aum-choice-bg: rgba(255,255,255,0.08); --aum-choice-color: #E5E7EB; --aum-choice-border: rgba(255,255,255,0.28); --aum-choice-active-bg: #F5EFE5; --aum-choice-active-color: #102024; --aum-choice-active-border: #F5EFE5;",
+                        },
+                        text: "Modo Rápido",
+                      }),
+                      renderComponent({
+                        tag: "button",
+                        className: "aum-choice px-3 py-1 rounded-full text-xs font-bold text-white/80",
+                        attrs: {
+                          type: "button",
+                          "data-mode-button": module.instanceId,
+                          "data-mode": "complete",
+                          style: "--aum-choice-bg: rgba(255,255,255,0.08); --aum-choice-color: #E5E7EB; --aum-choice-border: rgba(255,255,255,0.28); --aum-choice-active-bg: #F5EFE5; --aum-choice-active-color: #102024; --aum-choice-active-border: #F5EFE5;",
+                        },
+                        text: "Modo Completo",
+                      }),
+                    ],
+                  });
+                  registerDelegated(wrap, "click", (e) => {
+                    const btn = e.target.closest(`button[data-mode-button=\"${module.instanceId}\"]`);
+                    if (!btn) return;
+                    setModuleMode(module, btn.dataset.mode);
+                  });
+                  return wrap;
+                })(),
               ],
             }),
-            renderComponent({
-              tag: "button",
-              className: "w-11 h-11 rounded-full flex items-center justify-center text-gray-300 hover:text-red-400 hover:bg-white/10 transition-colors",
-              attrs: { type: "button", title: "Eliminar módulo" },
-              on: { click: () => removeModule(module.instanceId) },
-              children: [iconEl("fa-trash-can")],
-            }),
+            (() => {
+              const btn = renderComponent({
+                tag: "button",
+                className: "w-11 h-11 rounded-full flex items-center justify-center text-gray-300 hover:text-red-400 hover:bg-white/10 transition-colors",
+                attrs: { type: "button", title: "Eliminar módulo" },
+                children: [iconEl("fa-trash-can")],
+              });
+              registerDelegated(btn, "click", () => removeModule(module.instanceId));
+              return btn;
+            })(),
           ],
         }),
       ],
@@ -3067,14 +3115,6 @@
       tag: "button",
       className: "w-full text-left flex items-center justify-between gap-3 px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors",
       attrs: { type: "button" },
-      on: {
-        click: () => {
-          module.ui.reasoningCollapsed = !module.ui.reasoningCollapsed;
-          reasoningContent.hidden = !!module.ui.reasoningCollapsed;
-          reasoningChevron.classList.toggle("rotate-180", !module.ui.reasoningCollapsed);
-          scheduleAutosave();
-        },
-      },
       children: [
         renderComponent({
           tag: "div",
@@ -3097,6 +3137,12 @@
         }),
         reasoningChevron,
       ],
+    });
+    registerDelegated(reasoningHeader, "click", () => {
+      module.ui.reasoningCollapsed = !module.ui.reasoningCollapsed;
+      reasoningContent.hidden = !!module.ui.reasoningCollapsed;
+      reasoningChevron.classList.toggle("rotate-180", !module.ui.reasoningCollapsed);
+      scheduleAutosave();
     });
 
     body.appendChild(
@@ -3172,11 +3218,12 @@
             tag: "button",
             className: "w-6 h-6 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-colors",
             attrs: { type: "button", title: "Cerrar" },
-            on: { click: () => removeModule(m.instanceId) },
             children: [iconEl("fa-xmark")],
           }),
         ],
       });
+      const closeBtn = $("button", chip);
+      if (closeBtn) registerDelegated(closeBtn, "click", () => removeModule(m.instanceId));
       container.appendChild(chip);
     });
 
@@ -3195,24 +3242,66 @@
   // -----------------------------
   // Storage: export/load + autosave
   // -----------------------------
-  function exportSession() {
-    const payload = {
+  function normalizePrintSelection(sel) {
+    const base = defaultPrintSelection();
+    if (!sel || typeof sel !== "object") return base;
+    return { ...base, ...sel };
+  }
+
+  function migratePayload(payload) {
+    if (!payload || typeof payload !== "object") return null;
+    const migrated = { ...payload };
+    migrated.schemaVersion = Number.isFinite(migrated.schemaVersion) ? migrated.schemaVersion : 1;
+    migrated.patientData = migrated.patientData || {};
+    migrated.intake = hydrateIntakeState(migrated.intake);
+    migrated.activeModules = Array.isArray(migrated.activeModules) ? migrated.activeModules : [];
+    migrated.printSelection = normalizePrintSelection(migrated.printSelection);
+    migrated.outputs = migrated.outputs || defaultOutputsState();
+    if (migrated.outputs.soap === undefined) migrated.outputs.soap = null;
+    if (migrated.outputs.referral === undefined) migrated.outputs.referral = null;
+    migrated.notes = migrated.notes || defaultNotesState();
+    migrated.meta = migrated.meta || {};
+    migrated.meta.version = migrated.meta.version || migrated.version || APP_VERSION;
+    migrated.meta.schemaVersion = SCHEMA_VERSION;
+    if (migrated.schemaVersion < SCHEMA_VERSION) {
+      migrated.schemaVersion = SCHEMA_VERSION;
+    }
+    return migrated;
+  }
+
+  function buildPersistedState(timestampKey) {
+    const base = {
       version: APP_VERSION,
-      exportedAt: new Date().toISOString(),
+      schemaVersion: SCHEMA_VERSION,
       patientData: state.patientData,
       activeModules: state.activeModules,
       intake: state.intake,
+      printSelection: state.printSelection,
+      outputs: state.outputs,
+      notes: state.notes,
     };
+    base.meta = { version: APP_VERSION, schemaVersion: SCHEMA_VERSION, updatedAt: new Date().toISOString() };
+    if (timestampKey) base[timestampKey] = new Date().toISOString();
+    return base;
+  }
+
+  function exportSession() {
+    const payload = buildPersistedState("exportedAt");
     downloadTextFile(`paciente-${todayStamp()}.aum`, JSON.stringify(payload, null, 2));
   }
 
   function loadSessionFromObject(payload) {
-    if (!payload || typeof payload !== "object") return;
+    const migrated = migratePayload(payload);
+    if (!migrated) return;
 
     // Reset current
-    state.patientData = payload.patientData || {};
-    state.activeModules = Array.isArray(payload.activeModules) ? payload.activeModules : [];
-    state.intake = hydrateIntakeState(payload.intake);
+    state.patientData = migrated.patientData || {};
+    state.activeModules = Array.isArray(migrated.activeModules) ? migrated.activeModules : [];
+    state.intake = hydrateIntakeState(migrated.intake);
+    state.printSelection = normalizePrintSelection(migrated.printSelection);
+    state.outputs = migrated.outputs || defaultOutputsState();
+    state.notes = migrated.notes || defaultNotesState();
+    state.meta = { version: migrated.version || APP_VERSION, schemaVersion: migrated.schemaVersion || SCHEMA_VERSION, updatedAt: new Date().toISOString() };
 
     // Restore patient inputs (DOM)
     for (const [k, v] of Object.entries(state.patientData)) {
@@ -3225,13 +3314,20 @@
 
     // Ensure BMI injected, then restore weight/height/bmi
     ensureWeightHeightBMI();
-    ["patient-weight", "patient-height", "patient-bmi"].forEach((id) => {
-      const el = getPatientEl(id);
-      if (el && id in state.patientData) el.value = state.patientData[id] ?? "";
+    const weightEl = getPatientEl("patient-weight");
+    const heightEl = getPatientEl("patient-height");
+    const bmiEl = getPatientEl("patient-bmi");
+    [weightEl, heightEl, bmiEl].forEach((el) => {
+      if (el && el.id in state.patientData) el.value = state.patientData[el.id] ?? "";
     });
+    updateAnthropometrics(weightEl, heightEl, bmiEl);
+
+    syncNotesUI();
 
     // Intake remoto global
     renderIntakeRemote();
+    renderOutputsArea();
+    syncOutputsUI();
 
     // Clear stack DOM and rebuild
     const stack = $("#clinical-stack");
@@ -3293,13 +3389,7 @@
 
   function doAutosave() {
     try {
-      const payload = {
-        version: APP_VERSION,
-        savedAt: new Date().toISOString(),
-        patientData: state.patientData,
-        activeModules: state.activeModules,
-        intake: state.intake,
-      };
+      const payload = buildPersistedState("savedAt");
       localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(payload));
     } catch (_) {
       // ignore
@@ -3317,7 +3407,7 @@
 
     let payload = null;
     try {
-      payload = JSON.parse(raw);
+      payload = migratePayload(JSON.parse(raw));
     } catch (_) {
       payload = null;
     }
@@ -3359,9 +3449,323 @@
     });
   }
 
+  function printableBlocks() {
+    return [
+      { key: "identity", el: $("#section-identity") },
+      { key: "intake", el: $("#section-intake-remote") },
+      { key: "clinical", el: $("#clinical-stack") },
+      { key: "observations", el: $("#section-observations") },
+      { key: "outputs", el: $("#section-outputs") },
+    ];
+  }
+
   function exportPDF() {
+    renderOutputsArea();
+    syncOutputsUI();
     expandAllTextareasForPrint();
+    const selection = normalizePrintSelection(state.printSelection);
+    const hidden = [];
+    printableBlocks().forEach(({ key, el }) => {
+      if (!el) return;
+      const allow = selection[key] !== false;
+      if (!allow) {
+        hidden.push({ el, display: el.style.display });
+        el.style.display = "none";
+      }
+    });
     window.print();
+    hidden.forEach(({ el, display }) => {
+      el.style.display = display || "";
+    });
+  }
+
+  function togglePrintSelection(key, forced) {
+    state.printSelection = normalizePrintSelection(state.printSelection);
+    const next = forced !== undefined ? forced : !state.printSelection[key];
+    state.printSelection[key] = next;
+    syncPrintSelectorUI();
+    scheduleAutosave();
+  }
+
+  function syncPrintSelectorUI() {
+    const selection = normalizePrintSelection(state.printSelection);
+    $$("[data-print-toggle]").forEach((btn) => {
+      const key = btn.dataset.printToggle;
+      const active = selection[key] !== false;
+      setChoiceState(btn, active);
+      btn.setAttribute("aria-pressed", active ? "true" : "false");
+    });
+  }
+
+  function renderPrintSelectorCard() {
+    const items = [
+      { key: "identity", label: "Identificación y consentimiento" },
+      { key: "intake", label: "Intake remoto global" },
+      { key: "clinical", label: "Stack clínico completo" },
+      { key: "observations", label: "Observaciones y archivos" },
+      { key: "outputs", label: "Resumen SOAP / Derivación" },
+    ];
+
+    const toggles = renderComponent({
+      tag: "div",
+      className: "grid grid-cols-1 md:grid-cols-2 gap-2",
+      children: items.map((item) =>
+        renderComponent({
+          tag: "button",
+          className: "aum-choice w-full text-left px-3 py-2 rounded-lg font-semibold bg-white border border-gray-200",
+          attrs: { type: "button", "data-print-toggle": item.key },
+          children: [
+            renderComponent({ tag: "div", className: "text-sm text-brand-dark", text: item.label }),
+            renderComponent({ tag: "div", className: "text-xs text-gray-500", text: "Incluido en PDF" }),
+          ],
+        })
+      ),
+    });
+    registerDelegated(toggles, "click", (e) => {
+      const btn = e.target.closest("[data-print-toggle]");
+      if (!btn) return;
+      togglePrintSelection(btn.dataset.printToggle);
+    });
+
+    const selectAll = renderComponent({
+      tag: "button",
+      className: "aum-choice px-3 py-2 rounded-lg font-bold bg-brand-dark text-white",
+      attrs: { type: "button", "data-print-toggle-all": "true" },
+      children: [renderComponent({ tag: "span", text: "Seleccionar todo" })],
+    });
+    registerDelegated(selectAll, "click", () => {
+      const anyOff = Object.values(normalizePrintSelection(state.printSelection)).some((v) => v === false);
+      togglePrintSelection("identity", anyOff);
+      togglePrintSelection("intake", anyOff);
+      togglePrintSelection("clinical", anyOff);
+      togglePrintSelection("observations", anyOff);
+      togglePrintSelection("outputs", anyOff);
+    });
+
+    const card = renderComponent({
+      tag: "div",
+      attrs: { id: "print-selector-card" },
+      className: "p-4 rounded-2xl border border-gray-200 bg-white space-y-3 hide-on-pdf",
+      children: [
+        renderComponent({
+          tag: "div",
+          className: "flex items-center justify-between gap-2",
+          children: [
+            renderComponent({
+              tag: "div",
+              className: "flex items-center gap-2",
+              children: [
+                iconEl("fa-print", "text-brand-dark"),
+                renderComponent({ tag: "div", className: "text-sm font-extrabold text-brand-dark uppercase", text: "Secciones a imprimir" }),
+              ],
+            }),
+            selectAll,
+          ],
+        }),
+        renderComponent({
+          tag: "div",
+          className: "text-xs text-gray-600",
+          text: "Activa o desactiva bloques antes de exportar. El selector no aparecerá en el PDF.",
+        }),
+        toggles,
+      ],
+    });
+
+    return card;
+  }
+
+  function buildIntakeHighlights() {
+    const alerts = state.intakeDerived?.global?.alerts || [];
+    const evals = state.intakeDerived?.global?.evaluation || [];
+    const tx = state.intakeDerived?.global?.treatment || [];
+    const pick = (arr) => arr.slice(0, 3).join("; ");
+    return [alerts.length ? `Alertas: ${pick(alerts)}` : null, evals.length ? `Evaluación: ${pick(evals)}` : null, tx.length ? `Tratamiento: ${pick(tx)}` : null].filter(Boolean).join(" · ");
+  }
+
+  function buildHypothesisSummary() {
+    const parts = [];
+    state.activeModules.forEach((m) => {
+      const tpl = getModuleTemplate(m.key);
+      const reasoning = m.computed?.reasoning || buildReasoningData(m, tpl);
+      const top = (reasoning.hypotheses || []).slice(0, 2);
+      if (top.length) {
+        parts.push(`${tpl.title || m.title}: ${top.map((h) => h.title).join(" / ")}`);
+      }
+    });
+    return parts.slice(0, 3).join("; ");
+  }
+
+  function buildSoapSuggestion() {
+    const name = state.patientData["patient-name"] || "Paciente sin nombre";
+    const age = state.patientData["patient-age"] || computeAgeFromDOB(state.patientData["patient-dob"]) || "-";
+    const modules =
+      state.activeModules.length > 0 ? state.activeModules.map((m) => getModuleTemplate(m.key)?.title || m.title).join(", ") : "Sin módulos activos";
+    const intakeLine = buildIntakeHighlights() || "Sin alertas/intake priorizado.";
+    const hypoLine = buildHypothesisSummary() || "Hipótesis pendientes de completar.";
+    const planLine = "Plan: educación, autocuidado y dosificación progresiva según irritabilidad.";
+    return [`S: ${name} (${age} años). Motivo/expectativas: ${state.notes.anamnesis || "Anamnesis resumida pendiente."}`, `O: Evaluaciones activas: ${modules}. ${intakeLine}`, `A: ${hypoLine}`, planLine].join("\n");
+  }
+
+  function buildReferralTemplate() {
+    const name = state.patientData["patient-name"] || "Paciente";
+    const phone = state.patientData["patient-phone"] || "sin teléfono";
+    const alerts = state.intakeDerived?.global?.alerts || [];
+    const alertLine = alerts.length ? `Hallazgos relevantes: ${alerts.slice(0, 3).join(" | ")}` : "Sin red flags priorizados en intake.";
+    const moduleLine =
+      state.activeModules.length > 0 ? `Áreas trabajadas: ${state.activeModules.map((m) => getModuleTemplate(m.key)?.title || m.title).join(", ")}` : "";
+    return [
+      `Estimado/a colega:\nDerivo a ${name} (${phone}) para evaluación complementaria.`,
+      alertLine,
+      moduleLine,
+      "Adjunto resumen clínico y evolución funcional para continuidad de cuidados.",
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  function ensureOutputsSection() {
+    let section = $("#section-outputs");
+    if (section) return section;
+    const content = $("#content-area");
+    if (!content) return null;
+    section = renderComponent({
+      tag: "section",
+      id: "section-outputs",
+      className: "bg-white rounded-xl shadow-lg border border-white p-6 sm:p-8 pdf-break-avoid",
+      children: [
+        renderComponent({
+          tag: "div",
+          className: "flex items-center gap-3 mb-4",
+          children: [
+            renderComponent({ tag: "div", className: "w-1.5 h-6 bg-brand-accent rounded-full" }),
+            renderComponent({ tag: "h2", className: "text-xl font-bold text-brand-dark", text: "Resumen y salidas clínicas" }),
+          ],
+        }),
+        renderComponent({ tag: "div", attrs: { id: "outputs-root" }, className: "grid grid-cols-1 lg:grid-cols-2 gap-4" }),
+      ],
+    });
+    content.appendChild(section);
+    return section;
+  }
+
+  function renderOutputsArea() {
+    const section = ensureOutputsSection();
+    const root = section ? $("#outputs-root") : null;
+    if (!root) return;
+    if (!root.childElementCount) {
+      root.appendChild(renderPrintSelectorCard());
+      root.appendChild(renderSoapCard());
+      root.appendChild(renderReferralCard());
+    }
+    syncOutputsUI();
+    syncPrintSelectorUI();
+  }
+
+  function renderOutputActions(key, textarea) {
+    const actions = renderComponent({
+      tag: "div",
+      className: "flex items-center justify-end gap-2",
+      children: [
+        renderComponent({
+          tag: "button",
+          className: "aum-choice px-3 py-2 rounded-lg text-sm font-bold bg-white border border-gray-200",
+          attrs: { type: "button", "data-copy-output": key },
+          text: "Copiar",
+        }),
+        renderComponent({
+          tag: "button",
+          className: "aum-choice px-3 py-2 rounded-lg text-sm font-bold bg-brand-dark text-white",
+          attrs: { type: "button", "data-download-output": key },
+          text: "Descargar .txt",
+        }),
+      ],
+    });
+    registerDelegated(actions, "click", async (e) => {
+      const copyBtn = e.target.closest("[data-copy-output]");
+      if (copyBtn) {
+        await copyToClipboard(textarea.value || "");
+        return;
+      }
+      const dlBtn = e.target.closest("[data-download-output]");
+      if (dlBtn) {
+        downloadTextFile(`${key}-${todayStamp()}.txt`, textarea.value || "", "text/plain;charset=utf-8");
+      }
+    });
+    return actions;
+  }
+
+  function renderSoapCard() {
+    const value = state.outputs.soap === null ? buildSoapSuggestion() : state.outputs.soap || "";
+    if (state.outputs.soap === null) state.outputs.soap = value;
+    const textarea = renderComponent({
+      tag: "textarea",
+      className: "aum-input h-40 resize-y",
+      attrs: { "data-output-text": "soap", placeholder: "Resumen SOAP editable" },
+    });
+    textarea.value = value;
+    registerDelegated(textarea, "input", () => {
+      state.outputs.soap = textarea.value;
+      scheduleAutosave();
+    });
+
+    return renderComponent({
+      tag: "div",
+      className: "p-4 rounded-2xl border border-gray-200 bg-brand-light/40 space-y-3",
+      children: [
+        renderComponent({
+          tag: "div",
+          className: "flex items-center gap-2",
+          children: [iconEl("fa-notes-medical", "text-brand-dark"), renderComponent({ tag: "div", className: "font-bold text-brand-dark", text: "Resumen SOAP" })],
+        }),
+        renderComponent({ tag: "div", className: "text-xs text-gray-600", text: "Editable y exportable. Autocompleta con datos actuales." }),
+        textarea,
+        renderOutputActions("soap", textarea),
+      ],
+    });
+  }
+
+  function renderReferralCard() {
+    const value = state.outputs.referral === null ? buildReferralTemplate() : state.outputs.referral || "";
+    if (state.outputs.referral === null) state.outputs.referral = value;
+    const textarea = renderComponent({
+      tag: "textarea",
+      className: "aum-input h-36 resize-y",
+      attrs: { "data-output-text": "referral", placeholder: "Carta/derivación editable" },
+    });
+    textarea.value = value;
+    registerDelegated(textarea, "input", () => {
+      state.outputs.referral = textarea.value;
+      scheduleAutosave();
+    });
+
+    return renderComponent({
+      tag: "div",
+      className: "p-4 rounded-2xl border border-gray-200 bg-white space-y-3",
+      children: [
+        renderComponent({
+          tag: "div",
+          className: "flex items-center gap-2",
+          children: [iconEl("fa-share-from-square", "text-brand-dark"), renderComponent({ tag: "div", className: "font-bold text-brand-dark", text: "Derivación / Carta" })],
+        }),
+        renderComponent({ tag: "div", className: "text-xs text-gray-600", text: "Plantilla editable para derivar o compartir avance." }),
+        textarea,
+        renderOutputActions("referral", textarea),
+      ],
+    });
+  }
+
+  function syncOutputsUI() {
+    const soapField = $("[data-output-text=\"soap\"]");
+    if (soapField) {
+      if (state.outputs.soap === null) state.outputs.soap = buildSoapSuggestion();
+      soapField.value = state.outputs.soap || "";
+    }
+    const refField = $("[data-output-text=\"referral\"]");
+    if (refField) {
+      if (state.outputs.referral === null) state.outputs.referral = buildReferralTemplate();
+      refField.value = state.outputs.referral || "";
+    }
+    syncPrintSelectorUI();
   }
 
   // -----------------------------
@@ -3428,10 +3832,13 @@
   // Init
   // -----------------------------
   function init() {
+    bindDelegatedListeners();
     ensureChoiceStyles();
     ensureWeightHeightBMI();
     bindPatientInputs();
+    bindNotesInputs();
     renderIntakeRemote();
+    renderOutputsArea();
     bindTopControls();
     setEmptyStateVisibility();
     scheduleLivePanelRender();
