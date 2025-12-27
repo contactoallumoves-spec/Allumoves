@@ -1164,6 +1164,7 @@
           title: "ALERTA: Bandera Roja (Posible neoplasia)",
           description:
             "Antecedente de cáncer + dolor nocturno no mecánico + pérdida de peso inexplicada. Recomendación: DERIVACIÓN / evaluación médica urgente.",
+          hypothesis: false,
           when: (s) =>
             s.tests.antecedente_cancer === true &&
             s.tests.dolor_nocturno_no_mecanico === true &&
@@ -1175,6 +1176,7 @@
           title: "ALERTA: Bandera Roja (Posible infección)",
           description:
             "Fiebre/escalofríos + riesgo de infección + dolor intenso en reposo. Recomendación: derivación médica urgente.",
+          hypothesis: false,
           when: (s) =>
             s.tests.fiebre === true &&
             s.tests.riesgo_infeccion === true &&
@@ -1186,6 +1188,7 @@
           title: "ALERTA: Trauma significativo (fractura / luxación a descartar)",
           description:
             "Trauma significativo con deformidad visible o incapacidad para elevar el brazo. Considera urgencias/imágenes según clínica.",
+          hypothesis: false,
           when: (s) =>
             s.tests.trauma_significativo === true &&
             (s.tests.deformidad_visible === true || s.tests.incapacidad_elevar_brazo === true),
@@ -1196,6 +1199,7 @@
           title: "ALERTA: Déficit neurológico progresivo",
           description:
             "Déficit neurológico progresivo requiere evaluación prioritaria. Considera screen cervical y derivación según gravedad.",
+          hypothesis: false,
           when: (s) => s.tests.deficit_neuro_progresivo === true,
         },
         {
@@ -1204,6 +1208,7 @@
           title: "ALERTA: Síntomas torácicos / respiratorios",
           description:
             "Dolor torácico o disnea: descartar urgencias cardiopulmonares. Recomendación: derivación inmediata según contexto.",
+          hypothesis: false,
           when: (s) => s.tests.dolor_pecho_disnea === true,
         },
 
@@ -1214,6 +1219,13 @@
           title: "Cluster cervical (+): sospecha componente radicular",
           description:
             "Múltiples hallazgos (Spurling, Distracción, ULTT A, rotación <60°) aumentan probabilidad de componente cervical. Ajusta razonamiento y manejo.",
+          scoreValue: 12,
+          criteria: [
+            { id: "spurling", source: "tests", label: "Spurling (+)", weight: 3 },
+            { id: "distraction", source: "tests", label: "Distracción (+)", weight: 3 },
+            { id: "ultt_a", source: "tests", label: "ULTT A (+)", weight: 3 },
+            { id: "rotation_lt60", source: "tests", label: "Rotación <60°", weight: 3, missingLabel: "Medir rotación <60°" },
+          ],
           when: (s) => {
             const positives = [
               s.tests.spurling === true,
@@ -1232,6 +1244,12 @@
           title: "Cluster RCRSP (+): mayor probabilidad de dolor relacionado al manguito",
           description:
             "Combinación de Arco doloroso + Hawkins-Kennedy + resistencia ER (infraespinoso) sugiere mayor probabilidad de RCRSP. Integra carga, control escapular y progresión por irritabilidad.",
+          scoreValue: 15,
+          criteria: [
+            { id: "arco_doloroso", source: "tests", label: "Arco doloroso (+)", weight: 5 },
+            { id: "hawkins", source: "tests", label: "Hawkins-Kennedy (+)", weight: 5 },
+            { id: "infraspinatus_test", source: "tests", label: "Resistencia ER dolor/debilidad", weight: 5, missingLabel: "Test infraespinoso" },
+          ],
           when: (s) =>
             s.tests.arco_doloroso === true &&
             s.tests.hawkins === true &&
@@ -1245,6 +1263,13 @@
           title: "Sospecha de desgarro completo del manguito (a considerar)",
           description:
             "ER Lag Sign o Drop Arm (+) junto a debilidad marcada y/o edad avanzada aumenta sospecha. Considera derivación/imagen según impacto funcional y contexto.",
+          scoreValue: 14,
+          criteria: [
+            { id: "er_lag_sign", source: "tests", label: "ER Lag Sign (+)", weight: 5 },
+            { id: "drop_arm", source: "tests", label: "Drop Arm (+)", weight: 5 },
+            { id: "debilidad_marcada", source: "tests", label: "Debilidad marcada", weight: 3 },
+            { id: "patient-age", source: "patient", label: "Edad ≥60", weight: 1, type: "numeric", minValue: 60, missingLabel: "Registrar edad" },
+          ],
           when: (s, p) => {
             const age = Number(p?.["patient-age"]);
             const ageOk = Number.isFinite(age) ? age >= 60 : false;
@@ -1261,6 +1286,13 @@
           title: "Patrón compatible con hombro rígido / capsulitis (probable)",
           description:
             "Rigidez + dolor nocturno + patrón capsular (ER limitada) en rango etario típico aumenta probabilidad. Dosifica movilidad según irritabilidad y monitoriza 24h.",
+          scoreValue: 12,
+          criteria: [
+            { id: "rigidez", source: "tests", label: "Rigidez clínica", weight: 4 },
+            { id: "dolor_nocturno", source: "tests", label: "Dolor nocturno", weight: 3 },
+            { id: "patron_capsular", source: "tests", label: "Patrón capsular", weight: 3 },
+            { id: "patient-age", source: "patient", label: "Edad 40-65", weight: 2, type: "numeric", minValue: 40, maxValue: 65, missingLabel: "Registrar edad" },
+          ],
           when: (s, p) => {
             const age = Number(p?.["patient-age"]);
             const ageOk = Number.isFinite(age) ? age >= 40 && age <= 65 : false;
@@ -1280,6 +1312,11 @@
           title: "Cluster inestabilidad anterior (+)",
           description:
             "Apprehension (+) y Relocation con alivio (+) aumenta probabilidad de inestabilidad anterior. Enfocar estabilidad dinámica, control motor y exposición graduada.",
+          scoreValue: 10,
+          criteria: [
+            { id: "apprehension", source: "tests", label: "Apprehension (+)", weight: 5 },
+            { id: "relocation_relief", source: "tests", label: "Relocation alivia", weight: 5, missingLabel: "Test Relocation" },
+          ],
           when: (s) => s.tests.apprehension === true && s.tests.relocation_relief === true,
         },
 
@@ -1290,6 +1327,12 @@
           title: "Cluster AC (+): dolor focal articulación AC",
           description:
             "Cross-body adduction (+) + dolor a palpación AC sugiere mayor probabilidad de dolor AC. Ajusta compresión/cargas y progresa por tolerancia.",
+          scoreValue: 9,
+          criteria: [
+            { id: "cross_body_adduction", source: "tests", label: "Cross-body adduction (+)", weight: 4 },
+            { id: "dolor_ac_palp", source: "tests", label: "Dolor a palpación AC", weight: 4 },
+            { id: "ac_notas", source: "text", label: "Notas AC documentadas", weight: 1, type: "text", missingLabel: "Documentar notas AC" },
+          ],
           when: (s) => s.tests.cross_body_adduction === true && s.tests.dolor_ac_palp === true,
         },
 

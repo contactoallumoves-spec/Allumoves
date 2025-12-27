@@ -786,11 +786,22 @@
         { answered: 0, total: 0 }
       );
       const alerts = m.computed?.alerts || [];
+      const reasoning = m.computed?.reasoning;
+      const topHypotheses = (reasoning?.hypotheses || []).map((h) => ({
+        title: h.title,
+        score: h.score,
+        status: h.triggered ? "Activa" : "Parcial",
+      }));
+      const planPhase = reasoning?.plan?.phase || derivePhaseFromIrritability(getIrritability(m, tpl));
+      const planHasAlerts = !!reasoning?.plan?.hasAlerts;
       return {
         title: tpl.title || m.title,
         sections,
         progress: { answered: totals.answered, total: totals.total },
         alerts: alerts.map((a) => ({ title: a.title || "Alerta", severity: a.severity || "info" })),
+        hypotheses: topHypotheses.slice(0, 3),
+        planPhase,
+        planHasAlerts,
       };
     });
   }
@@ -920,6 +931,45 @@
                     }`,
                     text: a.title,
                   })),
+          },
+          {
+            tag: "div",
+            className: "space-y-1",
+            children: [
+              { tag: "div", className: "text-[11px] font-extrabold uppercase text-brand-dark", text: "Razonamiento" },
+              {
+                tag: "div",
+                className: "flex flex-col gap-1",
+                children:
+                  m.hypotheses && m.hypotheses.length
+                    ? m.hypotheses.map((h) => ({
+                        tag: "div",
+                        className: "flex items-center justify-between rounded-lg bg-white border border-gray-200 px-2 py-1",
+                        children: [
+                          { tag: "div", className: "text-[11px] font-semibold text-brand-dark truncate", text: h.title },
+                          {
+                            tag: "div",
+                            className: "flex items-center gap-1",
+                            children: [
+                              { tag: "span", className: "px-2 py-0.5 rounded-full text-[10px] font-bold bg-brand-accent/40 text-brand-dark", text: `${h.score} pts` },
+                              { tag: "span", className: "text-[10px] font-semibold text-gray-600", text: h.status },
+                            ],
+                          },
+                        ],
+                      }))
+                    : [{ tag: "div", className: "text-[11px] text-gray-500", text: "Completa hallazgos para ver hipótesis." }],
+              },
+              {
+                tag: "div",
+                className: "flex items-center gap-2",
+                children: [
+                  { tag: "span", className: "px-2 py-1 rounded-full text-[11px] font-semibold bg-brand-accent/20 text-brand-dark", text: m.planPhase || "Fase pendiente" },
+                  m.planHasAlerts
+                    ? { tag: "span", className: "px-2 py-1 rounded-full text-[11px] font-semibold bg-red-100 text-red-800", text: "Plan C activo" }
+                    : { tag: "span", className: "px-2 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800", text: "Sin alertas críticas" },
+                ],
+              },
+            ],
           },
         ],
       };
@@ -1267,8 +1317,8 @@
       tests: {},
       numeric: {},
       text: {},
-      ui: { collapsed: {}, mode: "complete" }, // {sectionIndex:true/false}
-      computed: { spadi: null, dash: null, alerts: [] },
+      ui: { collapsed: {}, mode: "complete", reasoningCollapsed: false }, // {sectionIndex:true/false}
+      computed: { spadi: null, dash: null, alerts: [], reasoning: null },
     };
 
     // Seed defaults from fields
@@ -2080,14 +2130,24 @@
   // -----------------------------
   // Clinical reasoning: alerts + plan suggestions
   // -----------------------------
-  function getIrritability(module) {
-    // Prefer dedicated select field id "irritabilidad"
-    const v = (module.text.irritabilidad || "").toLowerCase().trim();
+  function normalizeIrritabilityValue(raw) {
+    const v = String(raw || "").toLowerCase().trim();
     if (v.includes("alta")) return "alta";
     if (v.includes("media")) return "media";
     if (v.includes("baja")) return "baja";
-    // If empty: unknown
     return "";
+  }
+
+  function getIrritability(module, tpl) {
+    // Prefer dedicated select field id "irritabilidad"
+    const local = normalizeIrritabilityValue(module.text.irritabilidad);
+    if (local) return local;
+    const scope = getModuleIntakeScope(module, tpl);
+    const intakeKey = `${scope}_irritabilidad`;
+    const fromIntake = normalizeIrritabilityValue(state.intake?.values?.[intakeKey]);
+    if (fromIntake) return fromIntake;
+    // fallback general MSK intake
+    return normalizeIrritabilityValue(state.intake?.values?.msk_irritabilidad);
   }
 
   function getAge() {
@@ -2095,17 +2155,16 @@
     return Number.isFinite(a) ? a : null;
   }
 
-  function derivePhase(module) {
-    const ir = getIrritability(module);
+  function derivePhaseFromIrritability(ir) {
     if (ir === "alta") return "Fase 1 (analgesia / control de síntomas)";
     if (ir === "media") return "Fase 2 (capacidad y control motor / carga progresiva)";
     if (ir === "baja") return "Fase 3–4 (fuerza, potencia y retorno funcional/deportivo)";
     return "Fase: por definir (según irritabilidad y objetivo)";
   }
 
-  function derivePlan(module) {
+  function derivePlan(module, tpl) {
     const age = getAge();
-    const ir = getIrritability(module);
+    const ir = getIrritability(module, tpl);
     const cls = {
       rcrsp: triValue(module.tests.cls_rcrsp) === true,
       rcFull: triValue(module.tests.cls_rc_full_thickness) === true,
@@ -2116,46 +2175,91 @@
     };
 
     const plan = [];
+    const hasAlerts = (module.computed?.alerts || []).some((a) => a.severity === "danger" || a.severity === "warning");
 
-    // Universal
-    plan.push("Educación: explicación del cuadro en lenguaje funcional (no amenazante) + expectativas y tiempos.");
-    plan.push("Manejo de carga: identificar gestos/volumen detonante y ajustar (sin reposo total).");
+    const baseEducation = [
+      "Educación: explicar el cuadro en lenguaje funcional y expectativas realistas.",
+      "Manejo de carga: identificar gestos detonantes y ajustar sin reposo total.",
+    ];
 
-    if (ir === "alta") {
-      plan.push("Analgesia por ejercicio: isométricos submáximos (RC/escápula) según tolerancia + exposición gradual.");
-      plan.push("ROM suave y dosificado (priorizar sueño, evitar picos de dolor >2–3/10 durante/pos 24h).");
-    } else if (ir === "media") {
-      plan.push("Progresión de fuerza: RC + escápula (ER/ABD/IR) con carga moderada, controlando síntomas 24h.");
-      plan.push("Movilidad dirigida (torácica, cápsula posterior si aplica) + re-test funcional.");
-    } else if (ir === "baja") {
-      plan.push("Fuerza pesada y potencia específica del gesto (overhead / empuje / tracción) + tolerancia al volumen.");
-      plan.push("Retorno funcional/deportivo: progresión de tareas y criterios de simetría/soportar carga.");
-    }
+    const phaseBullets = () => {
+      if (ir === "alta") {
+        return [
+          "Isométricos submáximos 20–40s x 4–6 series, 2–3 veces/día; margen de dolor ≤2–3/10.",
+          "ROM suave y respiración diafragmática 3–5 minutos, 2–3 veces/día, priorizando sueño.",
+        ];
+      }
+      if (ir === "media") {
+        return [
+          "Fuerza moderada RC/escápula: 3x8–12 repeticiones RPE 6–7, 2–3 días/sem, retesteo 24h.",
+          "Movilidad dirigida (torácica/cápsula posterior) 2–3 bloques/sem con control de síntoma.",
+        ];
+      }
+      if (ir === "baja") {
+        return [
+          "Fuerza pesada y potencia específica: 3–4x6–10 repeticiones RPE 7–8, 2–3 días/sem.",
+          "Retorno progresivo al gesto (overhead/empuje/tracción) con criterios de simetría y tolerancia a volumen.",
+        ];
+      }
+      return ["Checklist base sin dosificación: confirmar irritabilidad para personalizar cargas.", "Registrar respuesta 24h antes de subir exigencia."];
+    };
 
-    if (cls.rcrsp) {
-      plan.push("Enfoque RCRSP: control de carga + fortalecimiento progresivo del manguito y escápula + re-test (función overhead).");
-    }
+    const focusBullets = [];
+    if (cls.rcrsp) focusBullets.push("Enfoque RCRSP: control de carga + fortalecimiento progresivo del manguito y escápula + re-test overhead.");
     if (cls.caps) {
-      plan.push("Enfoque hombro rígido/capsulitis: priorizar educación, dolor y movilidad dosificada; progresión lenta según irritabilidad.");
-      if (age !== null && age >= 40 && age <= 65) plan.push("Edad compatible con hombro rígido: monitorear ER pasiva, sueño y respuesta a carga.");
+      focusBullets.push("Enfoque hombro rígido/capsulitis: educación, dolor y movilidad dosificada; progresión lenta según irritabilidad.");
+      if (age !== null && age >= 40 && age <= 65) focusBullets.push("Edad compatible con hombro rígido: monitorear ER pasiva, sueño y respuesta a carga.");
     }
-    if (cls.instab) {
-      plan.push("Enfoque inestabilidad: control motor, propriocepción, estabilidad dinámica; progresar a posiciones vulnerables con criterio.");
-    }
-    if (cls.ac) {
-      plan.push("Enfoque AC: modular compresión/dolor focal, dosificar empujes/cargas horizontales y progresar por tolerancia.");
-    }
+    if (cls.instab) focusBullets.push("Enfoque inestabilidad: control motor, propriocepción, estabilidad dinámica; progresar posiciones vulnerables con criterio.");
+    if (cls.ac) focusBullets.push("Enfoque AC: modular compresión/dolor focal, dosificar empujes/cargas horizontales y progresar por tolerancia.");
     if (cls.rcFull) {
-      plan.push("Sospecha de desgarro completo: considerar derivación/imagen según edad, trauma, pérdida de potencia y limitación funcional.");
-      if (age !== null && age >= 60) plan.push("Edad >60 aumenta probabilidad: evaluar déficit real vs inhibición por dolor.");
+      focusBullets.push("Sospecha de desgarro completo: considerar derivación/imagen según edad, trauma y pérdida de potencia.");
+      if (age !== null && age >= 60) focusBullets.push("Edad >60 aumenta probabilidad: evaluar déficit real vs inhibición por dolor.");
     }
-    if (cls.cerv) {
-      plan.push("Componente cervical: integrar evaluación neuro, manejo cervical, y ajustar carga del hombro según radicularidad.");
-    }
+    if (cls.cerv) focusBullets.push("Componente cervical: integrar evaluación neuro, manejo cervical y ajustar carga del hombro según radicularidad.");
+
+    const planA = {
+      title: ir ? "Plan A · Dosificado por irritabilidad" : "Plan A · Checklist base",
+      bullets: [...baseEducation, ...phaseBullets()],
+      note: ir ? `Irritabilidad: ${ir}` : "Define irritabilidad para personalizar dosis.",
+    };
+
+    const planB = {
+      title: "Plan B · Alternativa si síntomas suben",
+      bullets: ir
+        ? [
+            "Reducir 1 bloque de volumen o bajar RPE en 1–2 puntos por 48h si síntomas >3/10.",
+            "Usar variantes en cadena cerrada o rangos parciales 48–72h antes de progresar.",
+          ]
+        : [
+            "Usa progresiones en cadena cerrada de baja carga y registra tolerancia.",
+            "Añade dosificación solo cuando se documente irritabilidad/24h.",
+          ],
+      note: "Ajuste escalonado si el plan principal aumenta síntomas.",
+    };
+
+    const planC = {
+      title: hasAlerts ? "Plan C · Precaución / derivación" : "Plan C · Monitoreo activo",
+      bullets: hasAlerts
+        ? [
+            "Prioriza resolver alertas: derivación/imagen según severidad.",
+            "Limita cargas >RPE 6 y evita posiciones provocativas hasta aclarar alertas.",
+          ]
+        : [
+            "Sin alertas críticas: mantener educación + monitoreo semanal.",
+            "Escalar solo si síntomas y 24h permanecen estables.",
+          ],
+      note: hasAlerts ? "Se detectaron alertas clínicas: activar ruta segura." : "Ruta de seguridad por si se activan nuevas alertas.",
+    };
 
     return {
-      phase: derivePhase(module),
-      bullets: plan,
+      phase: derivePhaseFromIrritability(ir),
+      irritability: ir,
+      planA,
+      planB,
+      planC,
+      focusBullets,
+      hasAlerts,
     };
   }
 
@@ -2192,6 +2296,184 @@
           ],
         }),
       ],
+    });
+  }
+
+  function evaluateRuleCriteria(rule, module, tpl) {
+    const criteria = Array.isArray(rule?.criteria) ? rule.criteria : [];
+    if (!criteria.length) return { points: 0, matched: [], missing: [] };
+
+    const normalizedTests = mapTriValues(module.tests);
+    const matched = [];
+    const missing = [];
+    let points = 0;
+
+    const getValue = (crit) => {
+      const source = crit.source || "tests";
+      if (source === "tests") return normalizedTests[crit.id];
+      if (source === "numeric") return module.numeric?.[crit.id];
+      if (source === "text") return module.text?.[crit.id];
+      if (source === "patient") return state.patientData?.[crit.id];
+      if (source === "intake") return state.intake?.values?.[crit.id];
+      return undefined;
+    };
+
+    criteria.forEach((crit) => {
+      const label = crit.label || crit.id;
+      const weight = Number(crit.weight) || 1;
+      const type = crit.type || "boolean";
+      const raw = getValue(crit);
+
+      if (type === "text") {
+        const hasValue = String(raw || "").trim().length > 0;
+        if (hasValue) {
+          matched.push(label);
+          points += weight;
+        } else if (raw === null || raw === undefined || raw === "") {
+          missing.push(crit.missingLabel || label);
+        }
+        return;
+      }
+
+      if (type === "numeric") {
+        const num = Number(raw);
+        const minOk = crit.minValue === undefined || (Number.isFinite(num) && num >= crit.minValue);
+        const maxOk = crit.maxValue === undefined || (Number.isFinite(num) && num <= crit.maxValue);
+        if (Number.isFinite(num) && minOk && maxOk) {
+          matched.push(label);
+          points += weight;
+        } else if (raw === null || raw === undefined || raw === "") {
+          missing.push(crit.missingLabel || label);
+        }
+        return;
+      }
+
+      // boolean (tri-state)
+      if (raw === true) {
+        matched.push(label);
+        points += weight;
+      } else if (raw === null || raw === undefined) {
+        missing.push(crit.missingLabel || label);
+      }
+    });
+
+    return { points, matched, missing };
+  }
+
+  function buildHypotheses(module, tpl) {
+    const normalizedTests = mapTriValues(module.tests);
+    const rules = (Array.isArray(tpl.logicRules) ? tpl.logicRules : []).filter((r) => r.hypothesis !== false);
+    const results = [];
+
+    rules.forEach((rule) => {
+      const criteria = evaluateRuleCriteria(rule, module, tpl);
+      let triggered = false;
+      try {
+        triggered = !!rule.when({ tests: normalizedTests, numeric: module.numeric, text: module.text }, state.patientData);
+      } catch (_) {
+        triggered = false;
+      }
+      const baseScore = triggered ? rule.scoreValue ?? 5 : 0;
+      const score = baseScore + criteria.points;
+      const why = criteria.matched.length ? criteria.matched : triggered ? ["Regla cumplida con los hallazgos actuales."] : [];
+      const missing = criteria.missing.length ? criteria.missing : [];
+
+      results.push({
+        id: rule.id || rule.title || String(rule.when),
+        title: rule.title || "Hipótesis clínica",
+        score,
+        triggered,
+        why,
+        missing,
+        severity: rule.severity || "info",
+      });
+    });
+
+    results.sort((a, b) => b.score - a.score);
+    return results.slice(0, 3);
+  }
+
+  function buildReasoningData(module, tpl) {
+    const hypotheses = buildHypotheses(module, tpl);
+    const plan = derivePlan(module, tpl);
+    const missing = uniqueList(hypotheses.flatMap((h) => h.missing || []));
+    return { hypotheses, plan, missing };
+  }
+
+  function renderHypotheses(module, tpl) {
+    const container = $(`[data-hypotheses="${module.instanceId}"]`);
+    if (!container) return;
+
+    const reasoning = module.computed?.reasoning || buildReasoningData(module, tpl);
+    module.computed.reasoning = reasoning;
+
+    const hypotheses = reasoning.hypotheses || [];
+    container.replaceChildren();
+
+    if (!hypotheses.length) {
+      container.appendChild(
+        renderComponent({
+          tag: "div",
+          className: "p-3 rounded-xl border border-gray-100 bg-gray-50 text-sm text-gray-700",
+          text: "Sin hipótesis priorizadas. Completa más hallazgos clave.",
+        })
+      );
+      return;
+    }
+
+    hypotheses.forEach((h, idx) => {
+      const tone =
+        h.severity === "warning"
+          ? "bg-amber-50 border-amber-200 text-amber-800"
+          : h.severity === "danger"
+          ? "bg-red-50 border-red-200 text-red-800"
+          : "bg-blue-50 border-blue-200 text-blue-800";
+
+      const whyList =
+        h.why && h.why.length
+          ? renderComponent({
+              tag: "ul",
+              className: "list-disc pl-4 space-y-1 text-sm text-gray-800",
+              children: h.why.map((w) => renderComponent({ tag: "li", text: w })),
+            })
+          : renderComponent({ tag: "div", className: "text-sm text-gray-600", text: "Registra más datos para justificar." });
+
+      const missingList =
+        h.missing && h.missing.length
+          ? renderComponent({
+              tag: "ul",
+              className: "list-disc pl-4 space-y-1 text-xs text-gray-700",
+              children: h.missing.map((m) => renderComponent({ tag: "li", text: m })),
+            })
+          : renderComponent({ tag: "div", className: "text-xs text-gray-500", text: "Sin pendientes críticos." });
+
+      container.appendChild(
+        renderComponent({
+          tag: "div",
+          className: "p-4 rounded-2xl border border-gray-200 bg-white space-y-2",
+          children: [
+            {
+              tag: "div",
+              className: "flex items-center justify-between gap-2",
+              children: [
+                { tag: "div", className: "font-extrabold text-brand-dark text-sm", text: `${idx + 1}. ${h.title}` },
+                renderComponent({
+                  tag: "div",
+                  className: "flex items-center gap-2",
+                  children: [
+                    { tag: "span", className: `px-2 py-1 rounded-full text-[11px] font-semibold ${tone}`, text: h.triggered ? "Regla activa" : "Parcial" },
+                    { tag: "span", className: "px-2 py-1 rounded-full text-[11px] font-bold bg-brand-accent/30 text-brand-dark", text: `${h.score} pts` },
+                  ],
+                }),
+              ],
+            },
+            renderComponent({ tag: "div", className: "text-[11px] font-extrabold text-gray-600 uppercase", text: "Por qué" }),
+            whyList,
+            renderComponent({ tag: "div", className: "text-[11px] font-extrabold text-gray-600 uppercase", text: "Qué falta evaluar" }),
+            missingList,
+          ],
+        })
+      );
     });
   }
 
@@ -2246,13 +2528,68 @@
 
     wrap.replaceChildren();
 
-    const plan = derivePlan(module);
+    const reasoning = module.computed?.reasoning || buildReasoningData(module, tpl);
+    module.computed.reasoning = reasoning;
+    const plan = reasoning.plan || derivePlan(module, tpl);
 
-    const bullets = renderComponent({
-      tag: "ul",
-      className: "list-disc pl-5 space-y-1 text-sm text-gray-800",
-      children: plan.bullets.map((b) => renderComponent({ tag: "li", text: b })),
-    });
+    const planCards = [plan.planA, plan.planB, plan.planC].map((p) =>
+      renderComponent({
+        tag: "div",
+        className: "p-4 rounded-2xl border border-gray-200 bg-gray-50 space-y-2",
+        children: [
+          {
+            tag: "div",
+            className: "flex items-center justify-between gap-2",
+            children: [
+              { tag: "div", className: "font-extrabold text-brand-dark", text: p.title },
+              { tag: "span", className: "px-2 py-1 rounded-full text-[11px] font-semibold bg-brand-accent/30 text-brand-dark", text: plan.phase },
+            ],
+          },
+          p.note ? { tag: "div", className: "text-xs text-gray-600", text: p.note } : null,
+          renderComponent({
+            tag: "ul",
+            className: "list-disc pl-5 space-y-1 text-sm text-gray-800",
+            children: (p.bullets || []).map((b) => renderComponent({ tag: "li", text: b })),
+          }),
+        ],
+      })
+    );
+
+    const focusList =
+      plan.focusBullets && plan.focusBullets.length
+        ? renderComponent({
+            tag: "div",
+            className: "p-3 rounded-xl border border-blue-100 bg-blue-50 space-y-2",
+            children: [
+              { tag: "div", className: "text-xs font-extrabold text-blue-900 uppercase", text: "Focos específicos" },
+              renderComponent({
+                tag: "ul",
+                className: "list-disc pl-5 space-y-1 text-sm text-blue-900",
+                children: plan.focusBullets.map((b) => renderComponent({ tag: "li", text: b })),
+              }),
+            ],
+          })
+        : null;
+
+    const missing =
+      reasoning.missing && reasoning.missing.length
+        ? renderComponent({
+            tag: "div",
+            className: "p-3 rounded-xl border border-amber-200 bg-amber-50 space-y-1",
+            children: [
+              { tag: "div", className: "text-xs font-extrabold text-amber-800 uppercase", text: "Qué falta para subir certeza" },
+              renderComponent({
+                tag: "div",
+                className: "flex flex-wrap gap-2",
+                children: reasoning.missing.map((m) => ({
+                  tag: "span",
+                  className: "px-2 py-1 rounded-full text-[11px] font-semibold bg-white border border-amber-200 text-amber-800",
+                  text: m,
+                })),
+              }),
+            ],
+          })
+        : null;
 
     const btnInsert = renderComponent({
       tag: "button",
@@ -2261,9 +2598,8 @@
       text: "Insertar en “Plan inicial”",
       on: {
         click: () => {
-          // Append into plan_inicial textarea if exists
           const target = $(`[data-field="${module.instanceId}:plan_inicial"] textarea, [data-field="${module.instanceId}:plan_inicial"] input`);
-          const lines = ["", plan.phase, ...plan.bullets.map((x) => `• ${x}`), ""].join("\n");
+          const lines = ["", plan.phase, ...plan.planA.bullets.map((x) => `• ${x}`), "", ...plan.planB.bullets.map((x) => `• ${x}`), ""].join("\n");
           if (target) {
             target.value = (target.value || "") + lines;
             module.text.plan_inicial = target.value;
@@ -2273,10 +2609,19 @@
       },
     });
 
+    const notice =
+      !plan.irritability || plan.phase.includes("por definir")
+        ? renderComponent({
+            tag: "div",
+            className: "p-3 rounded-xl border border-amber-200 bg-amber-50 text-sm text-amber-900",
+            text: "Define irritabilidad/fase para dosificar con mayor precisión. Se muestra un checklist base.",
+          })
+        : null;
+
     wrap.appendChild(
       renderComponent({
         tag: "div",
-        className: "p-4 rounded-2xl border border-gray-200 bg-white",
+        className: "p-4 rounded-2xl border border-gray-200 bg-white space-y-3",
         children: [
           renderComponent({
             tag: "div",
@@ -2286,17 +2631,31 @@
                 tag: "div",
                 className: "min-w-0",
                 children: [
-                  renderComponent({ tag: "div", className: "font-extrabold text-brand-dark", text: "Plan sugerido (automatizado)" }),
+                  renderComponent({ tag: "div", className: "font-extrabold text-brand-dark", text: "Planes A/B/C (automatizado)" }),
                   renderComponent({ tag: "div", className: "text-sm text-gray-600 mt-1", text: plan.phase }),
                 ],
               }),
               btnInsert,
             ],
           }),
-          renderComponent({ tag: "div", className: "mt-3", children: [bullets] }),
-        ],
+          notice,
+          focusList,
+          renderComponent({
+            tag: "div",
+            className: "grid grid-cols-1 md:grid-cols-3 gap-3",
+            children: planCards,
+          }),
+          missing,
+        ].filter(Boolean),
       })
     );
+  }
+
+  function renderReasoningSection(module, tpl) {
+    module.computed = module.computed || {};
+    module.computed.reasoning = buildReasoningData(module, tpl);
+    renderHypotheses(module, tpl);
+    renderPlanCard(module, tpl);
   }
 
   function renderModuleIntakeConsiderations(module, tpl) {
@@ -2333,9 +2692,9 @@
   function evaluateAllLogic() {
     state.activeModules.forEach((m) => {
       const tpl = getModuleTemplate(m.key);
-      evaluateModuleLogic(m, tpl);
       updateModuleScores(m, tpl);
-      renderPlanCard(m, tpl);
+      evaluateModuleLogic(m, tpl);
+      renderReasoningSection(m, tpl);
       renderModuleIntakeConsiderations(m, tpl);
     });
     scheduleLivePanelRender();
@@ -2351,7 +2710,7 @@
       // Derived updates
       updateModuleScores(module, tpl);
       evaluateModuleLogic(module, tpl);
-      renderPlanCard(module, tpl);
+      renderReasoningSection(module, tpl);
       scheduleAutosave();
     };
 
@@ -2654,8 +3013,80 @@
       })
     );
 
-    // Plan container (auto)
-    body.appendChild(renderComponent({ tag: "div", attrs: { "data-plan": module.instanceId }, className: "space-y-3" }));
+    const reasoningContent = renderComponent({
+      tag: "div",
+      attrs: { "data-reasoning-content": module.instanceId },
+      className: "p-4 space-y-4",
+      hidden: !!module.ui.reasoningCollapsed,
+      children: [
+        renderComponent({
+          tag: "div",
+          className: "space-y-2",
+          children: [
+            renderComponent({ tag: "div", className: "text-xs font-extrabold text-brand-dark uppercase", text: "Top-3 hipótesis" }),
+            renderComponent({ tag: "div", attrs: { "data-hypotheses": module.instanceId }, className: "space-y-3" }),
+          ],
+        }),
+        renderComponent({
+          tag: "div",
+          className: "space-y-2",
+          children: [
+            renderComponent({ tag: "div", className: "text-xs font-extrabold text-brand-dark uppercase", text: "Plan A/B/C" }),
+            renderComponent({ tag: "div", attrs: { "data-plan": module.instanceId }, className: "space-y-3" }),
+          ],
+        }),
+      ],
+    });
+
+    const reasoningChevron = renderComponent({
+      tag: "i",
+      className: `fa-solid fa-chevron-down transition-transform ${module.ui.reasoningCollapsed ? "" : "rotate-180"}`.trim(),
+      attrs: { "aria-hidden": "true" },
+    });
+
+    const reasoningHeader = renderComponent({
+      tag: "button",
+      className: "w-full text-left flex items-center justify-between gap-3 px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors",
+      attrs: { type: "button" },
+      on: {
+        click: () => {
+          module.ui.reasoningCollapsed = !module.ui.reasoningCollapsed;
+          reasoningContent.hidden = !!module.ui.reasoningCollapsed;
+          reasoningChevron.classList.toggle("rotate-180", !module.ui.reasoningCollapsed);
+          scheduleAutosave();
+        },
+      },
+      children: [
+        renderComponent({
+          tag: "div",
+          className: "flex items-center gap-3 min-w-0",
+          children: [
+            renderComponent({
+              tag: "div",
+              className: "w-9 h-9 rounded-full bg-brand-accent/20 flex items-center justify-center shrink-0",
+              children: [iconEl("fa-brain", "text-brand-accent")],
+            }),
+            renderComponent({
+              tag: "div",
+              className: "min-w-0",
+              children: [
+                renderComponent({ tag: "div", className: "font-extrabold text-brand-dark truncate", text: "Razonamiento integrador" }),
+                renderComponent({ tag: "div", className: "text-xs text-gray-600", text: "Top-3 hipótesis + Plan A/B/C + pendientes" }),
+              ],
+            }),
+          ],
+        }),
+        reasoningChevron,
+      ],
+    });
+
+    body.appendChild(
+      renderComponent({
+        tag: "div",
+        className: "rounded-2xl overflow-hidden border border-gray-200 bg-white",
+        children: [reasoningHeader, reasoningContent],
+      })
+    );
 
     const modeNotice = renderComponent({
       tag: "div",
@@ -2696,10 +3127,10 @@
     applyModuleMode(module);
 
     // First derived render
-    renderPlanCard(module, tpl);
-    evaluateModuleLogic(module, tpl);
-    renderModuleIntakeConsiderations(module, tpl);
     updateModuleScores(module, tpl);
+    evaluateModuleLogic(module, tpl);
+    renderReasoningSection(module, tpl);
+    renderModuleIntakeConsiderations(module, tpl);
   }
 
   // -----------------------------
@@ -2805,11 +3236,13 @@
       m.ui = m.ui || { collapsed: {}, mode: "complete" };
       m.ui.mode = m.ui.mode || "complete";
       m.ui.collapsed = m.ui.collapsed || {};
+      if (m.ui.reasoningCollapsed === undefined) m.ui.reasoningCollapsed = false;
       m.scope = m.scope || tpl.scope || "all";
       m.computed = m.computed || {};
       m.computed.spadi = m.computed.spadi || null;
       m.computed.dash = m.computed.dash || null;
       m.computed.alerts = m.computed.alerts || [];
+      m.computed.reasoning = m.computed.reasoning || null;
       renderModuleCard(m, tpl);
     });
 
