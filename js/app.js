@@ -121,6 +121,53 @@
     });
   }
 
+  let choiceStylesInjected = false;
+  function ensureChoiceStyles() {
+    if (choiceStylesInjected) return;
+    const style = document.createElement("style");
+    style.id = "aum-choice-style";
+    style.textContent = `
+      .aum-choice {
+        --aum-choice-bg: #ffffff;
+        --aum-choice-color: #102024;
+        --aum-choice-border: rgba(16, 32, 36, 0.18);
+        --aum-choice-active-bg: #102024;
+        --aum-choice-active-color: #ffffff;
+        --aum-choice-active-border: #0b1618;
+        --aum-choice-shadow: 0 10px 25px -12px rgba(16, 32, 36, 0.55);
+        border: 1px solid var(--aum-choice-border);
+        background-color: var(--aum-choice-bg);
+        color: var(--aum-choice-color);
+        transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease, box-shadow 150ms ease, transform 120ms ease;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 1px 2px rgba(16, 32, 36, 0.06);
+      }
+      .aum-choice[data-active="true"] {
+        background-color: var(--aum-choice-active-bg);
+        color: var(--aum-choice-active-color);
+        border-color: var(--aum-choice-active-border);
+        box-shadow: 0 0 0 2px rgba(16, 32, 36, 0.12), var(--aum-choice-shadow);
+        transform: translateY(-1px);
+      }
+      .aum-choice:not([data-active="true"]):hover,
+      .aum-choice:not([data-active="true"]):focus-visible {
+        border-color: rgba(16, 32, 36, 0.4);
+        box-shadow: 0 8px 18px -12px rgba(16, 32, 36, 0.55);
+      }
+      .aum-choice:focus-visible {
+        outline: 2px solid rgba(16, 32, 36, 0.35);
+        outline-offset: 1px;
+      }
+    `;
+    document.head.appendChild(style);
+    choiceStylesInjected = true;
+  }
+
+  function setChoiceState(btn, active) {
+    if (!btn) return;
+    btn.dataset.active = active ? "true" : "false";
+    btn.setAttribute("aria-pressed", active ? "true" : "false");
+  }
+
   // -----------------------------
   // Time / download helpers
   // -----------------------------
@@ -772,10 +819,7 @@
 
     $$(`[data-mode-button="${module.instanceId}"]`, card).forEach((btn) => {
       const active = btn.dataset.mode === module.ui.mode;
-      btn.classList.toggle("bg-brand-accent", active);
-      btn.classList.toggle("text-brand-dark", active);
-      btn.classList.toggle("bg-white/10", !active);
-      btn.classList.toggle("text-white/80", !active);
+      setChoiceState(btn, active);
     });
 
     const chip = $(`[data-mode-chip="${module.instanceId}"]`, card);
@@ -844,10 +888,7 @@
         (v === "null" && value === null) ||
         (v === "true" && value === true) ||
         (v === "false" && value === false);
-      b.classList.toggle("bg-brand-dark", active);
-      b.classList.toggle("text-white", active);
-      b.classList.toggle("bg-white", !active);
-      b.classList.toggle("text-gray-500", !active);
+      setChoiceState(b, active);
     });
   }
 
@@ -875,9 +916,9 @@
               tag: "div",
               className: "flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-1",
               children: [
-                { tag: "button", className: "px-2.5 py-1 rounded-md text-sm font-bold", attrs: { type: "button", "data-tri": "null", title: "No evaluado" }, text: "—" },
-                { tag: "button", className: "px-2.5 py-1 rounded-md text-sm font-bold", attrs: { type: "button", "data-tri": "false", title: "Negativo" }, text: "−" },
-                { tag: "button", className: "px-2.5 py-1 rounded-md text-sm font-bold", attrs: { type: "button", "data-tri": "true", title: "Positivo" }, text: "+" },
+                { tag: "button", className: "aum-choice px-2.5 py-1 rounded-md text-sm font-bold", attrs: { type: "button", "data-tri": "null", title: "No evaluado" }, text: "—" },
+                { tag: "button", className: "aum-choice px-2.5 py-1 rounded-md text-sm font-bold", attrs: { type: "button", "data-tri": "false", title: "Negativo" }, text: "−" },
+                { tag: "button", className: "aum-choice px-2.5 py-1 rounded-md text-sm font-bold", attrs: { type: "button", "data-tri": "true", title: "Positivo" }, text: "+" },
               ],
               on: {
                 click: (e) => {
@@ -916,7 +957,7 @@
         children: options.map((opt) =>
           renderComponent({
             tag: "button",
-            className: "px-2.5 py-1 rounded-md text-xs font-bold border border-gray-200 bg-white text-gray-600",
+            className: "aum-choice px-2.5 py-1 rounded-md text-xs font-bold bg-white text-gray-600",
             attrs: { type: "button", "data-severity": opt.value, title: `Severidad ${opt.label}` },
             text: opt.label,
           })
@@ -953,11 +994,7 @@
       const activeSev = triSeverity(entry);
       $$("button[data-severity]", severityWrap).forEach((b) => {
         const active = b.dataset.severity === activeSev;
-        b.classList.toggle("bg-brand-dark", active);
-        b.classList.toggle("text-white", active);
-        b.classList.toggle("border-brand-dark", active);
-        b.classList.toggle("text-gray-600", !active);
-        b.classList.toggle("border-gray-200", !active);
+        setChoiceState(b, active);
       });
     }
 
@@ -1028,6 +1065,7 @@
     const modeKey = `${field.id}:${side || "S"}`;
     module.ui.modes = module.ui.modes || {};
     if (!module.ui.modes[modeKey]) module.ui.modes[modeKey] = "slider"; // slider | exact | quick
+    let currentValue = value;
 
     const valLabel = renderComponent({
       tag: "span",
@@ -1040,7 +1078,7 @@
     const modeBtn = (k, label) =>
       renderComponent({
         tag: "button",
-        className: "px-2 py-1 rounded-md text-xs font-bold border border-gray-200",
+        className: "aum-choice px-2 py-1 rounded-md text-xs font-bold",
         attrs: { type: "button", "data-mode": k },
         text: label,
       });
@@ -1095,7 +1133,7 @@
       children: quickButtons.map((btn) =>
         renderComponent({
           tag: "button",
-          className: "px-3 py-2 rounded-lg bg-white border border-gray-200 text-sm font-bold",
+          className: "aum-choice px-3 py-2 rounded-lg bg-white text-sm font-bold",
           attrs: { type: "button", "data-quick": btn.key },
           text: btn.label,
         })
@@ -1106,7 +1144,7 @@
           if (!b) return;
           const cfg = quickButtons.find((q) => q.key === b.dataset.quick);
           if (!cfg) return;
-          onValueChange(cfg.value ?? null);
+          setValue(cfg.value ?? null);
           onAfterChange?.();
         },
       },
@@ -1147,9 +1185,11 @@
 
     function setValue(next) {
       // reflect in controls
+      currentValue = next;
       valLabel.textContent = next === null || next === "" || next === undefined ? "—" : String(next);
-      if (module.ui.modes[modeKey] === "slider") slider.value = String(next ?? 0);
-      if (module.ui.modes[modeKey] === "exact") exact.value = next ?? "";
+      slider.value = String(next ?? 0);
+      exact.value = next ?? "";
+      refreshQuickButtons();
       onValueChange(next);
       if (diffRef) diffRef();
       scheduleAutosave();
@@ -1166,10 +1206,15 @@
     function setActiveModeButtons() {
       $$("button[data-mode]", modeBar).forEach((b) => {
         const active = b.dataset.mode === module.ui.modes[modeKey];
-        b.classList.toggle("bg-brand-dark", active);
-        b.classList.toggle("text-white", active);
-        b.classList.toggle("bg-white", !active);
-        b.classList.toggle("text-gray-600", !active);
+        setChoiceState(b, active);
+      });
+    }
+
+    function refreshQuickButtons() {
+      $$("button[data-quick]", quickWrap).forEach((b) => {
+        const cfg = quickButtons.find((q) => q.key === b.dataset.quick);
+        const active = cfg ? (cfg.value ?? null) === (currentValue ?? null) : false;
+        setChoiceState(b, active);
       });
     }
 
@@ -1180,8 +1225,9 @@
       exact.hidden = mode !== "exact";
       quickWrap.hidden = mode !== "quick";
       // keep controls synced
-      slider.value = String(value ?? 0);
-      exact.value = value ?? "";
+      slider.value = String(currentValue ?? 0);
+      exact.value = currentValue ?? "";
+      refreshQuickButtons();
     }
 
     // init
@@ -1236,8 +1282,6 @@
             onValueChange: (next) => {
               module.numeric[field.id] = module.numeric[field.id] || { L: null, R: null };
               module.numeric[field.id].L = next;
-              refreshDiff();
-              onAfterChange?.();
             },
             onAfterChange,
             diffRef: refreshDiff,
@@ -1250,8 +1294,6 @@
             onValueChange: (next) => {
               module.numeric[field.id] = module.numeric[field.id] || { L: null, R: null };
               module.numeric[field.id].R = next;
-              refreshDiff();
-              onAfterChange?.();
             },
             onAfterChange,
             diffRef: refreshDiff,
@@ -1281,7 +1323,6 @@
       value: module.numeric[field.id] ?? null,
       onValueChange: (next) => {
         module.numeric[field.id] = next;
-        onAfterChange?.();
       },
       onAfterChange,
     });
@@ -2003,14 +2044,24 @@
                   children: [
                     renderComponent({
                       tag: "button",
-                      className: "px-3 py-1 rounded-full text-xs font-bold text-white/80",
-                      attrs: { type: "button", "data-mode-button": module.instanceId, "data-mode": "fast" },
+                      className: "aum-choice px-3 py-1 rounded-full text-xs font-bold text-white/80",
+                      attrs: {
+                        type: "button",
+                        "data-mode-button": module.instanceId,
+                        "data-mode": "fast",
+                        style: "--aum-choice-bg: rgba(255,255,255,0.08); --aum-choice-color: #E5E7EB; --aum-choice-border: rgba(255,255,255,0.28); --aum-choice-active-bg: #F5EFE5; --aum-choice-active-color: #102024; --aum-choice-active-border: #F5EFE5;",
+                      },
                       text: "Modo Rápido",
                     }),
                     renderComponent({
                       tag: "button",
-                      className: "px-3 py-1 rounded-full text-xs font-bold text-white/80",
-                      attrs: { type: "button", "data-mode-button": module.instanceId, "data-mode": "complete" },
+                      className: "aum-choice px-3 py-1 rounded-full text-xs font-bold text-white/80",
+                      attrs: {
+                        type: "button",
+                        "data-mode-button": module.instanceId,
+                        "data-mode": "complete",
+                        style: "--aum-choice-bg: rgba(255,255,255,0.08); --aum-choice-color: #E5E7EB; --aum-choice-border: rgba(255,255,255,0.28); --aum-choice-active-bg: #F5EFE5; --aum-choice-active-color: #102024; --aum-choice-active-border: #F5EFE5;",
+                      },
                       text: "Modo Completo",
                     }),
                   ],
@@ -2073,12 +2124,12 @@
     card.appendChild(body);
 
     stack.appendChild(card);
+    applyModuleMode(module);
 
     // First derived render
     renderPlanCard(module, tpl);
     evaluateModuleLogic(module, tpl);
     updateModuleScores(module, tpl);
-    applyModuleMode(module);
   }
 
   // -----------------------------
@@ -2350,6 +2401,7 @@
   // Init
   // -----------------------------
   function init() {
+    ensureChoiceStyles();
     ensureWeightHeightBMI();
     bindPatientInputs();
     renderIntakeRemote();
