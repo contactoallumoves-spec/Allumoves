@@ -11,8 +11,8 @@
   // -----------------------------
   // Globals / State
   // -----------------------------
-  const APP_VERSION = "aum-app-v4.0.0";
-  const SCHEMA_VERSION = 2;
+  const APP_VERSION = "aum-app-v4.1.0";
+  const SCHEMA_VERSION = 3;
 
   const AUTOSAVE_KEY = "aum_autosave_v1";
   let autosaveTimer = null;
@@ -812,6 +812,21 @@
     return sections;
   }
 
+  function calcSectionProgress(module, section) {
+    const total = (section.fields || []).length;
+    const answered = (section.fields || []).reduce((acc, f) => acc + (isFieldAnswered(module, f) ? 1 : 0), 0);
+    return { answered, total };
+  }
+
+  function refreshSectionProgressBadges(module, tpl) {
+    (tpl.sections || []).forEach((sec, idx) => {
+      const badge = $(`[data-section-progress="${module.instanceId}:${idx}"]`);
+      if (!badge) return;
+      const { answered, total } = calcSectionProgress(module, sec);
+      badge.textContent = `${answered}/${total}`;
+    });
+  }
+
   function collectActiveComorbidities() {
     const values = state.intake?.values || {};
     return (intakeFieldIndex.comorbidities || [])
@@ -870,6 +885,7 @@
       const planHasAlerts = !!reasoning?.plan?.hasAlerts;
       return {
         title: tpl.title || m.title,
+        note: (m.kineNote || "").trim(),
         sections,
         progress: { answered: totals.answered, total: totals.total },
         alerts: alerts.map((a) => ({ title: a.title || "Alerta", severity: a.severity || "info" })),
@@ -1066,6 +1082,13 @@
                     : { tag: "span", className: "px-2 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800", text: "Sin alertas críticas" },
                 ],
               },
+              m.note
+                ? {
+                    tag: "div",
+                    className: "text-[11px] text-gray-700 bg-white border border-gray-200 rounded-lg px-2 py-1",
+                    text: `Nota kine: ${m.note.slice(0, 140)}${m.note.length > 140 ? "…" : ""}`,
+                  }
+                : null,
             ],
           },
         ],
@@ -1522,7 +1545,8 @@
       tests: {},
       numeric: {},
       text: {},
-      ui: { collapsed: {}, mode: "complete", reasoningCollapsed: false }, // {sectionIndex:true/false}
+      kineNote: "",
+      ui: { collapsed: {}, mode: "complete", reasoningCollapsed: false, userToggled: false, autoDisclosureApplied: false }, // {sectionIndex:true/false}
       computed: { spadi: null, dash: null, alerts: [], reasoning: null },
     };
 
@@ -1633,11 +1657,114 @@
   function toggleSection(instanceId, secIndex) {
     const m = state.activeModules.find((x) => x.instanceId === instanceId);
     if (!m) return;
+    m.ui.userToggled = true;
     m.ui.collapsed[secIndex] = !m.ui.collapsed[secIndex];
     const content = $(`[data-section-content="${instanceId}:${secIndex}"]`);
     const chevron = $(`[data-section-chevron="${instanceId}:${secIndex}"]`);
     if (content) content.hidden = !!m.ui.collapsed[secIndex];
     if (chevron) chevron.classList.toggle("rotate-180", !m.ui.collapsed[secIndex]);
+    scheduleAutosave();
+  }
+
+  function setSectionCollapsed(module, secIndex, collapsed) {
+    module.ui.collapsed[secIndex] = collapsed;
+    const content = $(`[data-section-content="${module.instanceId}:${secIndex}"]`);
+    const chevron = $(`[data-section-chevron="${module.instanceId}:${secIndex}"]`);
+    if (content) content.hidden = !!collapsed;
+    if (chevron) chevron.classList.toggle("rotate-180", !collapsed);
+  }
+
+  function getSectionLabelIndex(tpl) {
+    const index = [];
+    (tpl.sections || []).forEach((sec, secIdx) => {
+      const labels = (sec.fields || []).map((f) => String(f.label || f.id || "").toLowerCase());
+      const ids = (sec.fields || []).map((f) => String(f.id || "").toLowerCase());
+      index.push({ secIdx, labels, ids });
+    });
+    return index;
+  }
+
+  function sectionsFromText(tpl, texts = []) {
+    const index = getSectionLabelIndex(tpl);
+    const matches = new Set();
+    (texts || []).forEach((txt) => {
+      const lower = String(txt || "").toLowerCase();
+      index.forEach(({ secIdx, labels, ids }) => {
+        const found = labels.some((l) => l && (lower.includes(l) || l.includes(lower))) || ids.some((id) => id && lower.includes(id));
+        if (found) matches.add(secIdx);
+      });
+    });
+    return matches;
+  }
+
+  function findRelevantSections(module, tpl, reasoning) {
+    const sections = tpl.sections || [];
+    const result = new Set();
+    const progresses = sections.map((sec) => calcSectionProgress(module, sec));
+
+    // Critical incompletes: muy vacíos o marcados como fast
+    progresses.forEach((prog, idx) => {
+      const ratio = prog.total > 0 ? prog.answered / prog.total : 1;
+      if (prog.total === 0) return;
+      const isCritical = ratio < 0.35 || sections[idx].fast;
+      if (isCritical && prog.answered < prog.total) result.add(idx);
+    });
+
+    // Top-3 hypothesis context
+    const top = (reasoning?.hypotheses || []).slice(0, 3);
+    const whyTexts = top.flatMap((h) => h.why || []);
+    const missingTexts = top.flatMap((h) => h.missing || []);
+    sectionsFromText(tpl, [...whyTexts, ...missingTexts]).forEach((secIdx) => result.add(secIdx));
+
+    return result;
+  }
+
+  function setAllSections(module, tpl, collapsed) {
+    (tpl.sections || []).forEach((_, idx) => setSectionCollapsed(module, idx, collapsed));
+  }
+
+  function applyProgressiveDisclosure(module, tpl, opts = {}) {
+    const { force = false, openIncomplete = false } = opts;
+    if (module.ui.userToggled && !force) return;
+
+    const reasoning = module.computed?.reasoning || buildReasoningData(module, tpl);
+    const sections = tpl.sections || [];
+    const toExpand = findRelevantSections(module, tpl, reasoning);
+
+    if (openIncomplete) {
+      sections.forEach((sec, idx) => {
+        const { answered, total } = calcSectionProgress(module, sec);
+        if (total > 0 && answered < total) toExpand.add(idx);
+      });
+    }
+
+    if (!toExpand.size && sections.length) {
+      toExpand.add(0);
+    }
+
+    sections.forEach((_, idx) => {
+      const expand = toExpand.has(idx);
+      setSectionCollapsed(module, idx, !expand);
+    });
+
+    module.ui.autoDisclosureApplied = true;
+    scheduleAutosave();
+  }
+
+  function expandIncompleteSections(module, tpl) {
+    applyProgressiveDisclosure(module, tpl, { force: true, openIncomplete: true });
+    module.ui.userToggled = true;
+  }
+
+  function expandAllSections(module, tpl) {
+    setAllSections(module, tpl, false);
+    module.ui.userToggled = true;
+    scheduleAutosave();
+  }
+
+  function collapseAllSections(module, tpl) {
+    setAllSections(module, tpl, true);
+    module.ui.userToggled = true;
     scheduleAutosave();
   }
 
@@ -3003,6 +3130,13 @@
       id: r.id,
       title: r.title || "Alerta clínica",
       severity: r.severity || "info",
+      description: r.description || "",
+    }));
+    module.computed.alertDetails = triggered.map((r) => ({
+      id: r.id,
+      title: r.title || "Alerta clínica",
+      severity: r.severity || "info",
+      description: r.description || "",
     }));
 
     if (triggered.length === 0) {
@@ -3146,11 +3280,238 @@
   }
 
   function renderReasoningSection(module, tpl) {
+    const container = $(`[data-integrative-reasoning="${module.instanceId}"]`);
+    if (!container) return;
+
     module.computed = module.computed || {};
     module.computed.reasoning = buildReasoningData(module, tpl);
-    renderHypotheses(module, tpl);
-    renderPlanCard(module, tpl);
+    const reasoning = module.computed.reasoning;
+    const plan = reasoning.plan || derivePlan(module, tpl);
+    const alerts = module.computed.alerts || [];
+    const clusterAlerts = alerts.filter((a) => String(a.id || "").includes("cluster"));
+    const redAlerts = alerts.filter((a) => !String(a.id || "").includes("cluster"));
+    const missing = (reasoning.missing || []).slice(0, 3);
+    const needsIrritability = !plan.irritability || String(plan.phase || "").toLowerCase().includes("por definir");
+
+    const scopeKey = getModuleIntakeScope(module, tpl);
+    const scoped = state.intakeDerived.scopes[scopeKey] || emptyIntakeDerived();
+    const global = state.intakeDerived.global || emptyIntakeDerived();
+    const intakeAdjustments = uniqueList([...(global.evaluation || []), ...(global.treatment || []), ...(scoped.evaluation || []), ...(scoped.treatment || [])]);
+
+    let rankingData = { rankings: reasoning.hypotheses || [], topByType: {} };
+    if (tpl.key === "hombro") {
+      rankingData = buildShoulderRankings(module);
+      module.computed.shoulderRanking = rankingData;
+    }
+    const topCpg = tpl.key === "hombro" ? (rankingData.topByType.CPG || []).slice(0, 3) : [];
+    const topDisf = tpl.key === "hombro" ? (rankingData.topByType.DISFUNCION || []).slice(0, 3) : [];
+    const topGeneral = tpl.key === "hombro" ? [] : (reasoning.hypotheses || []).slice(0, 3);
+
+    const listBlock = (title, items, emptyText, tone = "default") =>
+      renderComponent({
+        className: "p-4 rounded-2xl border border-gray-200 bg-white space-y-2",
+        children: [
+          { className: "text-xs font-extrabold uppercase text-brand-dark", text: title },
+          items && items.length
+            ? renderComponent({
+                tag: "ul",
+                className: "space-y-2",
+                children: items.map((it, idx) =>
+                  renderComponent({
+                    className: "p-3 rounded-xl border border-gray-100 bg-gray-50 space-y-1",
+                    children: [
+                      {
+                        className: "flex items-center justify-between gap-2",
+                        children: [
+                          { tag: "div", className: "font-semibold text-sm text-brand-dark truncate", text: `${idx + 1}. ${it.title || it.label}` },
+                          {
+                            tag: "span",
+                            className: `px-2 py-1 rounded-full text-[11px] font-bold ${
+                              tone === "warning"
+                                ? "bg-amber-100 text-amber-900"
+                                : tone === "danger"
+                                ? "bg-red-100 text-red-800"
+                                : "bg-brand-accent/30 text-brand-dark"
+                            }`,
+                            text: `${it.score ?? 0} pts`,
+                          },
+                        ],
+                      },
+                      it.why && it.why.length
+                        ? renderComponent({
+                            tag: "ul",
+                            className: "list-disc pl-4 text-sm text-gray-700 space-y-1",
+                            children: it.why.slice(0, 2).map((w) => renderComponent({ tag: "li", text: w })),
+                          })
+                        : null,
+                    ].filter(Boolean),
+                  })
+                ),
+              })
+            : { tag: "div", className: "text-sm text-gray-600", text: emptyText || "Sin datos aún." },
+        ],
+      });
+
+    const alertCard =
+      alerts.length === 0
+        ? renderComponent({
+            className: "p-4 rounded-2xl border border-gray-200 bg-white",
+            children: [
+              { className: "text-xs font-extrabold uppercase text-brand-dark", text: "Alertas / Precauciones" },
+              { className: "text-sm text-gray-600", text: "Sin alertas activas." },
+            ],
+          })
+        : renderComponent({
+            className: "p-4 rounded-2xl border border-gray-200 bg-white space-y-2",
+            children: [
+              { className: "text-xs font-extrabold uppercase text-brand-dark", text: "Alertas / Precauciones" },
+              ...alerts.map((a) => renderAlertCard(a, a.severity)),
+            ],
+          });
+
+    const clusterCard = renderComponent({
+      className: "p-4 rounded-2xl border border-gray-200 bg-white space-y-2",
+      children: [
+        { className: "text-xs font-extrabold uppercase text-brand-dark", text: "Clusters disparados" },
+        clusterAlerts.length
+          ? renderComponent({
+              tag: "ul",
+              className: "space-y-2",
+              children: clusterAlerts.map((c) =>
+                renderComponent({
+                  className: "p-3 rounded-xl border border-blue-100 bg-blue-50 space-y-1",
+                  children: [
+                    { tag: "div", className: "font-semibold text-sm text-brand-dark", text: c.title },
+                    { tag: "div", className: "text-sm text-blue-900", text: c.description || "Cluster clínico activo." },
+                  ],
+                })
+              ),
+            })
+          : { tag: "div", className: "text-sm text-gray-600", text: "Aún no se activan clusters clínicos." },
+      ],
+    });
+
+    const planCard = renderComponent({
+      className: "p-4 rounded-2xl border border-gray-200 bg-white space-y-3",
+      children: [
+        {
+          className: "flex flex-wrap items-center gap-2",
+          children: [
+            { tag: "span", className: "px-3 py-1 rounded-full text-[11px] font-bold bg-brand-accent/30 text-brand-dark", text: plan.phase },
+            needsIrritability
+              ? renderComponent({
+                  tag: "span",
+                  className: "px-3 py-1 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800",
+                  text: "Definir fase/irritabilidad",
+                })
+              : null,
+          ].filter(Boolean),
+        },
+        needsIrritability
+          ? renderComponent({
+              className: "p-3 rounded-xl border border-amber-200 bg-amber-50 text-sm text-amber-900",
+              text: "Usa checklist base mientras defines fase/irritabilidad para dosificar con seguridad.",
+            })
+          : null,
+        renderComponent({
+          className: "grid grid-cols-1 md:grid-cols-3 gap-3",
+          children: [plan.planA, plan.planB, plan.planC].map((p) =>
+            renderComponent({
+              className: "p-3 rounded-xl border border-gray-200 bg-gray-50 space-y-2",
+              children: [
+                { tag: "div", className: "font-extrabold text-brand-dark", text: p.title },
+                p.note ? { tag: "div", className: "text-xs text-gray-600", text: p.note } : null,
+                renderComponent({
+                  tag: "ul",
+                  className: "list-disc pl-4 text-sm text-gray-800 space-y-1",
+                  children: (p.bullets || []).slice(0, 4).map((b) => renderComponent({ tag: "li", text: b })),
+                }),
+              ].filter(Boolean),
+            })
+          ),
+        }),
+        plan.focusBullets && plan.focusBullets.length
+          ? renderComponent({
+              className: "p-3 rounded-xl border border-blue-100 bg-blue-50 space-y-1",
+              children: [
+                { className: "text-xs font-extrabold uppercase text-blue-900", text: "Focos sugeridos" },
+                renderComponent({
+                  tag: "ul",
+                  className: "list-disc pl-4 text-sm text-blue-900 space-y-1",
+                  children: plan.focusBullets.slice(0, 4).map((b) => renderComponent({ tag: "li", text: b })),
+                }),
+              ],
+            })
+          : null,
+      ].filter(Boolean),
+    });
+
+    const missingCard =
+      missing.length === 0
+        ? null
+        : renderComponent({
+            className: "p-4 rounded-2xl border border-amber-200 bg-amber-50 space-y-2",
+            children: [
+              { className: "text-xs font-extrabold uppercase text-amber-900", text: "Qué falta evaluar" },
+              renderComponent({
+                tag: "ul",
+                className: "list-disc pl-4 text-sm text-amber-900 space-y-1",
+                children: missing.map((m) => renderComponent({ tag: "li", text: m })),
+              }),
+            ],
+          });
+
+    const adjustmentsCard = renderComponent({
+      className: "p-4 rounded-2xl border border-gray-200 bg-white space-y-2",
+      children: [
+        { className: "text-xs font-extrabold uppercase text-brand-dark", text: "Comorbilidades / medicación" },
+        intakeAdjustments.length
+          ? renderComponent({
+              tag: "ul",
+              className: "list-disc pl-4 text-sm text-gray-800 space-y-1",
+              children: intakeAdjustments.slice(0, 6).map((t) => renderComponent({ tag: "li", text: t })),
+            })
+          : { className: "text-sm text-gray-600", text: "Sin ajustes especiales desde intake remoto." },
+      ],
+    });
+
+    const noteArea = renderComponent({
+      tag: "textarea",
+      className: "aum-input min-h-[96px]",
+      attrs: { placeholder: "Nota clínica del kinesiólogo" },
+      text: "",
+    });
+    noteArea.value = module.kineNote || "";
+    registerDelegated(noteArea, "input", () => {
+      module.kineNote = noteArea.value;
+      scheduleAutosave();
+      scheduleLivePanelRender();
+    });
+    const noteCard = renderComponent({
+      className: "p-4 rounded-2xl border border-gray-200 bg-white space-y-2",
+      children: [
+        { className: "text-xs font-extrabold uppercase text-brand-dark", text: "Nota clínica del kinesiólogo" },
+        noteArea,
+      ],
+    });
+
+    const reasoningGrid = renderComponent({
+      className: "grid grid-cols-1 lg:grid-cols-2 gap-3",
+      children: [
+        alertCard,
+        clusterCard,
+        tpl.key === "hombro" ? listBlock("Top 3 CPG (con por qué)", topCpg, "Completa criterios para priorizar.", "warning") : listBlock("Top 3 hipótesis", topGeneral, "Completa hallazgos clave."),
+        tpl.key === "hombro" ? listBlock("Top 3 Disfunción", topDisf, "Completa hallazgos clave.") : null,
+      ].filter(Boolean),
+    });
+
+    const classificationBlock = tpl.key === "hombro" ? renderComponent({ attrs: { "data-shoulder-classification": module.instanceId }, className: "space-y-2" }) : null;
+
+    const blocks = [reasoningGrid, classificationBlock, missingCard, planCard, adjustmentsCard, noteCard].filter(Boolean);
+    container.replaceChildren(...blocks);
+
     if (tpl.key === "hombro") renderShoulderClassification(module);
+    applyProgressiveDisclosure(module, tpl);
   }
 
   function renderModuleIntakeConsiderations(module, tpl) {
@@ -3206,6 +3567,8 @@
       updateModuleScores(module, tpl);
       evaluateModuleLogic(module, tpl);
       renderReasoningSection(module, tpl);
+      refreshSectionProgressBadges(module, tpl);
+      applyProgressiveDisclosure(module, tpl);
       scheduleAutosave();
     };
 
@@ -3275,7 +3638,7 @@
             onChange: (v) => {
               module.text[field.id] = v;
               scheduleLivePanelRender();
-              scheduleAutosave();
+              afterChange();
             },
           }),
         ],
@@ -3293,7 +3656,7 @@
           onChange: (v) => {
             module.text[field.id] = v;
             scheduleLivePanelRender();
-            scheduleAutosave();
+            afterChange();
           },
         }),
       ],
@@ -3333,6 +3696,7 @@
       module.ui.collapsed[secIndex] = isOutcomeSectionTitle(section.title);
     }
 
+    const progress = calcSectionProgress(module, section);
     const content = renderComponent({
       tag: "div",
       attrs: { "data-section-content": `${module.instanceId}:${secIndex}` },
@@ -3393,6 +3757,18 @@
                   children: sectionHeaderBadges(module, section.title),
                 }),
               ],
+            }),
+          ],
+        }),
+        renderComponent({
+          tag: "div",
+          className: "flex items-center gap-2",
+          children: [
+            renderComponent({
+              tag: "span",
+              className: "px-2 py-1 rounded-lg text-[11px] font-semibold bg-white border border-gray-200 text-brand-dark",
+              attrs: { "data-section-progress": `${module.instanceId}:${secIndex}` },
+              text: `${progress.answered}/${progress.total}`,
             }),
           ],
         }),
@@ -3530,39 +3906,52 @@
       })
     );
 
+    const disclosureBar = (() => {
+      const btnClass =
+        "w-full sm:w-auto flex-1 sm:flex-none px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-brand-dark font-bold shadow-sm hover:bg-white transition-colors active:scale-[0.99]";
+      const bar = renderComponent({
+        tag: "div",
+        className: "flex flex-col sm:flex-row flex-wrap gap-2 sm:items-center",
+        attrs: { "data-disclosure-bar": module.instanceId },
+        children: [
+          renderComponent({
+            tag: "button",
+            className: `${btnClass} bg-brand-dark text-white border-brand-dark`,
+            attrs: { type: "button", "data-disclosure-action": "incomplete" },
+            children: [iconEl("fa-asterisk"), { tag: "span", className: "ml-1", text: "Expandir incompletos" }],
+          }),
+          renderComponent({
+            tag: "button",
+            className: btnClass,
+            attrs: { type: "button", "data-disclosure-action": "expand" },
+            children: [iconEl("fa-up-right-and-down-left-from-center"), { tag: "span", className: "ml-1", text: "Expandir todo" }],
+          }),
+          renderComponent({
+            tag: "button",
+            className: btnClass,
+            attrs: { type: "button", "data-disclosure-action": "collapse" },
+            children: [iconEl("fa-down-left-and-up-right-to-center"), { tag: "span", className: "ml-1", text: "Colapsar todo" }],
+          }),
+        ],
+      });
+      registerDelegated(bar, "click", (e) => {
+        const btn = e.target.closest("[data-disclosure-action]");
+        if (!btn) return;
+        const action = btn.dataset.disclosureAction;
+        if (action === "expand") expandAllSections(module, tpl);
+        if (action === "collapse") collapseAllSections(module, tpl);
+        if (action === "incomplete") expandIncompleteSections(module, tpl);
+      });
+      return bar;
+    })();
+    body.appendChild(disclosureBar);
+
     const reasoningContent = renderComponent({
       tag: "div",
       attrs: { "data-reasoning-content": module.instanceId },
       className: "p-4 space-y-4",
       hidden: !!module.ui.reasoningCollapsed,
-      children: [
-        renderComponent({
-          tag: "div",
-          className: "space-y-2",
-          children: [
-            renderComponent({ tag: "div", className: "text-xs font-extrabold text-brand-dark uppercase", text: "Top-3 hipótesis" }),
-            renderComponent({ tag: "div", attrs: { "data-hypotheses": module.instanceId }, className: "space-y-3" }),
-          ],
-        }),
-        renderComponent({
-          tag: "div",
-          className: "space-y-2",
-          children: [
-            renderComponent({ tag: "div", className: "text-xs font-extrabold text-brand-dark uppercase", text: "Plan A/B/C" }),
-            renderComponent({ tag: "div", attrs: { "data-plan": module.instanceId }, className: "space-y-3" }),
-          ],
-        }),
-        module.key === "hombro"
-          ? renderComponent({
-              tag: "div",
-              className: "space-y-2",
-              children: [
-                renderComponent({ tag: "div", className: "text-xs font-extrabold text-brand-dark uppercase", text: "Clasificación sugerida" }),
-                renderComponent({ tag: "div", attrs: { "data-shoulder-classification": module.instanceId }, className: "space-y-3" }),
-              ],
-            })
-          : null,
-      ],
+      children: [renderComponent({ tag: "div", attrs: { "data-integrative-reasoning": module.instanceId }, className: "space-y-3" })],
     });
 
     const reasoningChevron = renderComponent({
@@ -3590,7 +3979,7 @@
               className: "min-w-0",
               children: [
                 renderComponent({ tag: "div", className: "font-extrabold text-brand-dark truncate", text: "Razonamiento integrador" }),
-                renderComponent({ tag: "div", className: "text-xs text-gray-600", text: "Top-3 hipótesis + Plan A/B/C + pendientes" }),
+                renderComponent({ tag: "div", className: "text-xs text-gray-600", text: "Alertas + Top 3 + clusters + planes + nota clínica" }),
               ],
             }),
           ],
@@ -3814,10 +4203,13 @@
       });
       m.numeric = m.numeric || {};
       m.text = m.text || {};
+      m.kineNote = typeof m.kineNote === "string" ? m.kineNote : "";
       m.ui = m.ui || { collapsed: {}, mode: "complete" };
       m.ui.mode = m.ui.mode || "complete";
       m.ui.collapsed = m.ui.collapsed || {};
       if (m.ui.reasoningCollapsed === undefined) m.ui.reasoningCollapsed = false;
+      if (m.ui.userToggled === undefined) m.ui.userToggled = false;
+      if (m.ui.autoDisclosureApplied === undefined) m.ui.autoDisclosureApplied = false;
       m.scope = m.scope || tpl.scope || "all";
       m.computed = m.computed || {};
       m.computed.spadi = m.computed.spadi || null;
