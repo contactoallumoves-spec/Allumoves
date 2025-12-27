@@ -193,6 +193,7 @@
   // Intake remoto global: helpers & state
   // -----------------------------
   let intakeFieldIndex = { all: [], comorbidities: [], medications: [], branches: {} };
+  let intakeFieldMeta = {};
   const emptyIntakeDerived = () => ({ alerts: [], evaluation: [], treatment: [] });
 
   function getIntakeConfig() {
@@ -205,6 +206,7 @@
 
   function resetIntakeIndex() {
     intakeFieldIndex = { all: [], comorbidities: [], medications: [], branches: {} };
+    intakeFieldMeta = {};
   }
 
   function collectSectionFields(sections = []) {
@@ -239,6 +241,7 @@
           if (!intakeFieldIndex.branches[branchKey]) intakeFieldIndex.branches[branchKey] = [];
           intakeFieldIndex.branches[branchKey].push(f.id);
         }
+        intakeFieldMeta[f.id] = { label: f.label || f.id, bucket, branch: branchKey || null };
       });
     };
 
@@ -283,6 +286,15 @@
     activeModules: [], // [{instanceId, key, title, icon, tests, numeric, text, ui, computed}]
     meta: { version: APP_VERSION, updatedAt: null },
   };
+
+  const livePanelRefs = {
+    root: null,
+    desktopContent: null,
+    drawerContent: null,
+    drawer: null,
+    toggle: null,
+  };
+  let livePanelRenderPending = false;
 
   // -----------------------------
   // Patient inputs + BMI injection
@@ -402,6 +414,7 @@
 
   function setPatientData(id, value) {
     state.patientData[id] = value;
+    scheduleLivePanelRender();
     scheduleAutosave();
   }
 
@@ -449,6 +462,21 @@
       setPatientData("patient-age", age || "");
       evaluateAllLogic();
     };
+
+    const bindRadioGroup = (name, stateKey) => {
+      const nodes = $$(`input[type="radio"][name="${name}"]`);
+      if (!nodes.length) return;
+      const sync = () => {
+        const sel = nodes.find((n) => n.checked);
+        setPatientData(stateKey, sel ? sel.value : "");
+      };
+      nodes.forEach((node) => node.addEventListener("change", sync));
+      sync();
+    };
+
+    bindRadioGroup("dominance", "patient-dominance");
+    bindRadioGroup("sex", "patient-sex");
+    bindRadioGroup("consent", "patient-consent");
   }
 
   // -----------------------------
@@ -459,6 +487,7 @@
     state.intake.values[id] = value;
     renderAllIntakeInsights();
     evaluateAllLogic();
+    scheduleLivePanelRender();
     scheduleAutosave();
   }
 
@@ -547,6 +576,396 @@
       out.push(item);
     });
     return out;
+  }
+
+  // -----------------------------
+  // Live panel (real-time summary)
+  // -----------------------------
+  function scheduleLivePanelRender() {
+    if (livePanelRenderPending) return;
+    livePanelRenderPending = true;
+    const cb = () => {
+      livePanelRenderPending = false;
+      renderLivePanel();
+    };
+    if (typeof window.requestAnimationFrame === "function") window.requestAnimationFrame(cb);
+    else setTimeout(cb, 16);
+  }
+
+  function setDrawerOpen(open) {
+    if (!livePanelRefs.drawer) return;
+    livePanelRefs.drawer.classList.toggle("translate-y-0", !!open);
+    livePanelRefs.drawer.classList.toggle("translate-y-[68%]", !open);
+    livePanelRefs.drawer.classList.toggle("pointer-events-none", !open);
+    livePanelRefs.drawer.classList.toggle("pointer-events-auto", !!open);
+    if (livePanelRefs.toggle) {
+      livePanelRefs.toggle.setAttribute("aria-pressed", open ? "true" : "false");
+    }
+  }
+
+  function ensureLivePanelShell() {
+    if (livePanelRefs.root) return;
+
+    const desktopContent = renderComponent({ tag: "div", className: "space-y-3", attrs: { "data-live-panel-content": "desktop" } });
+    const desktop = renderComponent({
+      tag: "aside",
+      className: "hidden lg:block fixed right-4 top-28 w-[320px] max-h-[calc(100vh-140px)] overflow-y-auto z-40 pointer-events-auto",
+      children: [
+        renderComponent({
+          tag: "div",
+          className: "bg-white/95 backdrop-blur rounded-3xl shadow-2xl border border-gray-200 p-4 space-y-3",
+          children: [
+            renderComponent({
+              tag: "div",
+              className: "flex items-center justify-between",
+              children: [
+                renderComponent({ tag: "div", className: "text-xs font-extrabold uppercase text-brand-dark tracking-wide", text: "Panel en tiempo real" }),
+                renderComponent({ tag: "div", className: "px-2 py-1 rounded-full text-[11px] font-semibold bg-brand-accent/30 text-brand-dark", text: "Live" }),
+              ],
+            }),
+            desktopContent,
+          ],
+        }),
+      ],
+    });
+
+    const drawerContent = renderComponent({ tag: "div", className: "space-y-3", attrs: { "data-live-panel-content": "drawer" } });
+    const drawer = renderComponent({
+      tag: "div",
+      className: "fixed inset-x-0 bottom-0 lg:hidden z-50 transform translate-y-[68%] transition-transform duration-300 ease-out pointer-events-none",
+      attrs: { role: "complementary" },
+      children: [
+        renderComponent({
+          tag: "div",
+          className: "mx-3 mb-4 rounded-3xl shadow-2xl border border-gray-200 bg-white p-4 pb-5 max-h-[70vh] overflow-y-auto pointer-events-auto",
+          children: [
+            renderComponent({
+              tag: "div",
+              className: "flex items-center justify-between mb-2",
+              children: [
+                renderComponent({ tag: "div", className: "text-xs font-extrabold uppercase text-brand-dark tracking-wide", text: "Panel en tiempo real" }),
+                renderComponent({
+                  tag: "button",
+                  className: "text-brand-dark text-sm font-semibold px-3 py-1 rounded-full bg-brand-accent/40 hover:bg-brand-accent/60 transition-colors",
+                  attrs: { type: "button" },
+                  text: "Cerrar",
+                  on: { click: () => setDrawerOpen(false) },
+                }),
+              ],
+            }),
+            drawerContent,
+          ],
+        }),
+      ],
+    });
+
+    const toggle = renderComponent({
+      tag: "button",
+      className: "lg:hidden fixed bottom-28 right-4 z-50 bg-brand-dark text-white px-4 py-3 rounded-full shadow-xl flex items-center gap-2",
+      attrs: { type: "button", "aria-pressed": "false" },
+      on: { click: () => setDrawerOpen(!livePanelRefs.drawer?.classList.contains("translate-y-0")) },
+      children: [iconEl("fa-chart-line"), renderComponent({ tag: "span", className: "font-bold text-sm", text: "Panel" })],
+    });
+
+    document.body.appendChild(desktop);
+    document.body.appendChild(drawer);
+    document.body.appendChild(toggle);
+
+    livePanelRefs.root = desktop;
+    livePanelRefs.desktopContent = desktopContent;
+    livePanelRefs.drawerContent = drawerContent;
+    livePanelRefs.drawer = drawer;
+    livePanelRefs.toggle = toggle;
+  }
+
+  function panelSection(title, icon, content) {
+    return {
+      className: "rounded-2xl border border-gray-200 bg-white p-4 space-y-3 shadow-sm",
+      children: [
+        {
+          tag: "div",
+          className: "flex items-center gap-2 text-xs font-extrabold uppercase text-brand-dark tracking-wide",
+          children: [iconEl(icon || "fa-circle-info"), { tag: "span", text: title }],
+        },
+        ...content,
+      ],
+    };
+  }
+
+  function pillList(items, emptyText, tone = "default") {
+    if (!items || items.length === 0) {
+      return { tag: "div", className: "text-xs text-gray-500", text: emptyText };
+    }
+    const palette =
+      tone === "danger"
+        ? "bg-red-50 text-red-800 border border-red-100"
+        : tone === "warning"
+        ? "bg-amber-50 text-amber-800 border border-amber-100"
+        : "bg-gray-50 text-gray-800 border border-gray-100";
+    return {
+      tag: "div",
+      className: "flex flex-wrap gap-2",
+      children: items.map((txt) => ({
+        tag: "span",
+        className: `px-3 py-1 rounded-full text-xs font-semibold ${palette}`,
+        text: txt,
+      })),
+    };
+  }
+
+  function isFieldAnswered(module, field) {
+    if (!field || !field.id) return false;
+    if (field.type === "boolean") return triValue(module.tests?.[field.id]) !== null;
+    if (field.type === "numeric") {
+      const v = module.numeric?.[field.id];
+      if (field.bilateral) return v && isNum(v.L) && isNum(v.R);
+      return isNum(v);
+    }
+    const val = module.text?.[field.id];
+    return !!String(val || "").trim();
+  }
+
+  function sectionProgressSummary(module, tpl) {
+    const sections = [];
+    (tpl.sections || []).forEach((sec) => {
+      const total = (sec.fields || []).length;
+      let answered = 0;
+      (sec.fields || []).forEach((f) => {
+        if (isFieldAnswered(module, f)) answered += 1;
+      });
+      sections.push({ title: sec.title || "Sección", answered, total });
+    });
+    return sections;
+  }
+
+  function collectActiveComorbidities() {
+    const values = state.intake?.values || {};
+    return (intakeFieldIndex.comorbidities || [])
+      .filter((id) => values[id] === true)
+      .map((id) => intakeFieldMeta[id]?.label || id);
+  }
+
+  function collectIntakeAlertsBySeverity(sev) {
+    const out = [];
+    const seen = new Set();
+    const scopes = Object.values(state.intakeDerived?.scopes || {});
+    const append = (list = []) => {
+      list.forEach((a) => {
+        const key = a.id || a.title;
+        if (!key || seen.has(key)) return;
+        if (sev && a.severity !== sev) return;
+        seen.add(key);
+        out.push(a);
+      });
+    };
+    append(state.intakeDerived?.global?.alerts || []);
+    scopes.forEach((s) => append(s.alerts || []));
+    return out;
+  }
+
+  function collectIntakeConsiderations() {
+    const evals = [...(state.intakeDerived?.global?.evaluation || [])];
+    const tx = [...(state.intakeDerived?.global?.treatment || [])];
+    Object.values(state.intakeDerived?.scopes || {}).forEach((s) => {
+      evals.push(...(s.evaluation || []));
+      tx.push(...(s.treatment || []));
+    });
+    return uniqueList([...evals, ...tx]);
+  }
+
+  function collectModuleSummaries() {
+    return state.activeModules.map((m) => {
+      const tpl = getModuleTemplate(m.key);
+      const sections = sectionProgressSummary(m, tpl);
+      const totals = sections.reduce(
+        (acc, sec) => {
+          acc.answered += sec.answered;
+          acc.total += sec.total;
+          return acc;
+        },
+        { answered: 0, total: 0 }
+      );
+      const alerts = m.computed?.alerts || [];
+      return {
+        title: tpl.title || m.title,
+        sections,
+        progress: { answered: totals.answered, total: totals.total },
+        alerts: alerts.map((a) => ({ title: a.title || "Alerta", severity: a.severity || "info" })),
+      };
+    });
+  }
+
+  function collectOutcomeSummaries() {
+    const res = [];
+    state.activeModules.forEach((m) => {
+      const tpl = getModuleTemplate(m.key);
+      const name = tpl.title || m.title;
+      const hasSpadi = Object.keys(m.numeric || {}).some((id) => id.startsWith("spadi_"));
+      const sp = m.computed?.spadi;
+      if (sp && hasSpadi) {
+        res.push({
+          label: `${name} · SPADI`,
+          type: "spadi",
+          score: sp.totalPct,
+          missing: sp.missing,
+          complete: sp.missing === 0,
+        });
+      }
+      const hasDash = Object.keys(m.numeric || {}).some((id) => id.startsWith("dash_"));
+      const da = m.computed?.dash;
+      if (da && hasDash) {
+        res.push({
+          label: `${name} · DASH`,
+          type: "dash",
+          score: da.total,
+          missing: da.missing,
+          complete: da.missing === 0,
+        });
+      }
+    });
+    return res;
+  }
+
+  function buildIdentitySection() {
+    const items = [
+      { label: "Nombre", value: state.patientData["patient-name"] || "—" },
+      { label: "Edad", value: state.patientData["patient-age"] ? `${state.patientData["patient-age"]} años` : "—" },
+      { label: "Dominancia", value: state.patientData["patient-dominance"] || "—" },
+      { label: "IMC", value: state.patientData["patient-bmi"] || "—" },
+    ];
+    return panelSection(
+      "Identificación",
+      "fa-id-card-clip",
+      [
+        {
+          tag: "div",
+          className: "grid grid-cols-2 gap-2",
+          children: items.map((it) => ({
+            tag: "div",
+            className: "p-3 rounded-xl bg-gray-50 border border-gray-100",
+            children: [
+              { tag: "div", className: "text-[11px] font-semibold text-gray-500 uppercase", text: it.label },
+              { tag: "div", className: "text-sm font-bold text-brand-dark truncate", text: it.value },
+            ],
+          })),
+        },
+      ]
+    );
+  }
+
+  function buildIntakeSection() {
+    const comorbidities = collectActiveComorbidities();
+    const redFlags = collectIntakeAlertsBySeverity("danger").map((a) => a.title || a.description || "Red flag");
+    const considerations = collectIntakeConsiderations();
+
+    return panelSection("Intake remoto", "fa-heart-pulse", [
+      { tag: "div", className: "text-xs font-extrabold text-brand-dark", text: "Comorbilidades" },
+      pillList(comorbidities, "Sin comorbilidades marcadas."),
+      { tag: "div", className: "text-xs font-extrabold text-brand-dark mt-2", text: "Red flags" },
+      pillList(redFlags, "Sin red flags activas.", "danger"),
+      { tag: "div", className: "text-xs font-extrabold text-brand-dark mt-2", text: "Consideraciones" },
+      pillList(considerations, "Sin consideraciones adicionales."),
+    ]);
+  }
+
+  function buildModulesSection() {
+    const modules = collectModuleSummaries();
+    if (!modules.length) {
+      return panelSection("Módulos activos", "fa-layer-group", [{ tag: "div", className: "text-xs text-gray-500", text: "Sin evaluaciones en curso." }]);
+    }
+
+    const moduleCards = modules.map((m) => {
+      const progressPct = m.progress.total ? Math.round((m.progress.answered / m.progress.total) * 100) : 0;
+      const progressText = m.progress.total ? `${m.progress.answered}/${m.progress.total}` : "0/0";
+      const alerts = m.alerts || [];
+
+      return {
+        className: "rounded-xl border border-gray-100 bg-gray-50 p-3 space-y-2",
+        children: [
+          {
+            tag: "div",
+            className: "flex items-center justify-between gap-2",
+            children: [
+              { tag: "div", className: "font-bold text-brand-dark text-sm truncate", text: m.title },
+              {
+                tag: "span",
+                className: "text-[11px] font-semibold px-2 py-1 rounded-full bg-brand-accent/40 text-brand-dark",
+                text: `${progressPct}% (${progressText})`,
+              },
+            ],
+          },
+          {
+            tag: "div",
+            className: "flex flex-wrap gap-2",
+            children: m.sections.map((sec) => ({
+              tag: "span",
+              className: "px-2 py-1 rounded-lg text-[11px] font-semibold bg-white border border-gray-200",
+              text: `${sec.title} · ${sec.answered}/${sec.total || 0}`,
+            })),
+          },
+          {
+            tag: "div",
+            className: "flex flex-wrap gap-2",
+            children:
+              alerts.length === 0
+                ? [{ tag: "span", className: "text-[11px] text-gray-500", text: "Sin alertas activas." }]
+                : alerts.map((a) => ({
+                    tag: "span",
+                    className: `px-2 py-1 rounded-full text-[11px] font-semibold ${
+                      a.severity === "danger"
+                        ? "bg-red-100 text-red-800"
+                        : a.severity === "warning"
+                        ? "bg-amber-100 text-amber-800"
+                        : "bg-blue-100 text-blue-800"
+                    }`,
+                    text: a.title,
+                  })),
+          },
+        ],
+      };
+    });
+
+    return panelSection("Módulos activos", "fa-layer-group", moduleCards);
+  }
+
+  function buildOutcomeSection() {
+    const outcomes = collectOutcomeSummaries();
+    if (!outcomes.length) {
+      return panelSection("SPADI / DASH", "fa-square-poll-vertical", [{ tag: "div", className: "text-xs text-gray-500", text: "Aún sin PROMs calculados." }]);
+    }
+
+    return panelSection(
+      "SPADI / DASH",
+      "fa-square-poll-vertical",
+      outcomes.map((o) => {
+        const isComplete = o.complete && o.score !== null && o.score !== undefined;
+        const baseCls = isComplete ? "bg-emerald-50 text-emerald-800 border-emerald-100" : "bg-amber-50 text-amber-800 border-amber-100";
+        const scoreText =
+          o.score !== null && o.score !== undefined
+            ? `${o.type === "spadi" ? `${o.score.toFixed(1)}%` : o.score.toFixed(1)}`
+            : "Incompleto";
+        const missingText = o.missing > 0 ? ` · Faltan ${o.missing}` : "";
+        return {
+          className: `rounded-xl border p-3 ${baseCls}`,
+          children: [
+            { tag: "div", className: "text-sm font-bold", text: o.label },
+            { tag: "div", className: "text-xs font-semibold", text: `${scoreText}${missingText}` },
+          ],
+        };
+      })
+    );
+  }
+
+  function renderLivePanel() {
+    ensureLivePanelShell();
+    const buildSections = () => [buildIdentitySection(), buildIntakeSection(), buildModulesSection(), buildOutcomeSection()];
+    const renderInto = (container) => {
+      if (!container) return;
+      const sections = buildSections().map((cfg) => renderComponent(cfg));
+      container.replaceChildren(...sections);
+    };
+    renderInto(livePanelRefs.desktopContent);
+    renderInto(livePanelRefs.drawerContent);
   }
 
   function renderIntakeResults(branchKey) {
@@ -849,7 +1268,7 @@
       numeric: {},
       text: {},
       ui: { collapsed: {}, mode: "complete" }, // {sectionIndex:true/false}
-      computed: { spadi: null, dash: null },
+      computed: { spadi: null, dash: null, alerts: [] },
     };
 
     // Seed defaults from fields
@@ -888,6 +1307,7 @@
     setEmptyStateVisibility();
     evaluateModuleLogic(m, tpl);
     updateModuleScores(m, tpl);
+    scheduleLivePanelRender();
     scheduleAutosave();
   }
 
@@ -931,6 +1351,7 @@
     state.activeModules.splice(idx, 1);
     renderActiveTags();
     setEmptyStateVisibility();
+    scheduleLivePanelRender();
     scheduleAutosave();
   }
 
@@ -946,6 +1367,7 @@
     }
     renderActiveTags();
     setEmptyStateVisibility();
+    scheduleLivePanelRender();
     scheduleAutosave();
   }
 
@@ -1571,6 +1993,7 @@
 
     renderOutcomeSummary(module, tpl, "spadi", sp);
     renderOutcomeSummary(module, tpl, "dash", da);
+    scheduleLivePanelRender();
   }
 
   function renderOutcomeSummary(module, _tpl, type, data) {
@@ -1797,13 +2220,24 @@
     const intakeScope = state.intakeDerived.scopes[scopeKey] || emptyIntakeDerived();
     intakeScope.alerts.forEach((r) => triggered.push(r));
 
-    if (triggered.length === 0) return;
+    module.computed = module.computed || {};
+    module.computed.alerts = triggered.map((r) => ({
+      id: r.id,
+      title: r.title || "Alerta clínica",
+      severity: r.severity || "info",
+    }));
+
+    if (triggered.length === 0) {
+      scheduleLivePanelRender();
+      return;
+    }
 
     // Render in order: danger -> warning -> info
     const order = { danger: 0, warning: 1, info: 2 };
     triggered.sort((a, b) => (order[a.severity] ?? 9) - (order[b.severity] ?? 9));
 
     triggered.forEach((r) => container.appendChild(renderAlertCard(r)));
+    scheduleLivePanelRender();
   }
 
   function renderPlanCard(module, tpl) {
@@ -1904,6 +2338,7 @@
       renderPlanCard(m, tpl);
       renderModuleIntakeConsiderations(m, tpl);
     });
+    scheduleLivePanelRender();
   }
 
   // -----------------------------
@@ -1967,6 +2402,7 @@
             field,
             onChange: (v) => {
               module.text[field.id] = v;
+              scheduleLivePanelRender();
               scheduleAutosave();
             },
           }),
@@ -1984,6 +2420,7 @@
           field,
           onChange: (v) => {
             module.text[field.id] = v;
+            scheduleLivePanelRender();
             scheduleAutosave();
           },
         }),
@@ -2369,6 +2806,10 @@
       m.ui.mode = m.ui.mode || "complete";
       m.ui.collapsed = m.ui.collapsed || {};
       m.scope = m.scope || tpl.scope || "all";
+      m.computed = m.computed || {};
+      m.computed.spadi = m.computed.spadi || null;
+      m.computed.dash = m.computed.dash || null;
+      m.computed.alerts = m.computed.alerts || [];
       renderModuleCard(m, tpl);
     });
 
@@ -2541,6 +2982,7 @@
     renderIntakeRemote();
     bindTopControls();
     setEmptyStateVisibility();
+    scheduleLivePanelRender();
 
     // Autosave restore prompt:
     maybeRestoreAutosave();
