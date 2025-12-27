@@ -283,19 +283,19 @@
 
     if (cfg.comorbidities) {
       const key = makeIntakeSectionKey("global", "comorbidities");
-      uiCollapsed[key] = false;
+      uiCollapsed[key] = cfg.comorbidities.collapsed === true;
       register(cfg.comorbidities.fields, "comorbidities");
     }
     if (cfg.medications) {
       const key = makeIntakeSectionKey("global", "medications");
-      uiCollapsed[key] = false;
+      uiCollapsed[key] = cfg.medications.collapsed === true;
       register(cfg.medications.fields, "medications");
     }
 
     (cfg.branches || []).forEach((b) => {
       (b.sections || []).forEach((sec, idx) => {
         const secKey = makeIntakeSectionKey(b.key, idx);
-        uiCollapsed[secKey] = false;
+        uiCollapsed[secKey] = sec.collapsed === true;
         register(sec.fields, "branch", b.key);
       });
     });
@@ -325,6 +325,8 @@
 
   const defaultOutputsState = () => ({ soap: null, referral: null });
   const defaultNotesState = () => ({ anamnesis: "" });
+  const defaultComputedState = () => ({ irritability: null, classificationSuggestion: null });
+  const defaultOverridesState = () => ({ irritability: null, classification: null });
 
   const state = {
     patientData: {},
@@ -335,6 +337,8 @@
     printSelection: defaultPrintSelection(),
     outputs: defaultOutputsState(),
     notes: defaultNotesState(),
+    computed: defaultComputedState(),
+    overrides: defaultOverridesState(),
   };
 
   const livePanelRefs = {
@@ -548,6 +552,10 @@
   function setIntakeValue(id, value) {
     if (!state.intake) state.intake = buildEmptyIntakeState();
     state.intake.values[id] = value;
+    if (id === "msk_irritabilidad" || id === "msk_irritabilidad_nota") {
+      const overrideValue = id === "msk_irritabilidad" ? value : state.intake.values.msk_irritabilidad;
+      setIrritabilityOverride(overrideValue);
+    }
     renderAllIntakeInsights();
     evaluateAllLogic();
     scheduleLivePanelRender();
@@ -934,8 +942,31 @@
     const comorbidities = collectActiveComorbidities();
     const redFlags = collectIntakeAlertsBySeverity("danger").map((a) => a.title || a.description || "Red flag");
     const considerations = collectIntakeConsiderations();
+    const ir = getActiveIrritability();
+    const irNote = state.overrides.irritability?.note;
+    const irSource = state.overrides.irritability ? "Override clínico" : "Sugerido automático";
+    const phase = derivePhaseFromIrritability(ir || "");
 
     return panelSection("Intake remoto", "fa-heart-pulse", [
+      {
+        tag: "div",
+        className: "flex flex-wrap gap-2 items-center",
+        children: [
+          { tag: "div", className: "text-xs font-extrabold text-brand-dark", text: "Irritabilidad" },
+          {
+            tag: "span",
+            className: "px-3 py-1 rounded-full text-[11px] font-bold bg-brand-accent/30 text-brand-dark",
+            text: ir ? ir.toUpperCase() : "Pendiente",
+          },
+          {
+            tag: "span",
+            className: "px-3 py-1 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-700",
+            text: phase,
+          },
+          { tag: "span", className: "text-[11px] text-gray-500", text: irSource },
+          irNote ? { tag: "span", className: "text-[11px] text-gray-600", text: `Nota: ${irNote}` } : null,
+        ].filter(Boolean),
+      },
       { tag: "div", className: "text-xs font-extrabold text-brand-dark", text: "Comorbilidades" },
       pillList(comorbidities, "Sin comorbilidades marcadas."),
       { tag: "div", className: "text-xs font-extrabold text-brand-dark mt-2", text: "Red flags" },
@@ -1117,6 +1148,85 @@
     state.intakeDerived = { global: emptyIntakeDerived(), scopes: {} };
     state.intakeDerived.global = deriveIntakeOutcomes("all");
     (cfg.branches || []).forEach((b) => renderIntakeResults(b.key));
+    computeIrritabilitySuggestion();
+    scheduleLivePanelRender();
+  }
+
+  // -----------------------------
+  // Irritabilidad automática (intake remoto)
+  // -----------------------------
+  function computeIrritabilitySuggestion() {
+    const vals = state.intake?.values || {};
+    const scoreCard = [];
+    let score = 0;
+
+    const mapSelect = (id, table) => {
+      const v = vals[id];
+      if (v && table[v]) {
+        score += table[v].pts;
+        scoreCard.push(table[v].label);
+      } else if (v === "" || v === undefined || v === null) {
+        scoreCard.push(`Falta dato: ${id}`);
+      }
+    };
+
+    mapSelect("msk_dolor_reposo", { si: { pts: 3, label: "Dolor en reposo" } });
+    mapSelect("msk_dolor_nocturno_auto", { si: { pts: 2, label: "Dolor nocturno" } });
+    mapSelect("msk_facilidad_provocacion", {
+      minima: { pts: 3, label: "Se provoca con gestos leves" },
+      moderada: { pts: 2, label: "Se provoca con ADL/moderado" },
+      alta: { pts: 1, label: "Solo alta carga" },
+    });
+    mapSelect("msk_duracion_post_carga", {
+      ">24h": { pts: 3, label: "Síntomas >24h post-carga" },
+      "12-24h": { pts: 2, label: "Síntomas 12-24h" },
+      "1-12h": { pts: 1, label: "Síntomas 1-12h" },
+    });
+    mapSelect("msk_dolor_intensidad", {
+      alto: { pts: 3, label: "Dolor alto (7-10/10)" },
+      moderado: { pts: 2, label: "Dolor moderado" },
+      leve: { pts: 1, label: "Dolor leve" },
+    });
+    // Deporte (fallbacks)
+    mapSelect("sport_dolor_nocturno", { si: { pts: 1, label: "Dolor nocturno deportivo" } });
+    mapSelect("sport_facilidad_provocacion", {
+      minima: { pts: 2, label: "Provocación mínima (deporte)" },
+      moderada: { pts: 1, label: "Provocación moderada (deporte)" },
+    });
+    mapSelect("sport_duracion_post", {
+      ">24h": { pts: 2, label: "Post-esfuerzo >24h" },
+      "12-24h": { pts: 1, label: "Post-esfuerzo 12-24h" },
+    });
+
+    const label = score >= 9 ? "alta" : score >= 5 ? "media" : "baja";
+    const reasons = scoreCard.filter((x) => x && !x.startsWith("Falta"));
+    const gaps = scoreCard.filter((x) => x && x.startsWith("Falta"));
+
+    state.computed.irritability = {
+      value: label,
+      score,
+      reasons: reasons.length ? reasons : ["Datos limitados: sugerencia conservadora"],
+      gaps,
+      updatedAt: new Date().toISOString(),
+    };
+
+    const valChip = document.querySelector("[data-irritability-value]");
+    if (valChip) valChip.textContent = label ? label.toUpperCase() : "Pendiente";
+    const phaseChip = document.querySelector("[data-irritability-phase]");
+    if (phaseChip) phaseChip.textContent = derivePhaseFromIrritability(label);
+  }
+
+  function setIrritabilityOverride(value) {
+    const note = state.intake?.values?.msk_irritabilidad_nota || "";
+    if (!value) {
+      state.overrides.irritability = null;
+    } else {
+      state.overrides.irritability = { value, note, updatedAt: new Date().toISOString() };
+    }
+  }
+
+  function getActiveIrritability() {
+    return state.overrides.irritability?.value || state.computed.irritability?.value || "";
   }
 
   function renderIntakeField(field) {
@@ -1310,7 +1420,38 @@
     const cfg = getIntakeConfig();
     if (!root || !cfg) return;
 
+    computeIrritabilitySuggestion();
     root.replaceChildren();
+
+    const ir = state.computed.irritability;
+    const irValue = getActiveIrritability();
+    const irPhase = derivePhaseFromIrritability(irValue || "");
+    root.appendChild(
+      renderComponent({
+        tag: "div",
+        className: "rounded-2xl border border-brand-accent/30 bg-brand-light/60 p-4 flex flex-wrap gap-3 items-center",
+        children: [
+          { tag: "div", className: "flex items-center gap-2", children: [iconEl("fa-bolt"), { tag: "div", className: "font-extrabold text-brand-dark", text: "Irritabilidad sugerida" }] },
+          {
+            tag: "span",
+            className: "px-3 py-1 rounded-full text-sm font-bold bg-brand-accent/40 text-brand-dark",
+            attrs: { "data-irritability-value": "true" },
+            text: irValue ? irValue.toUpperCase() : "Pendiente",
+          },
+          { tag: "span", className: "px-3 py-1 rounded-full text-sm font-semibold bg-white text-brand-dark border border-brand-accent/40", attrs: { "data-irritability-phase": "true" }, text: irPhase },
+          ir?.reasons && ir.reasons.length
+            ? {
+                tag: "div",
+                className: "text-xs text-gray-700",
+                text: `Por: ${ir.reasons.slice(0, 3).join(" · ")}`,
+              }
+            : null,
+          state.overrides.irritability
+            ? { tag: "span", className: "text-xs font-semibold text-gray-600", text: `Override clínico${state.overrides.irritability.note ? ` · ${state.overrides.irritability.note}` : ""}` }
+            : { tag: "span", className: "text-xs text-gray-600", text: "Auto-sugerido desde intake" },
+        ].filter(Boolean),
+      })
+    );
 
     if (cfg.comorbidities || cfg.medications) {
       const topGrid = renderComponent({ tag: "div", className: "grid grid-cols-1 lg:grid-cols-2 gap-4" });
@@ -2186,6 +2327,8 @@
   }
 
   function getIrritability(module, tpl) {
+    const override = normalizeIrritabilityValue(state.overrides.irritability?.value);
+    if (override) return override;
     // Prefer dedicated select field id "irritabilidad"
     const local = normalizeIrritabilityValue(module.text.irritabilidad);
     if (local) return local;
@@ -2194,7 +2337,9 @@
     const fromIntake = normalizeIrritabilityValue(state.intake?.values?.[intakeKey]);
     if (fromIntake) return fromIntake;
     // fallback general MSK intake
-    return normalizeIrritabilityValue(state.intake?.values?.msk_irritabilidad);
+    const general = normalizeIrritabilityValue(state.intake?.values?.msk_irritabilidad);
+    if (general) return general;
+    return normalizeIrritabilityValue(state.computed?.irritability?.value);
   }
 
   function getAge() {
@@ -2407,7 +2552,311 @@
     return { points, matched, missing };
   }
 
+  function getShoulderCatalog() {
+    try {
+      return Array.isArray(window.shoulderHypothesesCatalog) ? window.shoulderHypothesesCatalog : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function evaluateCatalogRule(rule, module) {
+    const normalizedTests = mapTriValues(module.tests);
+    const intakeVals = state.intake?.values || {};
+    const getValue = (crit) => {
+      const source = crit.source || "tests";
+      if (source === "tests") return normalizedTests[crit.id];
+      if (source === "intake") return intakeVals[crit.id];
+      if (source === "patient") return state.patientData?.[crit.id];
+      if (source === "numeric") return module.numeric?.[crit.id];
+      if (source === "text") return module.text?.[crit.id];
+      return undefined;
+    };
+
+    let points = Number(rule.base) || 0;
+    const why = [];
+    const missing = [];
+
+    (rule.rules || []).forEach((crit) => {
+      const v = getValue(crit);
+      const weight = Number(crit.weight) || 1;
+      const expect = crit.expect;
+      const explain = crit.explain || crit.label || crit.id;
+      if (crit.minValue !== undefined || crit.maxValue !== undefined) {
+        const num = Number(v);
+        const minOk = crit.minValue === undefined || (Number.isFinite(num) && num >= crit.minValue);
+        const maxOk = crit.maxValue === undefined || (Number.isFinite(num) && num <= crit.maxValue);
+        if (Number.isFinite(num) && minOk && maxOk) {
+          points += weight;
+          why.push(explain);
+        } else if (v === null || v === undefined || v === "") {
+          missing.push(explain);
+        }
+        return;
+      }
+      if (Array.isArray(expect)) {
+        if (expect.includes(v)) {
+          points += weight;
+          why.push(explain);
+        } else if (v === null || v === undefined || v === "") {
+          missing.push(explain);
+        }
+        return;
+      }
+      if (expect === true || expect === false) {
+        if (v === expect) {
+          points += weight;
+          why.push(explain);
+        } else if (v === null || v === undefined) {
+          missing.push(explain);
+        }
+        return;
+      }
+      // fallback: any value present
+      if (v !== null && v !== undefined && String(v).trim() !== "") {
+        points += weight;
+        why.push(explain);
+      } else {
+        missing.push(explain);
+      }
+    });
+
+    return { points, why, missing };
+  }
+
+  function buildShoulderRankings(module) {
+    const catalog = getShoulderCatalog();
+    if (!catalog.length) return { rankings: [], topByType: {} };
+    const rankings = catalog.map((item) => {
+      const res = evaluateCatalogRule(item, module);
+      const missing = res.missing || [];
+      const why = res.why && res.why.length ? res.why : ["Sin datos clave aún"];
+      return {
+        id: item.id,
+        title: item.label,
+        score: Math.max(res.points, 0),
+        triggered: res.why && res.why.length > 0,
+        why,
+        missing,
+        severity: item.tipo === "CPG" ? "warning" : "info",
+        tipo: item.tipo,
+      };
+    });
+    rankings.sort((a, b) => b.score - a.score);
+
+    const topByType = { CPG: [], DISFUNCION: [] };
+    rankings.forEach((r) => {
+      if (r.tipo && topByType[r.tipo]) topByType[r.tipo].push(r);
+    });
+
+    state.computed.classificationSuggestion = {
+      cpg: topByType.CPG[0] || null,
+      dysfunction: topByType.DISFUNCION[0] || null,
+      updatedAt: new Date().toISOString(),
+    };
+
+    return { rankings, topByType };
+  }
+
+  function renderShoulderClassification(module) {
+    const container = $(`[data-shoulder-classification="${module.instanceId}"]`);
+    if (!container) return;
+
+    const rankingData = buildShoulderRankings(module);
+    module.computed = module.computed || {};
+    module.computed.shoulderRanking = rankingData;
+    const suggestion = state.computed.classificationSuggestion || {};
+
+    const topCpg = suggestion.cpg;
+    const topDisf = suggestion.dysfunction;
+    const override = state.overrides.classification;
+    container.replaceChildren();
+
+    const header = renderComponent({
+      className: "flex flex-wrap gap-2 items-center",
+      children: [
+        { tag: "span", className: "px-3 py-1 rounded-full bg-brand-accent/30 text-brand-dark text-xs font-extrabold", text: topCpg ? `CPG: ${topCpg.title}` : "CPG: pendiente" },
+        { tag: "span", className: "px-3 py-1 rounded-full bg-brand-accent/30 text-brand-dark text-xs font-extrabold", text: topDisf ? `Disfunción: ${topDisf.title}` : "Disfunción: pendiente" },
+        override
+          ? { tag: "span", className: "px-3 py-1 rounded-full bg-yellow-100 text-yellow-800 text-[11px] font-semibold", text: `Override activo${override.note ? ` · ${override.note}` : ""}` }
+          : { tag: "span", className: "text-[11px] text-gray-600", text: "Sugerencias no forzadas" },
+      ],
+    });
+
+    const acceptBtn = renderComponent({
+      tag: "button",
+      className: "aum-choice px-3 py-2 rounded-lg bg-white border border-brand-accent text-sm font-bold",
+      attrs: { type: "button" },
+      text: "Aceptar sugerencia",
+    });
+    registerDelegated(acceptBtn, "click", () => {
+      state.overrides.classification = {
+        mode: "suggestion",
+        cpg: topCpg?.id || null,
+        dysfunction: topDisf?.id || null,
+        note: "",
+        updatedAt: new Date().toISOString(),
+      };
+      scheduleAutosave();
+      renderShoulderClassification(module);
+    });
+
+    const top3Cpg = (rankingData.topByType.CPG || []).slice(0, 3);
+    const top3Disf = (rankingData.topByType.DISFUNCION || []).slice(0, 3);
+    const topGeneral = (rankingData.rankings || []).slice(0, 5);
+
+    const listBlock = (title, list) =>
+      renderComponent({
+        className: "space-y-2",
+        children: [
+          { tag: "div", className: "text-[11px] font-extrabold uppercase text-brand-dark", text: title },
+          ...list.map((item, idx) =>
+            renderComponent({
+              className: "p-3 rounded-xl border border-gray-100 bg-white space-y-1",
+              children: [
+                {
+                  className: "flex items-center justify-between gap-2",
+                  children: [
+                    { tag: "div", className: "font-semibold text-sm text-brand-dark truncate", text: `${idx + 1}. ${item.title}` },
+                    {
+                      tag: "span",
+                      className: "px-2 py-1 rounded-full text-[11px] font-bold bg-brand-accent/30 text-brand-dark",
+                      text: `${item.score} pts`,
+                    },
+                  ],
+                },
+                {
+                  tag: "div",
+                  className: "text-xs text-gray-700",
+                  text: item.why.join("; "),
+                },
+              ],
+            })
+          ),
+        ],
+      });
+
+    const overrideToggle = renderComponent({
+      tag: "div",
+      className: "flex items-center gap-2",
+      children: [
+        { tag: "input", attrs: { type: "checkbox", id: `ovr-${module.instanceId}` }, className: "w-4 h-4" },
+        { tag: "label", attrs: { for: `ovr-${module.instanceId}` }, className: "text-sm font-semibold text-brand-dark", text: "Override manual" },
+      ],
+    });
+
+    const overrideWrap = renderComponent({ className: "space-y-2 hidden", attrs: { "data-override-wrap": module.instanceId } });
+    const select = renderComponent({
+      tag: "select",
+      className: "aum-input",
+      children: [
+        { tag: "option", attrs: { value: "" }, text: "— Seleccionar —" },
+        ...rankingData.rankings.map((r) => ({ tag: "option", attrs: { value: r.id }, text: `${r.title} (${r.tipo})` })),
+      ],
+    });
+    const noteArea = renderComponent({
+      tag: "textarea",
+      className: "aum-input",
+      attrs: { rows: 3, placeholder: "Razón / nota" },
+    });
+    if (override?.note) noteArea.value = override.note;
+    registerDelegated(select, "change", () => {
+      const chosen = rankingData.rankings.find((r) => r.id === select.value);
+      if (!chosen) {
+        state.overrides.classification = null;
+      } else {
+        state.overrides.classification = {
+          mode: "manual",
+          id: chosen.id,
+          label: chosen.title,
+          tipo: chosen.tipo,
+          note: noteArea.value || "",
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      scheduleAutosave();
+      renderShoulderClassification(module);
+    });
+    registerDelegated(noteArea, "input", () => {
+      if (state.overrides.classification) {
+        state.overrides.classification.note = noteArea.value;
+        scheduleAutosave();
+        renderShoulderClassification(module);
+      }
+    });
+    overrideWrap.appendChild(select);
+    overrideWrap.appendChild(noteArea);
+
+    registerDelegated(overrideToggle, "change", (ev) => {
+      const input = ev.target;
+      if (!(input instanceof HTMLInputElement) || input.type !== "checkbox") return;
+      overrideWrap.classList.toggle("hidden", !input.checked);
+      if (!input.checked) {
+        state.overrides.classification = null;
+        scheduleAutosave();
+        renderShoulderClassification(module);
+      }
+    });
+
+    if (override && override.mode === "manual") {
+      const cb = $("input", overrideToggle);
+      if (cb) cb.checked = true;
+      overrideWrap.classList.remove("hidden");
+      if (override.id) select.value = override.id;
+    }
+
+    const fullToggle = renderComponent({
+      tag: "button",
+      className: "aum-choice px-3 py-2 rounded-lg bg-white border border-gray-200 text-sm font-semibold",
+      attrs: { type: "button" },
+      text: "Ver ranking completo",
+    });
+    const fullList = renderComponent({
+      className: "hidden space-y-2",
+      attrs: { "data-ranking-full": module.instanceId },
+      children: rankingData.rankings.map((item, idx) =>
+        renderComponent({
+          className: "p-3 rounded-xl border border-gray-100 bg-gray-50 space-y-1",
+          children: [
+            {
+              className: "flex items-center justify-between gap-2",
+              children: [
+                { tag: "div", className: "font-semibold text-sm text-brand-dark truncate", text: `${idx + 1}. ${item.title} (${item.tipo})` },
+                { tag: "span", className: "px-2 py-1 rounded-full text-[11px] font-bold bg-white border text-brand-dark", text: `${item.score} pts` },
+              ],
+            },
+            { tag: "div", className: "text-xs text-gray-700", text: item.why.join("; ") },
+          ],
+        })
+      ),
+    });
+    registerDelegated(fullToggle, "click", () => {
+      fullList.classList.toggle("hidden");
+      fullToggle.textContent = fullList.classList.contains("hidden") ? "Ver ranking completo" : "Ocultar ranking completo";
+    });
+
+    container.appendChild(header);
+    container.appendChild(acceptBtn);
+    container.appendChild(
+      renderComponent({
+        className: "grid grid-cols-1 md:grid-cols-2 gap-3",
+        children: [listBlock("Top 3 CPG", top3Cpg), listBlock("Top 3 Disfunción", top3Disf)],
+      })
+    );
+    container.appendChild(listBlock("Top 5 general", topGeneral));
+    container.appendChild(overrideToggle);
+    container.appendChild(overrideWrap);
+    container.appendChild(fullToggle);
+    container.appendChild(fullList);
+  }
+
   function buildHypotheses(module, tpl) {
+    if (tpl.key === "hombro" && getShoulderCatalog().length) {
+      const ranking = buildShoulderRankings(module);
+      module.computed = module.computed || {};
+      module.computed.shoulderRanking = ranking;
+      return (ranking.rankings || []).slice(0, 3);
+    }
     const normalizedTests = mapTriValues(module.tests);
     const rules = (Array.isArray(tpl.logicRules) ? tpl.logicRules : []).filter((r) => r.hypothesis !== false);
     const results = [];
@@ -2701,6 +3150,7 @@
     module.computed.reasoning = buildReasoningData(module, tpl);
     renderHypotheses(module, tpl);
     renderPlanCard(module, tpl);
+    if (tpl.key === "hombro") renderShoulderClassification(module);
   }
 
   function renderModuleIntakeConsiderations(module, tpl) {
@@ -3102,6 +3552,16 @@
             renderComponent({ tag: "div", attrs: { "data-plan": module.instanceId }, className: "space-y-3" }),
           ],
         }),
+        module.key === "hombro"
+          ? renderComponent({
+              tag: "div",
+              className: "space-y-2",
+              children: [
+                renderComponent({ tag: "div", className: "text-xs font-extrabold text-brand-dark uppercase", text: "Clasificación sugerida" }),
+                renderComponent({ tag: "div", attrs: { "data-shoulder-classification": module.instanceId }, className: "space-y-3" }),
+              ],
+            })
+          : null,
       ],
     });
 
@@ -3260,6 +3720,8 @@
     if (migrated.outputs.soap === undefined) migrated.outputs.soap = null;
     if (migrated.outputs.referral === undefined) migrated.outputs.referral = null;
     migrated.notes = migrated.notes || defaultNotesState();
+    migrated.computed = migrated.computed || defaultComputedState();
+    migrated.overrides = migrated.overrides || defaultOverridesState();
     migrated.meta = migrated.meta || {};
     migrated.meta.version = migrated.meta.version || migrated.version || APP_VERSION;
     migrated.meta.schemaVersion = SCHEMA_VERSION;
@@ -3279,6 +3741,8 @@
       printSelection: state.printSelection,
       outputs: state.outputs,
       notes: state.notes,
+      computed: state.computed,
+      overrides: state.overrides,
     };
     base.meta = { version: APP_VERSION, schemaVersion: SCHEMA_VERSION, updatedAt: new Date().toISOString() };
     if (timestampKey) base[timestampKey] = new Date().toISOString();
@@ -3301,6 +3765,8 @@
     state.printSelection = normalizePrintSelection(migrated.printSelection);
     state.outputs = migrated.outputs || defaultOutputsState();
     state.notes = migrated.notes || defaultNotesState();
+    state.computed = migrated.computed || defaultComputedState();
+    state.overrides = migrated.overrides || defaultOverridesState();
     state.meta = { version: migrated.version || APP_VERSION, schemaVersion: migrated.schemaVersion || SCHEMA_VERSION, updatedAt: new Date().toISOString() };
 
     // Restore patient inputs (DOM)

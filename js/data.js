@@ -147,6 +147,7 @@
       title: "Comorbilidades y contexto sistémico",
       icon: "fa-heart-pulse",
       style: "grid2",
+      collapsed: true,
       fields: [
         { id: "com_hta", label: "Hipertensión arterial", type: "boolean", help: "Control y riesgos cardiovasculares." },
         { id: "com_disli", label: "Dislipidemia / síndrome metabólico", type: "boolean", help: "Carga cardiometabólica y riesgo vascular." },
@@ -168,6 +169,7 @@
       title: "Medicación activa",
       icon: "fa-pills",
       style: "grid2",
+      collapsed: true,
       fields: [
         { id: "med_anticoagulantes", label: "Anticoagulantes / antiagregantes", type: "boolean", help: "Mayor riesgo de hematomas/sangrado." },
         { id: "med_corticoides", label: "Corticoides sistémicos", type: "boolean", help: "Fragilidad tisular; inmunosupresión." },
@@ -186,13 +188,68 @@
         icon: "fa-bone",
         sections: [
           {
-            title: "Síntesis clínica y 24h",
+            title: "Dolor e irritabilidad",
             style: "grid2",
+            subtitle: "Dolor, irritabilidad sugerida y objetivos rápidos",
             fields: [
               { id: "msk_region", label: "Zona principal", type: "text", placeholder: "Columna, hombro, rodilla, etc." },
               {
+                id: "msk_dolor_intensidad",
+                label: "Dolor actual",
+                type: "select",
+                options: [
+                  { value: "", label: "— Seleccionar —" },
+                  { value: "leve", label: "Leve (0-3/10)" },
+                  { value: "moderado", label: "Moderado (4-6/10)" },
+                  { value: "alto", label: "Alto (7-10/10)" },
+                ],
+              },
+              {
+                id: "msk_dolor_reposo",
+                label: "Dolor en reposo",
+                type: "select",
+                options: [
+                  { value: "", label: "— Seleccionar —" },
+                  { value: "si", label: "Sí / constante" },
+                  { value: "no", label: "No" },
+                ],
+              },
+              {
+                id: "msk_dolor_nocturno_auto",
+                label: "Dolor nocturno",
+                type: "select",
+                options: [
+                  { value: "", label: "— Seleccionar —" },
+                  { value: "si", label: "Sí / despierta" },
+                  { value: "no", label: "No" },
+                ],
+              },
+              {
+                id: "msk_facilidad_provocacion",
+                label: "Facilidad de provocación",
+                type: "select",
+                options: [
+                  { value: "", label: "— Seleccionar —" },
+                  { value: "minima", label: "Mínima (gestos livianos)" },
+                  { value: "moderada", label: "Moderada (ADL / trabajo)" },
+                  { value: "alta", label: "Solo alta carga" },
+                ],
+              },
+              {
+                id: "msk_duracion_post_carga",
+                label: "Duración post-actividad",
+                type: "select",
+                options: [
+                  { value: "", label: "— Seleccionar —" },
+                  { value: "<1h", label: "<1h" },
+                  { value: "1-12h", label: "1-12h" },
+                  { value: "12-24h", label: "12-24h" },
+                  { value: ">24h", label: ">24h" },
+                ],
+              },
+              {
                 id: "msk_irritabilidad",
-                label: "Irritabilidad percibida",
+                label: "Irritabilidad percibida (override)",
                 type: "select",
                 options: [
                   { value: "", label: "— Seleccionar —" },
@@ -201,7 +258,9 @@
                   { value: "baja", label: "Baja" },
                 ],
               },
+              { id: "msk_irritabilidad_nota", label: "Nota sobre irritabilidad (motivo)", type: "textarea", placeholder: "Por qué ajustas la irritabilidad" },
               { id: "msk_patron_24h", label: "Patrón 24h (dolor, rigidez)", type: "textarea", placeholder: "Sueño, mañana, post-carga" },
+              { id: "msk_dolor_con_actividad", label: "Dolor con actividad principal", type: "textarea", placeholder: "Qué tareas lo provocan y qué intensidad" },
               {
                 id: "msk_sueno",
                 label: "Sueño",
@@ -217,26 +276,23 @@
             ],
           },
           {
-            title: "Alarma y contexto médico",
+            title: "Timeline y mecanismo",
             style: "grid2",
+            collapsed: true,
             fields: [
-              { id: "msk_trauma", label: "Trauma o cirugía reciente", type: "boolean" },
               {
-                id: "msk_redflags",
-                label: "Síntomas de alarma autorreportados",
+                id: "msk_tiempo_evolucion",
+                label: "Tiempo de evolución",
                 type: "select",
                 options: [
-                  { value: "", label: "Ninguno reportado" },
-                  { value: "sistemicos", label: "Fiebre, sudoraciones nocturnas, pérdida de peso" },
-                  { value: "neuro", label: "Déficit neurológico progresivo / cauda" },
-                  { value: "toracico", label: "Dolor torácico / disnea" },
-                  { value: "infeccioso", label: "Herida/infección activa" },
-                  { value: "vascular", label: "Calor/eritema + edema súbito" },
+                  { value: "", label: "— Seleccionar —" },
+                  { value: "agudo", label: "Agudo (<4 semanas)" },
+                  { value: "subagudo", label: "Subagudo (4-12 semanas)" },
+                  { value: "cronico", label: "Crónico (>3 meses)" },
                 ],
-                help: "Reporte remoto; confirmar en sesión presencial/teleconsulta.",
               },
-              { id: "msk_dolor_no_mecanico", label: "Dolor no mecánico (no cambia con postura/carga)", type: "boolean" },
-              { id: "msk_bandera_roja_detalle", label: "Detalle bandera roja", type: "textarea", placeholder: "Aclarar síntomas sistémicos/neuro" },
+              { id: "msk_mecanismo", label: "Mecanismo / detonante", type: "textarea", placeholder: "Trauma, sobrecarga, postura, etc." },
+              { id: "msk_timeline_hitos", label: "Hitos relevantes", type: "textarea", placeholder: "Cambios de carga, viajes, pausas, brotes" },
             ],
           },
           {
@@ -282,6 +338,29 @@
             ],
           },
           {
+            title: "Alarma y contexto médico",
+            style: "grid2",
+            fields: [
+              { id: "msk_trauma", label: "Trauma o cirugía reciente", type: "boolean" },
+              {
+                id: "msk_redflags",
+                label: "Síntomas de alarma autorreportados",
+                type: "select",
+                options: [
+                  { value: "", label: "Ninguno reportado" },
+                  { value: "sistemicos", label: "Fiebre, sudoraciones nocturnas, pérdida de peso" },
+                  { value: "neuro", label: "Déficit neurológico progresivo / cauda" },
+                  { value: "toracico", label: "Dolor torácico / disnea" },
+                  { value: "infeccioso", label: "Herida/infección activa" },
+                  { value: "vascular", label: "Calor/eritema + edema súbito" },
+                ],
+                help: "Reporte remoto; confirmar en sesión presencial/teleconsulta.",
+              },
+              { id: "msk_dolor_no_mecanico", label: "Dolor no mecánico (no cambia con postura/carga)", type: "boolean" },
+              { id: "msk_bandera_roja_detalle", label: "Detalle bandera roja", type: "textarea", placeholder: "Aclarar síntomas sistémicos/neuro" },
+            ],
+          },
+          {
             title: "Contexto psicosocial (banderas amarillas)",
             style: "grid2",
             fields: [
@@ -309,8 +388,9 @@
         icon: "fa-toilet-paper",
         sections: [
           {
-            title: "Síntomas sensibles (remoto)",
+            title: "Dolor, pérdidas y preferencias",
             style: "grid2",
+            subtitle: "Campos sensibles con opción “Prefiero no responder”",
             fields: [
               {
                 id: "piso_incontinencia",
@@ -372,8 +452,9 @@
             ],
           },
           {
-            title: "Hábitos, 24h y sueño",
+            title: "Timeline y hábitos 24h",
             style: "grid2",
+            collapsed: true,
             fields: [
               { id: "piso_patron_24h", label: "Patrón 24h (micción, presión, dolor)", type: "textarea", placeholder: "Peor noche, al toser, ejercicio" },
               {
@@ -440,10 +521,54 @@
         icon: "fa-person-running",
         sections: [
           {
-            title: "Perfil deportivo",
+            title: "Dolor, timeline y objetivos",
             style: "grid2",
             fields: [
               { id: "sport_disciplina", label: "Deporte principal", type: "text", placeholder: "Running, fútbol, crossfit, etc." },
+              {
+                id: "sport_dolor_actual",
+                label: "Dolor actual",
+                type: "select",
+                options: [
+                  { value: "", label: "— Seleccionar —" },
+                  { value: "leve", label: "Leve (0-3/10)" },
+                  { value: "moderado", label: "Moderado (4-6/10)" },
+                  { value: "alto", label: "Alto (7-10/10)" },
+                ],
+              },
+              {
+                id: "sport_dolor_nocturno",
+                label: "Dolor nocturno",
+                type: "select",
+                options: [
+                  { value: "", label: "— Seleccionar —" },
+                  { value: "si", label: "Sí" },
+                  { value: "no", label: "No" },
+                ],
+              },
+              {
+                id: "sport_facilidad_provocacion",
+                label: "Facilidad de provocación",
+                type: "select",
+                options: [
+                  { value: "", label: "— Seleccionar —" },
+                  { value: "minima", label: "Mínima" },
+                  { value: "moderada", label: "Moderada" },
+                  { value: "alta", label: "Solo alta carga" },
+                ],
+              },
+              {
+                id: "sport_duracion_post",
+                label: "Duración post-actividad",
+                type: "select",
+                options: [
+                  { value: "", label: "— Seleccionar —" },
+                  { value: "<1h", label: "<1h" },
+                  { value: "1-12h", label: "1-12h" },
+                  { value: "12-24h", label: "12-24h" },
+                  { value: ">24h", label: ">24h" },
+                ],
+              },
               {
                 id: "sport_frecuencia",
                 label: "Volumen actual",
@@ -457,6 +582,19 @@
               },
               { id: "sport_competencia", label: "En temporada competitiva", type: "boolean" },
               {
+                id: "sport_tiempo_evolucion",
+                label: "Tiempo de evolución",
+                type: "select",
+                options: [
+                  { value: "", label: "— Seleccionar —" },
+                  { value: "agudo", label: "Agudo (<4 semanas)" },
+                  { value: "subagudo", label: "Subagudo (4-12 semanas)" },
+                  { value: "cronico", label: "Crónico (>3 meses)" },
+                ],
+              },
+              { id: "sport_mecanismo", label: "Mecanismo / detonante", type: "textarea", placeholder: "Trauma, sobrecarga, gesto específico." },
+              { id: "sport_objetivo", label: "Objetivo / evento próximo", type: "textarea", placeholder: "PR, torneo, reinsertarse al juego, etc." },
+              {
                 id: "sport_carga_reciente",
                 label: "Cambio de carga aguda",
                 type: "select",
@@ -468,7 +606,6 @@
                 ],
               },
               { id: "sport_lesion_previa", label: "Lesión en el último año", type: "boolean" },
-              { id: "sport_objetivo", label: "Objetivo / evento próximo", type: "textarea", placeholder: "PR, torneo, reinsertarse al juego, etc." },
             ],
           },
           {
@@ -1451,7 +1588,140 @@
     },
   };
 
+  const shoulderHypothesesCatalog = [
+    {
+      id: "cpg_rcrsp",
+      label: "Dolor relacionado al manguito (RCRSP)",
+      tipo: "CPG",
+      base: 2,
+      rules: [
+        { id: "arco_doloroso", source: "tests", expect: true, weight: 3, explain: "Arco doloroso presente" },
+        { id: "hawkins", source: "tests", expect: true, weight: 3, explain: "Hawkins-Kennedy (+)" },
+        { id: "infraspinatus_test", source: "tests", expect: true, weight: 3, explain: "Dolor/debilidad resistencia ER" },
+        { id: "msk_carga_actual", source: "intake", expect: ["aumento_brusco", "retorno"], weight: 2, explain: "Cambio agudo de carga reportado" },
+        { id: "msk_facilidad_provocacion", source: "intake", expect: ["minima", "moderada"], weight: 1, explain: "Provocación fácil reportada" },
+      ],
+    },
+    {
+      id: "cpg_capsulitis",
+      label: "Hombro rígido / capsulitis",
+      tipo: "CPG",
+      base: 2,
+      rules: [
+        { id: "rigidez", source: "tests", expect: true, weight: 3, explain: "Rigidez clínica presente" },
+        { id: "dolor_nocturno", source: "tests", expect: true, weight: 2, explain: "Dolor nocturno" },
+        { id: "patron_capsular", source: "tests", expect: true, weight: 3, explain: "Patrón capsular (ER limitada)" },
+        { id: "patient-age", source: "patient", minValue: 40, maxValue: 70, weight: 1, explain: "Edad compatible (40-70)" },
+        { id: "msk_duracion_post_carga", source: "intake", expect: [">24h", "12-24h"], weight: 1, explain: "Síntomas prolongados post-carga" },
+      ],
+    },
+    {
+      id: "cpg_instability",
+      label: "Inestabilidad anterior",
+      tipo: "CPG",
+      base: 1,
+      rules: [
+        { id: "apprehension", source: "tests", expect: true, weight: 4, explain: "Apprehension (+)" },
+        { id: "relocation_relief", source: "tests", expect: true, weight: 3, explain: "Relocation alivia" },
+        { id: "sulcus", source: "tests", expect: true, weight: 2, explain: "Sulcus sign (+)" },
+        { id: "trauma_significativo", source: "tests", expect: true, weight: 2, explain: "Historia traumática relevante" },
+      ],
+    },
+    {
+      id: "cpg_ac_joint",
+      label: "Dolor articulación acromioclavicular",
+      tipo: "CPG",
+      base: 1,
+      rules: [
+        { id: "cross_body_adduction", source: "tests", expect: true, weight: 3, explain: "Cross-body adduction (+)" },
+        { id: "dolor_ac_palp", source: "tests", expect: true, weight: 3, explain: "Dolor a palpación AC" },
+        { id: "paxinos", source: "tests", expect: true, weight: 2, explain: "Paxinos (+)" },
+      ],
+    },
+    {
+      id: "cpg_cervical",
+      label: "Contribución cervical / radicular",
+      tipo: "CPG",
+      base: 1,
+      rules: [
+        { id: "spurling", source: "tests", expect: true, weight: 3, explain: "Spurling (+)" },
+        { id: "distraction", source: "tests", expect: true, weight: 2, explain: "Distracción alivia" },
+        { id: "ultt_a", source: "tests", expect: true, weight: 2, explain: "ULTT A (+)" },
+        { id: "parestesias", source: "tests", expect: true, weight: 2, explain: "Parestesias referidas" },
+      ],
+    },
+    {
+      id: "disf_movilidad",
+      label: "Déficit de movilidad capsular",
+      tipo: "DISFUNCION",
+      base: 1,
+      rules: [
+        { id: "rigidez", source: "tests", expect: true, weight: 3, explain: "Rigidez marcada" },
+        { id: "endfeel_duro", source: "tests", expect: true, weight: 2, explain: "End-feel duro/abrupto" },
+        { id: "patron_capsular", source: "tests", expect: true, weight: 3, explain: "Patrón capsular" },
+        { id: "rom_diff_rot_ext_pct", source: "numeric", minValue: 10, weight: 1, explain: "Δ% rotación externa >10%" },
+      ],
+    },
+    {
+      id: "disf_fuerza",
+      label: "Déficit de fuerza / control del manguito",
+      tipo: "DISFUNCION",
+      base: 1,
+      rules: [
+        { id: "debilidad_marcada", source: "tests", expect: true, weight: 3, explain: "Debilidad marcada" },
+        { id: "mmt_er0", source: "text", expect: ["4", "4minus", "3plus", "3", "4plus", "5"], weight: 1, explain: "MMT/nota sugiere déficit ER" },
+        { id: "dolor_contra_resistencia", source: "tests", expect: true, weight: 2, explain: "Dolor con resistencia" },
+      ],
+    },
+    {
+      id: "disf_control_motor",
+      label: "Déficit de control motor / escápula",
+      tipo: "DISFUNCION",
+      base: 1,
+      rules: [
+        { id: "control_escapular_deficit", source: "tests", expect: true, weight: 3, explain: "Déficit control escapular" },
+        { id: "fatiga_serrato", source: "tests", expect: true, weight: 2, explain: "Fatiga serrato" },
+        { id: "dyskinesis_escapular", source: "tests", expect: true, weight: 2, explain: "Disquinesia escapular" },
+        { id: "sat", source: "tests", expect: true, weight: 2, explain: "SAT mejora síntomas" },
+      ],
+    },
+    {
+      id: "disf_estabilidad",
+      label: "Déficit de estabilidad dinámica",
+      tipo: "DISFUNCION",
+      base: 1,
+      rules: [
+        { id: "sensacion_inestabilidad", source: "tests", expect: true, weight: 3, explain: "Sensación de inestabilidad" },
+        { id: "ckc_dolor", source: "tests", expect: true, weight: 2, explain: "Dolor en cadenas cerradas" },
+        { id: "apprehension", source: "tests", expect: true, weight: 2, explain: "Apprehension (+)" },
+      ],
+    },
+    {
+      id: "disf_carga",
+      label: "Intolerancia a la carga",
+      tipo: "DISFUNCION",
+      base: 1,
+      rules: [
+        { id: "msk_carga_actual", source: "intake", expect: ["aumento_brusco", "retorno"], weight: 2, explain: "Ajuste/agudo de carga reportado" },
+        { id: "msk_duracion_post_carga", source: "intake", expect: ["12-24h", ">24h"], weight: 2, explain: "Síntomas prolongados post-carga" },
+        { id: "sport_carga_reciente", source: "intake", expect: ["aumento_brusco", "retorno"], weight: 2, explain: "Cambio de carga deportiva" },
+      ],
+    },
+    {
+      id: "disf_cervical",
+      label: "Contribución cervical / cinética",
+      tipo: "DISFUNCION",
+      base: 1,
+      rules: [
+        { id: "spurling", source: "tests", expect: true, weight: 2, explain: "Spurling (+)" },
+        { id: "parestesias", source: "tests", expect: true, weight: 2, explain: "Parestesias/irradiación" },
+        { id: "cervical_notas", source: "text", minValue: 0, weight: 1, explain: "Notas cervicales relevantes" },
+      ],
+    },
+  ];
+
   // Expose to window for non-module script usage
   window.intakeRemoteConfig = intakeRemoteConfig;
   window.clinicalModules = clinicalModules;
+  window.shoulderHypothesesCatalog = shoulderHypothesesCatalog;
 })();
