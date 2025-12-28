@@ -1,18 +1,20 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>All u moves - Suite Clínica Pro</title>
-    
+
     <!-- Google Fonts: Montserrat -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
+
     <!-- FontAwesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -43,8 +45,12 @@
     </script>
 
     <style>
-        body { background-color: #F5EFE5; color: #363636; -webkit-print-color-adjust: exact; }
-        
+        body {
+            background-color: #F5EFE5;
+            color: #363636;
+            -webkit-print-color-adjust: exact;
+        }
+
         .aum-input {
             width: 100%;
             background-color: #F9FAFB;
@@ -56,12 +62,13 @@
             font-size: 0.95rem;
             color: #374151;
         }
+
         .aum-input:focus {
             border-color: #D9CBB3;
             background-color: #FFFFFF;
             box-shadow: 0 0 0 3px rgba(217, 203, 179, 0.2);
         }
-        
+
         .aum-label {
             display: block;
             font-size: 0.75rem;
@@ -71,7 +78,7 @@
             letter-spacing: 0.05em;
             margin-bottom: 0.35rem;
         }
-        
+
         /* Estilos CRÍTICOS para evitar cortes en PDF */
         .pdf-break-avoid {
             page-break-inside: avoid !important;
@@ -79,51 +86,121 @@
             margin-bottom: 20px;
         }
 
-        .radio-group { display: flex; gap: 1.5rem; align-items: center; height: 42px; }
-        .radio-label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.95rem; color: #4B5563; }
-        .radio-input {
-            appearance: none; width: 1.2rem; height: 1.2rem;
-            border: 1px solid #D1D5DB; border-radius: 50%;
-            display: grid; place-content: center;
+        .radio-group {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+            height: 42px;
         }
+
+        .radio-label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            font-size: 0.95rem;
+            color: #4B5563;
+        }
+
+        .radio-input {
+            appearance: none;
+            width: 1.2rem;
+            height: 1.2rem;
+            border: 1px solid #D1D5DB;
+            border-radius: 50%;
+            display: grid;
+            place-content: center;
+        }
+
         .radio-input::before {
-            content: ""; width: 0.65rem; height: 0.65rem; border-radius: 50%;
-            transform: scale(0); transition: 120ms transform ease-in-out;
+            content: "";
+            width: 0.65rem;
+            height: 0.65rem;
+            border-radius: 50%;
+            transform: scale(0);
+            transition: 120ms transform ease-in-out;
             box-shadow: inset 1em 1em #102024;
         }
-        .radio-input:checked::before { transform: scale(1); }
-        .radio-input:checked { border-color: #102024; }
 
-        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .module-entry { animation: slideIn 0.4s ease-out forwards; }
+        .radio-input:checked::before {
+            transform: scale(1);
+        }
+
+        .radio-input:checked {
+            border-color: #102024;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .module-entry {
+            animation: slideIn 0.4s ease-out forwards;
+        }
     </style>
 
     <!-- Print/PDF fallback: works on all browsers/devices (Save as PDF) -->
     <style>
-      @media print {
-        /* Hide UI-only elements */
-        .hide-on-pdf, nav, header button, button, .toast, .modal { display: none !important; }
-        /* Keep the clinical content full width */
-        body { background: #fff !important; }
-        #app-header { display: block !important; }
-        /* Remove shadows/borders that can clip in print engines */
-        * { box-shadow: none !important; }
-        /* Avoid splitting important blocks across pages */
-        .pdf-break-avoid { break-inside: avoid; page-break-inside: avoid; }
-        /* Ensure videos don't try to print as black boxes */
-        video { display: none !important; }
-        /* Links: keep text clean */
-        a[href]:after { content: ""; }
-      }
+        @media print {
+
+            /* Hide UI-only elements */
+            .hide-on-pdf,
+            nav,
+            header button,
+            button,
+            .toast,
+            .modal {
+                display: none !important;
+            }
+
+            /* Keep the clinical content full width */
+            body {
+                background: #fff !important;
+            }
+
+            #app-header {
+                display: block !important;
+            }
+
+            /* Remove shadows/borders that can clip in print engines */
+            * {
+                box-shadow: none !important;
+            }
+
+            /* Avoid splitting important blocks across pages */
+            .pdf-break-avoid {
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+
+            /* Ensure videos don't try to print as black boxes */
+            video {
+                display: none !important;
+            }
+
+            /* Links: keep text clean */
+            a[href]:after {
+                content: "";
+            }
+        }
     </style>
 
 </head>
+
 <body class="min-h-screen flex flex-col pb-20" id="main-body">
 
     <!-- INPUTS TÉCNICOS (Ocultos) -->
-<input type="file" id="file-load-input" style="display:none;" accept=".aum">
-<input type="file" id="media-upload-input" style="display:none;" multiple accept="image/*,video/*">
-<input type="file" id="doc-upload-input" style="display:none;" multiple accept=".pdf,.dicom,.doc,.docx">
+    <input type="file" id="file-load-input" style="display:none;" accept=".aum">
+    <input type="file" id="media-upload-input" style="display:none;" multiple accept="image/*,video/*">
+    <input type="file" id="doc-upload-input" style="display:none;" multiple accept=".pdf,.dicom,.doc,.docx">
 
 
     <!-- HEADER -->
@@ -134,12 +211,14 @@
                 <p class="text-sm text-brand-grey uppercase tracking-widest ml-1">Clinical Suite</p>
             </div>
             <div class="flex gap-3 hide-on-pdf">
-                <button id="btn-load-aum" type="button" class="bg-white border border-brand-accent text-brand-grey hover:text-brand-dark hover:border-brand-dark px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-sm flex items-center gap-2 min-h-[44px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-accent">
-                  <i class="fa-solid fa-upload"></i> Cargar .aum
+                <button id="btn-load-aum" type="button"
+                    class="bg-white border border-brand-accent text-brand-grey hover:text-brand-dark hover:border-brand-dark px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-sm flex items-center gap-2 min-h-[44px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-accent">
+                    <i class="fa-solid fa-upload"></i> Cargar .aum
                 </button>
 
-                <button id="btn-save-aum" type="button" class="bg-brand-dark text-brand-light px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-800 transition-all shadow-md flex items-center gap-2 min-h-[44px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent">
-                  <i class="fa-solid fa-floppy-disk"></i> Guardar Sesión
+                <button id="btn-save-aum" type="button"
+                    class="bg-brand-dark text-brand-light px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-800 transition-all shadow-md flex items-center gap-2 min-h-[44px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent">
+                    <i class="fa-solid fa-floppy-disk"></i> Guardar Sesión
                 </button>
 
             </div>
@@ -152,7 +231,8 @@
                 </div>
                 <input type="text" class="aum-input pl-10 bg-white" placeholder="Kinesiólogo Tratante" id="kine-name">
             </div>
-            <div class="bg-brand-accent/20 px-4 py-2 rounded-lg text-brand-dark text-sm font-medium flex items-center gap-2 border border-brand-accent/30">
+            <div
+                class="bg-brand-accent/20 px-4 py-2 rounded-lg text-brand-dark text-sm font-medium flex items-center gap-2 border border-brand-accent/30">
                 <i class="fa-regular fa-calendar"></i>
                 <span id="date-display">14/12/2025</span>
             </div>
@@ -163,7 +243,8 @@
     <main class="w-full max-w-5xl mx-auto px-4 sm:px-8 space-y-8" id="content-area">
 
         <!-- 1. IDENTIFICACIÓN Y CONSENTIMIENTO -->
-        <section class="bg-white rounded-xl shadow-lg border border-white p-6 sm:p-8 pdf-break-avoid" id="section-identity">
+        <section class="bg-white rounded-xl shadow-lg border border-white p-6 sm:p-8 pdf-break-avoid"
+            id="section-identity">
             <div class="flex items-center gap-3 mb-6">
                 <div class="w-1.5 h-6 bg-brand-accent rounded-full"></div>
                 <h2 class="text-xl font-bold text-brand-dark">Identificación y Consentimiento</h2>
@@ -190,9 +271,12 @@
                 <div class="md:col-span-4">
                     <label class="aum-label">Sexo</label>
                     <div class="radio-group">
-                        <label class="radio-label"><input type="radio" name="sex" value="M" class="radio-input"> M</label>
-                        <label class="radio-label"><input type="radio" name="sex" value="F" class="radio-input"> F</label>
-                        <label class="radio-label"><input type="radio" name="sex" value="O" class="radio-input"> Otro</label>
+                        <label class="radio-label"><input type="radio" name="sex" value="M" class="radio-input">
+                            M</label>
+                        <label class="radio-label"><input type="radio" name="sex" value="F" class="radio-input">
+                            F</label>
+                        <label class="radio-label"><input type="radio" name="sex" value="O" class="radio-input">
+                            Otro</label>
                     </div>
                 </div>
                 <div class="md:col-span-5">
@@ -214,22 +298,27 @@
                 </div>
                 <div class="md:col-span-4">
                     <label class="aum-label">Previsión</label>
-                    <input type="text" class="aum-input" placeholder="Isapre / Fonasa / Particular" id="patient-insurance">
+                    <input type="text" class="aum-input" placeholder="Isapre / Fonasa / Particular"
+                        id="patient-insurance">
                 </div>
 
                 <div class="md:col-span-5">
                     <label class="aum-label">Contacto Emergencia</label>
-                    <input type="text" class="aum-input bg-red-50/50 border-red-100" placeholder="Ej: Juan Pérez (Padre)" id="patient-emergency-name">
+                    <input type="text" class="aum-input bg-red-50/50 border-red-100"
+                        placeholder="Ej: Juan Pérez (Padre)" id="patient-emergency-name">
                 </div>
                 <div class="md:col-span-3">
                     <label class="aum-label">Celular Emergencia</label>
-                    <input type="tel" class="aum-input bg-red-50/50 border-red-100" placeholder="+56 9..." id="patient-emergency-phone">
+                    <input type="tel" class="aum-input bg-red-50/50 border-red-100" placeholder="+56 9..."
+                        id="patient-emergency-phone">
                 </div>
                 <div class="md:col-span-4 pl-4 border-l border-gray-100">
                     <label class="aum-label">Dominancia</label>
                     <div class="radio-group">
-                        <label class="radio-label"><input type="radio" name="dominance" value="Diestro" class="radio-input"> Diestro</label>
-                        <label class="radio-label"><input type="radio" name="dominance" value="Zurdo" class="radio-input"> Zurdo</label>
+                        <label class="radio-label"><input type="radio" name="dominance" value="Diestro"
+                                class="radio-input"> Diestro</label>
+                        <label class="radio-label"><input type="radio" name="dominance" value="Zurdo"
+                                class="radio-input"> Zurdo</label>
                     </div>
                 </div>
 
@@ -239,7 +328,8 @@
                 </div>
                 <div class="md:col-span-8">
                     <label class="aum-label">Trabajo (Detalle)</label>
-                    <input type="text" class="aum-input" placeholder="Ej: Oficina, 45hrs, Sedentario" id="patient-work-details">
+                    <input type="text" class="aum-input" placeholder="Ej: Oficina, 45hrs, Sedentario"
+                        id="patient-work-details">
                 </div>
 
                 <div class="md:col-span-12">
@@ -250,21 +340,31 @@
                 <!-- Consentimiento -->
                 <div class="md:col-span-12 mt-6">
                     <div class="bg-gray-50 border border-gray-200 rounded-xl p-6">
-                        <h3 class="font-bold text-sm text-brand-dark mb-3 uppercase">Consentimiento Informado y Privacidad</h3>
+                        <h3 class="font-bold text-sm text-brand-dark mb-3 uppercase">Consentimiento Informado y
+                            Privacidad</h3>
                         <p class="text-xs text-gray-600 leading-relaxed text-justify mb-6 whitespace-normal">
-                            "Declaro haber recibido información verbal clara sobre la naturaleza de esta evaluación clínica. 
-                            <strong class="text-gray-800">Autorizo voluntariamente la realización de pruebas físicas y la captura de fotografías/videos</strong> 
-                            con fines estrictamente clínicos para el análisis postural y seguimiento de mi evolución. Entiendo que mis datos personales 
-                            y registros visuales serán tratados con total confidencialidad según la Ley Nº 19.628 y no serán divulgados sin mi permiso explícito.
-                            Asumo la responsabilidad de informar cualquier cambio en mi estado de salud durante el proceso."
+                            "Declaro haber recibido información verbal clara sobre la naturaleza de esta evaluación
+                            clínica.
+                            <strong class="text-gray-800">Autorizo voluntariamente la realización de pruebas físicas y
+                                la captura de fotografías/videos</strong>
+                            con fines estrictamente clínicos para el análisis postural y seguimiento de mi evolución.
+                            Entiendo que mis datos personales
+                            y registros visuales serán tratados con total confidencialidad según la Ley Nº 19.628 y no
+                            serán divulgados sin mi permiso explícito.
+                            Asumo la responsabilidad de informar cualquier cambio en mi estado de salud durante el
+                            proceso."
                         </p>
                         <div class="flex flex-col sm:flex-row gap-4">
-                            <label class="flex items-center gap-3 px-5 py-3 bg-white border border-brand-success/30 rounded-lg cursor-pointer hover:bg-green-50 w-full sm:w-auto">
-                                <input type="radio" name="consent" value="accepted" class="w-4 h-4 text-brand-success focus:ring-brand-success">
+                            <label
+                                class="flex items-center gap-3 px-5 py-3 bg-white border border-brand-success/30 rounded-lg cursor-pointer hover:bg-green-50 w-full sm:w-auto">
+                                <input type="radio" name="consent" value="accepted"
+                                    class="w-4 h-4 text-brand-success focus:ring-brand-success">
                                 <span class="text-sm font-bold text-brand-text">Sí, Acepto y Autorizo</span>
                             </label>
-                            <label class="flex items-center gap-3 px-5 py-3 bg-white border border-brand-danger/30 rounded-lg cursor-pointer hover:bg-red-50 w-full sm:w-auto">
-                                <input type="radio" name="consent" value="rejected" class="w-4 h-4 text-brand-danger focus:ring-brand-danger">
+                            <label
+                                class="flex items-center gap-3 px-5 py-3 bg-white border border-brand-danger/30 rounded-lg cursor-pointer hover:bg-red-50 w-full sm:w-auto">
+                                <input type="radio" name="consent" value="rejected"
+                                    class="w-4 h-4 text-brand-danger focus:ring-brand-danger">
                                 <span class="text-sm font-bold text-brand-danger">No (Detener)</span>
                             </label>
                         </div>
@@ -274,7 +374,8 @@
         </section>
 
         <!-- 1.5 INTAKE REMOTO GLOBAL (SIEMPRE PRESENTE) -->
-        <section class="bg-white rounded-xl shadow-lg border border-white p-6 sm:p-8 pdf-break-avoid" id="section-intake-remote">
+        <section class="bg-white rounded-xl shadow-lg border border-white p-6 sm:p-8 pdf-break-avoid"
+            id="section-intake-remote">
             <div class="flex items-center gap-3 mb-6">
                 <div class="w-1.5 h-6 bg-brand-accent rounded-full"></div>
                 <h2 class="text-xl font-bold text-brand-dark">Intake Remoto Global</h2>
@@ -285,16 +386,20 @@
         </section>
 
         <!-- 2. SELECTOR DE MÓDULOS -->
-        <section class="bg-brand-dark text-white rounded-xl p-5 shadow-lg sticky top-4 z-40 transition-all duration-300 ring-1 ring-white/10 hide-on-pdf" id="module-bar">
+        <section
+            class="bg-brand-dark text-white rounded-xl p-5 shadow-lg sticky top-4 z-40 transition-all duration-300 ring-1 ring-white/10 hide-on-pdf"
+            id="module-bar">
             <div class="flex flex-col md:flex-row md:items-end gap-4">
                 <div class="flex-grow">
-                    <label class="block text-xs text-brand-accent/80 mb-2 uppercase tracking-wider font-semibold">Añadir Evaluación Específica</label>
+                    <label class="block text-xs text-brand-accent/80 mb-2 uppercase tracking-wider font-semibold">Añadir
+                        Evaluación Específica</label>
                     <div class="flex gap-2">
                         <div class="relative flex-grow">
-                            <select id="moduleSelector" class="w-full appearance-none bg-white/10 border border-white/20 text-white rounded-lg pl-4 pr-10 py-2.5 outline-none focus:bg-white/20 focus:border-brand-accent transition-colors cursor-pointer min-h-[44px]">
+                            <select id="moduleSelector"
+                                class="w-full appearance-none bg-white/10 border border-white/20 text-white rounded-lg pl-4 pr-10 py-2.5 outline-none focus:bg-white/20 focus:border-brand-accent transition-colors cursor-pointer min-h-[44px]">
                                 <option value="">Seleccionar Zona...</option>
                                 <option value="hombro">Hombro</option>
-                                <option value="codo">Codo / Muñeca</option>
+                                <option value="codo_muneca_mano">Codo, Muñeca y Mano</option>
                                 <option value="columna">Columna</option>
                                 <option value="cadera">Cadera</option>
                                 <option value="rodilla">Rodilla</option>
@@ -303,23 +408,26 @@
                                 <option value="piso">Piso Pélvico</option>
                                 <option value="entrenamiento">Entrenamiento / Return to Sport</option>
                             </select>
-                            <div class="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-brand-accent">
+                            <div
+                                class="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-brand-accent">
                                 <i class="fa-solid fa-chevron-down text-xs"></i>
                             </div>
                         </div>
-                        <button id="btn-add-module" type="button" class="bg-brand-accent hover:bg-brand-light text-brand-dark px-6 py-2.5 rounded-lg font-bold shadow-lg transition-all transform active:scale-95 flex items-center gap-2 min-h-[44px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-dark">
-                          <i class="fa-solid fa-plus"></i> Añadir
+                        <button id="btn-add-module" type="button"
+                            class="bg-brand-accent hover:bg-brand-light text-brand-dark px-6 py-2.5 rounded-lg font-bold shadow-lg transition-all transform active:scale-95 flex items-center gap-2 min-h-[44px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-dark">
+                            <i class="fa-solid fa-plus"></i> Añadir
                         </button>
                     </div>
                 </div>
             </div>
-            
+
             <div id="active-tags-container" class="flex flex-wrap gap-2 mt-4 min-h-[0px] transition-all"></div>
         </section>
 
         <!-- 3. CLINICAL STACK -->
         <div id="clinical-stack" class="space-y-8 pb-4">
-            <div id="empty-state" class="text-center py-16 border-2 border-dashed border-brand-accent/30 rounded-xl bg-white/50">
+            <div id="empty-state"
+                class="text-center py-16 border-2 border-dashed border-brand-accent/30 rounded-xl bg-white/50">
                 <div class="w-16 h-16 bg-brand-accent/20 rounded-full flex items-center justify-center mx-auto mb-4">
                     <i class="fa-solid fa-layer-group text-3xl text-brand-accent"></i>
                 </div>
@@ -329,27 +437,34 @@
         </div>
 
         <!-- 4. OBSERVACIONES Y ARCHIVOS -->
-        <section class="bg-white rounded-xl shadow-lg border border-white overflow-hidden mb-12 pdf-break-avoid" id="section-observations">
+        <section class="bg-white rounded-xl shadow-lg border border-white overflow-hidden mb-12 pdf-break-avoid"
+            id="section-observations">
             <div class="bg-brand-dark/5 px-6 py-4 border-b border-brand-accent/20 flex items-center gap-3">
                 <div class="w-1.5 h-5 bg-brand-text rounded-full"></div>
-                <h2 class="text-brand-text font-bold text-sm uppercase tracking-wide">Observaciones Generales & Archivos</h2>
+                <h2 class="text-brand-text font-bold text-sm uppercase tracking-wide">Observaciones Generales & Archivos
+                </h2>
             </div>
             <div class="p-6 space-y-6">
                 <div>
                     <label class="aum-label">Anamnesis / Evolución Narrativa</label>
-                    <textarea class="aum-input h-32 resize-y shadow-inner" placeholder="Describa el motivo de consulta..." id="general-anamnesis"></textarea>
+                    <textarea class="aum-input h-32 resize-y shadow-inner"
+                        placeholder="Describa el motivo de consulta..." id="general-anamnesis"></textarea>
                 </div>
-                
+
                 <!-- Botones de Carga (Se ocultan en PDF) -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 hide-on-pdf">
-                    <div id="btn-upload-media" role="button" tabindex="0" class="border-2 border-dashed border-brand-accent/60 rounded-xl p-6 text-center hover:bg-brand-light/50 hover:border-brand-dark transition-all cursor-pointer group">
-                        <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-brand-dark group-hover:text-white transition-colors">
+                    <div id="btn-upload-media" role="button" tabindex="0"
+                        class="border-2 border-dashed border-brand-accent/60 rounded-xl p-6 text-center hover:bg-brand-light/50 hover:border-brand-dark transition-all cursor-pointer group">
+                        <div
+                            class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-brand-dark group-hover:text-white transition-colors">
                             <i class="fa-solid fa-camera text-xl text-brand-grey group-hover:text-white"></i>
                         </div>
                         <p class="text-sm font-medium text-brand-dark">Subir Fotos / Videos</p>
                     </div>
-                        <div id="btn-upload-docs" role="button" tabindex="0" class="border-2 border-dashed border-brand-accent/60 rounded-xl p-6 text-center hover:bg-brand-light/50 hover:border-brand-dark transition-all cursor-pointer group">
-                        <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-brand-dark group-hover:text-white transition-colors">
+                    <div id="btn-upload-docs" role="button" tabindex="0"
+                        class="border-2 border-dashed border-brand-accent/60 rounded-xl p-6 text-center hover:bg-brand-light/50 hover:border-brand-dark transition-all cursor-pointer group">
+                        <div
+                            class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-brand-dark group-hover:text-white transition-colors">
                             <i class="fa-solid fa-file-pdf text-xl text-brand-grey group-hover:text-white"></i>
                         </div>
                         <p class="text-sm font-medium text-brand-dark">Adjuntar Exámenes</p>
@@ -369,20 +484,24 @@
 
     <!-- FOOTER FLOTANTE -->
     <div class="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 hide-on-pdf">
-        <div class="bg-white/90 backdrop-blur-md border border-gray-200 shadow-2xl rounded-full px-6 py-3 flex items-center gap-4">
-            <button id="btn-reset-stack" type="button" class="w-11 h-11 rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500" title="Limpiar todo">
-              <i class="fa-solid fa-trash-can"></i>
+        <div
+            class="bg-white/90 backdrop-blur-md border border-gray-200 shadow-2xl rounded-full px-6 py-3 flex items-center gap-4">
+            <button id="btn-reset-stack" type="button"
+                class="w-11 h-11 rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500"
+                title="Limpiar todo">
+                <i class="fa-solid fa-trash-can"></i>
             </button>
             <div class="h-6 w-px bg-gray-300"></div>
-            <button id="btn-export-pdf" type="button" class="bg-brand-dark text-white px-6 py-2 rounded-full font-bold shadow-lg hover:shadow-xl hover:bg-gray-800 transition-all transform hover:-translate-y-0.5 flex items-center gap-2 min-h-[44px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent">
-              Exportar PDF <i class="fa-solid fa-file-export"></i>
+            <button id="btn-export-pdf" type="button"
+                class="bg-brand-dark text-white px-6 py-2 rounded-full font-bold shadow-lg hover:shadow-xl hover:bg-gray-800 transition-all transform hover:-translate-y-0.5 flex items-center gap-2 min-h-[44px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent">
+                Exportar PDF <i class="fa-solid fa-file-export"></i>
             </button>
         </div>
     </div>
 
     <!-- SCRIPTS -->
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const dateDisplay = document.getElementById('date-display');
             if (dateDisplay) {
                 dateDisplay.innerText = new Date().toLocaleDateString('es-CL');
@@ -395,6 +514,7 @@
 
     <!-- Orden de carga garantizado: data.js → app.js (ambos defer) -->
     <script src="js/data.js" defer></script>
-    <script src="js/app.js" defer></script>   
+    <script src="js/app.js" defer></script>
 </body>
+
 </html>
