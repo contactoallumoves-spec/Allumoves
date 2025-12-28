@@ -220,22 +220,22 @@
 
     const dynFields = includeDynamometry
       ? movements
-          .filter((mvt) => !mvt.skipDyn)
-          .map((mvt) => {
-            const dynId = mvt.dynId || mvt.id;
-            const dynLabel = mvt.dynLabel || `${mvt.label} (dinamometría)`;
-            return {
-              id: prefixedId(prefix, `dyn_${dynId}`),
-              label: dynLabel,
-              type: "numeric",
-              unit: "",
-              min: 0,
-              max: 1000,
-              normal: 0,
-              limited: 0,
-              bilateral: true,
-            };
-          })
+        .filter((mvt) => !mvt.skipDyn)
+        .map((mvt) => {
+          const dynId = mvt.dynId || mvt.id;
+          const dynLabel = mvt.dynLabel || `${mvt.label} (dinamometría)`;
+          return {
+            id: prefixedId(prefix, `dyn_${dynId}`),
+            label: dynLabel,
+            type: "numeric",
+            unit: "",
+            min: 0,
+            max: 1000,
+            normal: 0,
+            limited: 0,
+            bilateral: true,
+          };
+        })
       : [];
 
     return {
@@ -260,16 +260,16 @@
         ...extraFields.map((f) => ({ ...f, id: prefixedId(prefix, f.id) })),
         includeDynamometry
           ? {
-              id: prefixedId(prefix, "dinamometria_modalidad"),
-              label: "Modalidad dinamometría",
-              type: "select",
-              options: [
-                { value: "", label: "— Seleccionar —" },
-                { value: "hhd_isometrico", label: "HHD isométrico" },
-                { value: "dinamometro_mano", label: "Dinamómetro mano / empuñadura" },
-                { value: "isocinetico", label: "Isocinético / laboratorio" },
-              ],
-            }
+            id: prefixedId(prefix, "dinamometria_modalidad"),
+            label: "Modalidad dinamometría",
+            type: "select",
+            options: [
+              { value: "", label: "— Seleccionar —" },
+              { value: "hhd_isometrico", label: "HHD isométrico" },
+              { value: "dinamometro_mano", label: "Dinamómetro mano / empuñadura" },
+              { value: "isocinetico", label: "Isocinético / laboratorio" },
+            ],
+          }
           : null,
         includeDynamometry ? { id: prefixedId(prefix, "dyn_unidad"), label: "Unidad / protocolo", type: "text", placeholder: "Ej: N, kgf, N/kg · posición y palanca" } : null,
         ...dynFields,
@@ -1935,6 +1935,284 @@
           when: (s) => s.text?.entrenamiento_carga_reciente === "aumento" || s.text?.entrenamiento_carga_reciente === "retorno",
         }),
       ],
+    },
+
+    codo_muneca_mano: {
+      key: "codo_muneca_mano",
+      title: "Codo, Muñeca y Mano",
+      scope: "msk",
+      icon: "fa-hand-paper",
+      sections: [
+        // 1) Red Flags & Vascular Screen
+        ((prefix = "cmm") => {
+          const base = buildRedFlagsSection({ prefix, title: "Banderas Rojas & Vascular" });
+          base.fields.push(
+            { id: prefixedId(prefix, "infeccion_mano"), label: "Signos de infección mano/dedos (kanavel, paroniquia)", type: "boolean" },
+            { id: prefixedId(prefix, "herida_penetrante"), label: "Herida penetrante reciente / mordedura", type: "boolean" },
+            { id: prefixedId(prefix, "allen_test"), label: "Test de Allen (permeabilidad radial/ulnar)", type: "select", options: [{ value: "", label: "—" }, { value: "normal", label: "Normal (<5s)" }, { value: "lento", label: "Lento / Dudoso" }, { value: "anormal", label: "Anormal (sin reperfusión)" }] },
+            { id: prefixedId(prefix, "llenado_capilar"), label: "Tiempo llenado capilar > 2s", type: "boolean" },
+            { id: prefixedId(prefix, "pulsos_radiales"), label: "Pulsos (radial/ulnar) conservados", type: "boolean" },
+            { id: prefixedId(prefix, "intolerancia_frio"), label: "Intolerancia al frío / cambio color (Raynaud)", type: "boolean" },
+            { id: prefixedId(prefix, "crps_screen"), label: "Screen CRPS (dolor desproporcionado + edema/color)", type: "boolean", help: "Budapest Criteria preliminar." }
+          );
+          return base;
+        })(),
+
+        // 2) Anamnesis Específica
+        {
+          title: "Anamnesis Específica (Extremidad Superior Distal)",
+          icon: "fa-clipboard-question",
+          style: "grid2",
+          fast: true,
+          fields: [
+            { id: "cmm_lado", label: "Lado sintomático", type: "text", placeholder: "Der / Izq / Bilateral" },
+            { id: "cmm_dominancia", label: "Dominancia manual", type: "text", placeholder: "Diestro / Zurdo" },
+            { id: "cmm_ocupacion", label: "Ocupación / Demanda manual", type: "textarea", placeholder: "Teclado, herramientas vibratorias, carga manual, música, etc." },
+            { id: "cmm_mecanismo", label: "Mecanismo de lesión", type: "textarea", placeholder: "FOOSH, trauma directo, corte, sobreuso, insidioso." },
+            ...buildIrritabilityFields({ prefix: "cmm", includePain: true }),
+
+            {
+              id: "cmm_distribucion_sintomas", label: "Distribución (mapa)", type: "select", options: [
+                { value: "", label: "— Seleccionar —" },
+                { value: "radial", label: "Radial (pulgar/indice/dorso)" },
+                { value: "mediano", label: "Mediano (palma/dedos 1-3)" },
+                { value: "ulnar", label: "Ulnar (borde interno/dedos 4-5)" },
+                { value: "guante", label: "En guante (toda la mano)" },
+                { value: "focal", label: "Focal (articulación única)" }
+              ]
+            },
+            { id: "cmm_parestesias", label: "Parestesias / hormigueo", type: "boolean" },
+            { id: "cmm_debilidad_grip", label: "Pérdida fuerza prensión / se le caen cosas", type: "boolean" },
+            { id: "cmm_torpeza", label: "Torpeza fina (botones, monedas)", type: "boolean" },
+            { id: "cmm_rigidez_matinal", label: "Rigidez matinal (>30min)", type: "boolean" },
+            { id: "cmm_bloqueo", label: "Bloqueo / gatillo (dedos)", type: "boolean" },
+            { id: "cmm_objetivo", label: "Objetivo funcional principal", type: "textarea", placeholder: "Escribir, abotonar, levantar pesos, escalar, etc." }
+          ],
+        },
+
+        // 3) Inspección (Granular)
+        {
+          title: "Inspección: Codo, Muñeca y Mano",
+          icon: "fa-eye",
+          style: "card",
+          fields: [
+            { id: "insp_codo_valgo", label: "Codo: Valgo excesivo / varo", type: "boolean" },
+            { id: "insp_codo_bursitis", label: "Codo: Inflamación olecranon (bursitis)", type: "boolean" },
+            { id: "insp_muneca_ganglion", label: "Muñeca: Quiste/Ganglión visible", type: "boolean" },
+            { id: "insp_muneca_deformidad", label: "Muñeca: Deformidad dorso de tenedor / radio distal", type: "boolean" },
+            { id: "insp_ulnar_head", label: "Muñeca: Prominencia cabeza ulnar (DRUJ)", type: "boolean" },
+
+            { id: "insp_atrofia_tenar", label: "Mano: Atrofia eminencia Tenar (Mediano)", type: "boolean" },
+            { id: "insp_atrofia_hipotenar", label: "Mano: Atrofia eminencia Hipotenar (Ulnar)", type: "boolean" },
+            { id: "insp_atrofia_interoseos", label: "Mano: Atrofia interóseos (guttering)", type: "boolean" },
+
+            { id: "insp_dedos_swan_neck", label: "Dedos: Cuello de cisne (Swan Neck)", type: "boolean" },
+            { id: "insp_dedos_boutonniere", label: "Dedos: Boutonnière", type: "boolean" },
+            { id: "insp_dedos_mallet", label: "Dedos: Mallet Finger (caída FD)", type: "boolean" },
+            { id: "insp_dedos_dupuytren", label: "Dedos: Contractura Dupuytren", type: "boolean" },
+            { id: "insp_nodos_oa", label: "Dedos: Nodos Heberden/Bouchard (OA)", type: "boolean" },
+
+            { id: "insp_troficos", label: "Cambios tróficos (uñas, piel brillante, vello)", type: "boolean" },
+            { id: "insp_notas", label: "Notas inspección", type: "textarea", placeholder: "Detalles visuales, color, cicatrices." }
+          ]
+        },
+
+        // 4) Palpación (Por Zonas)
+        {
+          title: "Palpación por Zonas (Dolor/Sensibilidad)",
+          icon: "fa-hand-point-up",
+          style: "grid2",
+          fields: [
+            { id: "palp_codo_lat", label: "Codo Lat: Epicóndilo / Cabeza radial", type: "boolean" },
+            { id: "palp_codo_med", label: "Codo Med: Epicóndilo / N. Ulnar", type: "boolean" },
+            { id: "palp_codo_post", label: "Codo Post: Olécranon / Tríceps", type: "boolean" },
+            { id: "palp_codo_ant", label: "Codo Ant: Bíceps / Lacertus / Pronador", type: "boolean" },
+
+            { id: "palp_wrist_radial", label: "Muñeca Lat: Tabaquera / Estiloides radial (DeQuervain)", type: "boolean" },
+            { id: "palp_wrist_dorsal", label: "Muñeca Dorsal: Semilunar / Escafosemilunar", type: "boolean" },
+            { id: "palp_wrist_ulnar", label: "Muñeca Med: TFCC / Estiloides Ulnar", type: "boolean" },
+            { id: "palp_wrist_volar", label: "Muñeca Volar: Túnel Carpo / Escafoides / Pisiforme", type: "boolean" },
+
+            { id: "palp_hand_mc", label: "Mano: Metacarpianos / Placa volar", type: "boolean" },
+            { id: "palp_hand_fingers", label: "Dedos: Poleas A1 (trigger) / Colaterales", type: "boolean" },
+            { id: "palp_notas", label: "Notas palpación", type: "textarea", placeholder: "Especificar punto exacto de máximo dolor." }
+          ]
+        },
+
+        // 5) ROM Detallado
+        {
+          title: "ROM (Codo, Antebrazo, Muñeca, Mano)",
+          icon: "fa-ruler-combined",
+          style: "card",
+          fields: [
+            // Codo
+            { id: "rom_codo_flex", label: "Codo Flexión", type: "numeric", unit: "°", min: 0, max: 160, normal: 145, limited: 100, bilateral: true },
+            { id: "rom_codo_ext", label: "Codo Extensión (0 = recto)", type: "numeric", unit: "°", min: -20, max: 20, normal: 0, limited: -15, bilateral: true },
+            { id: "rom_prono", label: "Antebrazo Pronación", type: "numeric", unit: "°", min: 0, max: 90, normal: 80, limited: 50, bilateral: true },
+            { id: "rom_supino", label: "Antebrazo Supinación", type: "numeric", unit: "°", min: 0, max: 90, normal: 85, limited: 50, bilateral: true },
+
+            // Muñeca
+            { id: "rom_wrist_flex", label: "Muñeca Flexión", type: "numeric", unit: "°", min: 0, max: 90, normal: 75, limited: 40, bilateral: true },
+            { id: "rom_wrist_ext", label: "Muñeca Extensión", type: "numeric", unit: "°", min: 0, max: 90, normal: 70, limited: 40, bilateral: true },
+            { id: "rom_wrist_dev_rad", label: "Muñeca Desv. Radial", type: "numeric", unit: "°", min: 0, max: 30, normal: 20, limited: 10, bilateral: true },
+            { id: "rom_wrist_dev_uln", label: "Muñeca Desv. Ulnar", type: "numeric", unit: "°", min: 0, max: 50, normal: 35, limited: 20, bilateral: true },
+
+            // Mano
+            { id: "rom_fingers_flex_cm", label: "Dedos: Distancia pulpejo-palma", type: "numeric", unit: "cm", min: 0, max: 10, normal: 0, limited: 2, bilateral: true, help: "0 cm = toca palma completo." },
+            { id: "rom_thumb_kapandji", label: "Pulgar: Score Kapandji (0-10)", type: "numeric", unit: "", min: 0, max: 10, normal: 10, limited: 6, bilateral: true, help: "Oposición pulgar, 10=base 5to meta/pliegue." },
+
+            { id: "rom_notas", label: "Notas ROM (TAM, Rigidez)", type: "textarea", placeholder: "Total Active Motion en goniometría digital si aplica, end-feels." }
+          ]
+        },
+
+        // 6) Fuerza
+        buildStrengthSection({
+          prefix: "cmm",
+          movements: [
+            { id: "wrist_flex", label: "MMT Muñeca Flexión", dynLabel: "Flexión muñeca" },
+            { id: "wrist_ext", label: "MMT Muñeca Extensión", dynLabel: "Extensión muñeca" },
+            { id: "grip_global", label: "Fuerza Prensión Global (Grip)", dynId: "jamar_grip", dynLabel: "Jamar Grip (kg/lbs)" },
+            { id: "pinch_key", label: "Pinch Lateral (Key)", dynLabel: "Pinch Lateral (kg/lbs)" },
+            { id: "pinch_tip", label: "Pinch Tip-to-Tip", dynLabel: "Pinch Tip-to-Tip (kg/lbs)" },
+            { id: "fdi", label: "MMT 1er Interóseo Dorsal (abducción índice)", skipDyn: true },
+            { id: "apb", label: "MMT Abductor Pollicis Brevis (pulgar)", skipDyn: true },
+            { id: "epl", label: "MMT Extensor Pollicis Longus", skipDyn: true },
+          ],
+          includeDynamometry: true,
+          extraFields: [
+            { id: "cmm_pain_grip", label: "Dolor a la prensión (grip)", type: "boolean" },
+            { id: "cmm_drop_test", label: "Objetos se caen de la mano", type: "boolean" }
+          ]
+        }),
+
+        // 7) Pruebas Especiales
+        {
+          title: "Pruebas Especiales: Codo",
+          icon: "fa-bolt",
+          style: "card",
+          fields: [
+            // Epicondilalgia
+            { id: "test_cozen", label: "Cozen (+)", type: "boolean", help: "Lateral: Extensión muñeca resistida" },
+            { id: "test_maudsley", label: "Maudsley (+)", type: "boolean", help: "Lateral: Extensión 3er dedo resistida" },
+            { id: "test_mill", label: "Mill (+)", type: "boolean", help: "Lateral: Estiramiento pasivo extensores" },
+            { id: "test_medial_epi", label: "Test Epicóndilo Medial (+)", type: "boolean", help: "Medial: Flexión muñeca/prono resistida" },
+
+            // Inestabilidad
+            { id: "test_valgus_stress", label: "Valgus Stress (+)", type: "boolean", help: "Ligamento Colateral Ulnar (UCL)" },
+            { id: "test_varus_stress", label: "Varus Stress (+)", type: "boolean", help: "Ligamento Colateral Radial (RCL)" },
+            { id: "test_chair_sign", label: "Chair Sign (+)", type: "boolean", help: "Inestabilidad rotatoria posterolateral" },
+
+            // Nervio
+            { id: "test_tinel_codo", label: "Tinel Cubital (+)", type: "boolean" },
+            { id: "test_elbow_flexion", label: "Elbow Flexion Test (+)", type: "boolean", help: "Provocación túnel cubital (1-3 min)" },
+            { id: "test_pronator", label: "Compresión Pronador (+)", type: "boolean", help: "Nervio mediano proximal" }
+          ]
+        },
+        {
+          title: "Pruebas Especiales: Muñeca y Mano",
+          icon: "fa-hand-spock",
+          style: "card",
+          fields: [
+            // Tendones
+            { id: "test_finkelstein", label: "Finkelstein / Eichhoff (+)", type: "boolean", help: "De Quervain" },
+            { id: "test_ecu_synergy", label: "ECU Synergy Test (+)", type: "boolean", help: "Tendinopatía ECU" },
+
+            // Carpo / Inestabilidad
+            { id: "test_watson", label: "Watson / Scaphoid Shift (+)", type: "boolean", help: "Inestabilidad Escafo-Semilunar. ¡Clunk/Dolor!" },
+            { id: "test_lunotriquetral", label: "Reagan / Shuck / Ballottement (+)", type: "boolean", help: "Inestabilidad Semilunar-Piramidal" },
+            { id: "test_tfcc_load", label: "TFCC Load Test / Grind (+)", type: "boolean", help: "Compresión axial + rotación ulnar" },
+            { id: "test_tfcc_press", label: "Press Test (Silla) (+)", type: "boolean", help: "Dolor foveal al levantarse" },
+            { id: "test_cmc_grind", label: "CMC Grind Test (+)", type: "boolean", help: "Rizartrosis" },
+            { id: "test_ucl_thumb", label: "UCL Stress Thumb (+)", type: "boolean", help: "Gamekeeper / Skier thumb" },
+
+            // Nervio Distal
+            { id: "test_phalen", label: "Phalen (+)", type: "boolean", help: "Túnel carpiano (60s)" },
+            { id: "test_tinel_wrist", label: "Tinel Muñeca (+)", type: "boolean", help: "Percusión túnel carpiano" },
+            { id: "test_durkan", label: "Durkan / Carpal Compression (+)", type: "boolean", help: "Compresión directa (30s) - Más sensible." },
+            { id: "test_froment", label: "Froment's Sign (+)", type: "boolean", help: "Nervio Ulnar (aductor pulgar) - compemsación FPL" },
+            { id: "test_ok_sign", label: "OK Sign Alterado (AIN)", type: "boolean", help: "Inteosseus anterior (Mediano motor puro)" },
+
+            { id: "cmm_especiales_notas", label: "Notas pruebas especiales", type: "textarea", placeholder: "Resultados, reproducción exacta de síntomas." }
+          ]
+        },
+
+        // 8) Clasificación y Plan
+        {
+          title: "Hipótesis Diagnóstica & Plan",
+          icon: "fa-user-doctor",
+          style: "card",
+          fast: true,
+          fields: [
+            { id: "dx_epicondilalgia_lat", label: "Epicondilalgia Lateral (Codo Tenista)", type: "boolean" },
+            { id: "dx_epicondilalgia_med", label: "Epicondilalgia Medial (Codo Golfista)", type: "boolean" },
+            { id: "dx_tunel_carpiano", label: "Síndrome Túnel Carpiano", type: "boolean" },
+            { id: "dx_tunel_cubital", label: "Síndrome Túnel Cubital", type: "boolean" },
+            { id: "dx_dequervain", label: "Tenosinovitis De Quervain", type: "boolean" },
+            { id: "dx_tfcc", label: "Lesión TFCC / Complejo Fibrocartílago", type: "boolean" },
+            { id: "dx_esguince", label: "Esguince / Inestabilidad (Escafo-lunar u otro)", type: "boolean" },
+            { id: "dx_oa_mano", label: "OA Mano / Rizartrosis", type: "boolean" },
+            { id: "dx_otro", label: "Otra hipótesis", type: "text" },
+
+            { id: "cmm_plan_tratamiento", label: "Plan de Tratamiento", type: "textarea", placeholder: "Educación, férula, ejercicios, terapia manual, etc." },
+            { id: "cmm_criterios_alta", label: "Criterios de alta / retorno", type: "textarea", placeholder: "Grip > 90% contralateral, Dash < 10, etc." }
+          ]
+        }
+      ],
+      logicRules: [
+        // Epicondilalgia Lateral Cluster
+        {
+          id: "rule-lat-epicondylalgia",
+          severity: "info",
+          title: "Compatible con Epicondilalgia Lateral",
+          description: "Dolor palpación lateral + Dolor extensión resistida (Cozen/Maudsley) + Dolor Grip.",
+          scoreValue: 10,
+          criteria: [
+            { id: "palp_codo_lat", source: "tests", label: "Dolor Epicóndilo Lat", weight: 3 },
+            { id: "test_cozen", source: "tests", label: "Cozen (+)", weight: 3 },
+            { id: "cmm_pain_grip", source: "tests", label: "Dolor al Grip", weight: 3 }
+          ],
+          when: (s) => s.tests.palp_codo_lat === true && (s.tests.test_cozen === true || s.tests.test_maudsley === true)
+        },
+        // Carpal Tunnel Cluster (Simplified Wainner)
+        {
+          id: "rule-cts",
+          severity: "warning",
+          title: "Probable Síndrome Túnel Carpiano",
+          description: "Parestesias mediano + Phalen/Tinel/Durkan (+) + Predominio nocturno.",
+          scoreValue: 12,
+          criteria: [
+            { id: "cmm_distribucion_sintomas", source: "intake", expect: ["mediano"], weight: 4 },
+            { id: "test_phalen", source: "tests", label: "Phalen (+)", weight: 3 },
+            { id: "test_durkan", source: "tests", label: "Durkan (+)", weight: 4 },
+            { id: "test_tinel_wrist", source: "tests", label: "Tinel (+)", weight: 2 }
+          ],
+          when: (s) => (s.text.cmm_distribucion_sintomas === "mediano") && (s.tests.test_phalen === true || s.tests.test_durkan === true)
+        },
+        // De Quervain
+        {
+          id: "rule-dequervain",
+          severity: "info",
+          title: "Compatible con De Quervain",
+          description: "Dolor estiloides radial + Finkelstein (+).",
+          when: (s) => s.tests.palp_wrist_radial === true && s.tests.test_finkelstein === true
+        },
+        // Scaphoid Fracture Screen
+        {
+          id: "rule-scaphoid",
+          severity: "danger",
+          title: "ALERTA: Sospecha Fractura Escafoides",
+          description: "Historia de trauma (FOOSH) + Dolor tabaquera anatómica. ¡Requiere imagen!",
+          when: (s) => (s.text.cmm_mecanismo || "").toLowerCase().includes("foosh") && s.tests.palp_wrist_radial === true
+        },
+        // TFCC
+        {
+          id: "rule-tfcc",
+          severity: "info",
+          title: "Sospecha lesión TFCC",
+          description: "Dolor ulnar + Carga/Rotación dolorosa (Load Test) + Palpación.",
+          when: (s) => s.tests.palp_wrist_ulnar === true && (s.tests.test_tfcc_load === true || s.tests.test_tfcc_press === true)
+        }
+      ]
     },
   };
 
