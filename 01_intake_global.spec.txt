@@ -1,0 +1,705 @@
+FILE: /specs/01_intake_global.spec.txt
+SPEC_VERSION: 1.0
+LANG: es-CL
+TIMEZONE_DEFAULT: America/Santiago
+REQUIRES_UNIVERSAL_SPEC: /specs/00_universal_template.spec.txt (v1.4)
+PURPOSE: Especificación declarativa del “Intake Remoto Global” (siempre disponible, independiente del módulo), multi-rama (MSK / Deportiva / Piso Pélvico / Entrenamiento), colapsable por defecto y con smart expand según triggers universales. Debe alimentar: alertas, consideraciones globales, mecanismo de dolor preliminar, irritabilidad PROVISIONAL y un bloque exportable GLOBAL_CONSIDERATIONS.
+SCOPE_NOTE: Esto NO es código. Es especificación (datos + reglas + UX) para motor y UI PWA offline. Debe obedecer estrictamente convenciones, data types, privacidad, auditoría y resiliencia del universal spec v1.4.
+
+---
+
+# 1) REGLAS DE EVIDENCIA (OBLIGATORIO) — PEGAR BLOQUE
+
+REGLAS DE EVIDENCIA (OBLIGATORIO) [debe ser ultra extenso y detallado]:
+- Solo usar: CPG/Guías, consensos internacionales, revisiones sistemáticas/meta-análisis, RCTs, estudios diagnósticos con LR o equivalentes.
+- Prohibido: blogs, páginas comerciales, “opinión clínica” sin respaldo, teorías desactualizadas.
+- Si un test/clasificación no tiene LR o respaldo fuerte: marcar “EVIDENCIA LIMITADA” y BAJA ponderación.
+- Entregar lista de fuentes (mínimo 15, ideal 25+) con año, tipo y por qué importa.
+
+**IMPLEMENTATION RULE (para este spec):**
+- Toda regla clínica “decisional” del intake debe declarar:
+  - `EVIDENCE_TIER`: `ALTA | MEDIA | BAJA | EVIDENCIA_LIMITADA`
+  - `EVIDENCE_ANCHOR`: referencia(s) en sección 12
+- Si una regla usa screening abreviado sin LR claro (ej: screening nociplástico abreviado):
+  - marcar `EVIDENCIA_LIMITADA`
+  - NO usar como stop-rule ni para bloquear exportables
+  - solo como “hipótesis/consideración”
+
+---
+
+# 2) GOBERNANZA, SEGURIDAD, PRIVACIDAD, RESILIENCIA (HEREDA UNIVERSAL v1.4)
+
+## 2.1 PRIORITY_ORDER (si hay conflicto)
+1) SEGURIDAD (red flags, stop rules, consentimiento, derivación)  
+2) CONSISTENCIA DE DATOS (comparabilidad, auditoría, defaults)  
+3) UX (colapsables, smart expand, velocidad)
+
+## 2.2 ENGINE_RESILIENCE_RULES (obligatorio)
+- El motor debe correr aunque falten campos:
+  - usar DEFAULTS por tipo de dato
+  - marcar BADGE: `DATOS_INSUFICIENTES` o `INCOMPLETO`
+  - bloquear solo lo crítico (Top 3 si faltan mínimos; exportables si falta consentimiento)
+- NO romper por `NO_EVALUADO` (tratar como “unknown”)
+- Si un cálculo no aplica -> mostrar `NO_APLICA` (no 0)
+
+## 2.3 DATA CLASSIFICATION (visibilidad y exportables)
+`DATA_CLASSES`:
+- `PII` (identificable): nombre, contacto, fecha nacimiento
+- `PHI`/Salud: síntomas, comorbilidades, PROMs, hallazgos, planes
+- `SENSITIVE_PF`: sexualidad, dispareunia, incontinencia, antecedentes gineco-uro
+
+`EXPORT_PRIVACY_RULES`:
+- Exportables para terceros excluyen `PII` sensible y `SENSITIVE_PF` por defecto.
+- “Plan paciente” evita tecnicismos y no incluye hipótesis diferenciales complejas.
+- Si un dato sensible fue relevante para seguridad: mencionar solo como “precaución clínica” sin detalle.
+
+## 2.4 CONSENTIMIENTO (obligatorio; trazable)
+`CONSENT_BLOCK` (BOOL3 + timestamp + texto breve):
+- Consentimiento para evaluación kinesiológica (obligatorio)
+- Consentimiento para registro/almacenamiento de datos (obligatorio)
+- Consentimiento para contacto remoto (opcional)
+- Consentimiento para compartir informe con entrenador/nutri (opcional y específico)
+- PF: Consentimiento para preguntas `SENSITIVE_PF` (opcional; incluye “Prefiero no responder”)
+
+`CONSENT_RULES`:
+- Si “No” o “No evaluado” en obligatorios -> bloquear exportables y BADGE: `CONSENT_INCOMPLETO`
+- Si PF consentimiento = `NO` o `NO_EVALUADO` -> ocultar/colapsar `RAMA_PF` sensible y no exigir sus campos
+
+## 2.5 AUDITORÍA Y VERSIONADO (obligatorio)
+`DATA_AUDIT`:
+- created_by (TEXT)
+- updated_by (TEXT)
+- created_at (DATE/TIME)
+- updated_at (DATE/TIME)
+- module_version (TEXT)
+- spec_version (TEXT) (auto: “1.4” para universal; para este spec: “1.0”)
+- change_log (TEXT breve)
+
+`OFFLINE_SYNC_NOTES`:
+- Conflicto de edición: conservar ambas versiones y pedir “merge clínico” manual
+- Nunca sobrescribir sin registro
+- En merge: priorizar seguridad y mantener trazabilidad
+
+## 2.6 BOUNDARIES (obligatorio)
+- No diagnosticar patología médica definitiva (solo hipótesis kinesiológica + banderas de derivación)
+- Si `ALERTA_ROJA` -> priorizar derivación y seguridad sobre scoring/performance/plan
+- Transparencia: siempre mostrar “por qué” (razones)
+- Lenguaje neutral, no catastrófico
+
+---
+
+# 3) UI/UX — COLLAPSE, SMART EXPAND, BADGES
+
+## 3.1 DEFAULT COLLAPSE STATE (obligatorio)
+- Consentimiento + Red Flags: `EXPANDED`
+- Intake Remoto Global: `COLLAPSED`
+- Yellow Flags: `COLLAPSED`
+- PROMs: `COLLAPSED`
+- Palpación/ROM analítico/Fuerza: `COLLAPSED` en QUICK / `EXPANDED` en FULL
+- Performance: `COLLAPSED` (smart expand si objetivo=RTS/rendimiento)
+
+## 3.2 SMART_EXPAND_TRIGGERS (obligatorio)
+- cualquier Red Flag = “Sí”
+- consentimiento incompleto
+- dolor reposo >=7/10 o nocturno severo
+- irritabilidad provisional/final = `ALTA`
+- neuropático probable o nociplástico probable
+- miedo/evitación alto
+- asimetría marcada (>20%) cuando aplique
+- comorbilidad de precaución relevante
+
+**Triggers adicionales específicos de este spec (permitidos, no contradicen universal):**
+- `cons_PF_sensitive = SI` + (mecanismo=posparto o metas incluyen continencia/posparto o síntomas PF reportados) -> expand `RAMA_PF`
+- `anticoagulantes/corticoides/inmunosupresión/cáncer/osteoporosis = SI` -> expand `COMORBILIDADES_Y_MEDICACION` + `GLOBAL_CONSIDERATIONS`
+- `GLOBAL_PAIN_MECHANISM = NEUROPATICO_PROBABLE` -> expand `NEURO_SCREEN_MIN` dentro de “Consideraciones de evaluación” (sin duplicar sección F universal; solo “recordatorio”)
+- `Miedo_elevado = SI` -> expand `YELLOW_FLAGS` + `BANDERAS_PSICOSOCIALES`
+
+## 3.3 HIGHLIGHT_BADGES (obligatorio)
+- `ALERTA_ROJA` / `ALERTA_AMARILLA`
+- `CONSENT_INCOMPLETO`
+- `IRRITABILIDAD_ALTA` / `IRRITABILIDAD_MODERADA` / `IRRITABILIDAD_BAJA`
+- `DOLOR_NOCICEPTIVO` / `NEUROPATICO_PROBABLE` / `NOCIPLASTICO_PROBABLE` / `MIXTO`
+- `MIEDO_ELEVADO`
+- `COMORBIDIDAD_PRECAUCION`
+- `DATOS_INSUFICIENTES`
+- `CONTRADICCION_DATOS`
+- `INCOMPLETO`
+- `PF_SENSITIVE_SKIPPED` (si PF consentimiento no otorgado o “Prefiero no responder” en ítems clave sensibles)
+
+---
+
+# 4) DATA TYPES (UNIVERSAL) + CONVENCIONES
+
+## 4.1 DATA TYPES (obligatorio)
+`BOOL3`:
+- STATES: `[NO_EVALUADO, NO, SI]`
+- DEFAULT: `NO_EVALUADO`
+- IF_SI: severidad opcional `(Leve/Moderado/Severo)` + nota breve
+
+`ENUM`: DEFAULT `NO_EVALUADO`  
+`MULTISELECT`: DEFAULT `[]`  
+`TEXT`: DEFAULT `""`  
+`DATE/TIME`: DEFAULT `""`  
+`SCALE_0_10`: DEFAULT `NO_EVALUADO`
+
+## 4.2 “PREFIERO NO RESPONDER” (obligatorio en sensibles)
+- Disponible en:
+  - Sexo/género (en contexto PF)
+  - Ítems sensibles de `RAMA_PF` (sexualidad/dispareunia/continencia/trauma, etc.)
+- Semántica:
+  - No equivale a “NO”
+  - Guardar como `ENUM` explícito: `PREFIERO_NO_RESPONDER` (no usar `NO_EVALUADO`)
+  - Si afecta seguridad/plan: BADGE `PF_SENSITIVE_SKIPPED`
+
+---
+
+# 5) INTAKE REMOTO GLOBAL (OBLIGATORIO / MULTI-RAMA / COLAPSABLE)
+
+## 5.1 ALWAYS_AVAILABLE (obligatorio)
+- El intake global existe siempre, independiente del/los módulos seleccionados.
+- Puede completarse antes o después de elegir módulo (sin pérdida).
+- Editable en cualquier momento (auditoría obligatoria).
+- No debe duplicar datos que existan en módulos; provee “GLOBAL_BASELINE”.
+
+## 5.2 INTAKE_GLOBAL (COLAPSADO por defecto; smart expand si alertas)
+Estructura mínima obligatoria + extensiones permitidas (sin romper universal):
+
+### 5.2.1 IDENTIFICACION (PII) — COLLAPSED
+- Nombre (TEXT) `DATA_CLASS=PII`
+- Edad (NUMERIC) `DATA_CLASS=PII`
+- Sexo/género (ENUM) `DATA_CLASS=PII`  
+  Opciones mínimas: `mujer | hombre | no_binario | otro | PREFIERO_NO_RESPONDER`  
+  Nota: en PF debe ofrecer “Prefiero no responder”
+- Contacto (TEXT opcional) `DATA_CLASS=PII`
+- Ocupación (TEXT) `DATA_CLASS=PII/PHI`
+- Contexto deportivo breve (TEXT opcional): deporte principal / nivel (si Deportiva/Entrenamiento)
+
+**Rule (seguridad/uso):**
+- Si edad <16 -> `ALERTA_AMARILLA` (requiere tutor/consentimiento adicional)  
+  `EVIDENCE_TIER=BAJA` (política/ética clínica)
+
+### 5.2.2 SESSION_CONTEXT (solo intake) — COLLAPSED
+- Tipo (ENUM): `presencial | domicilio | cancha | remoto`
+- Motivo sesión (TEXT breve)
+- Equipamiento disponible (MULTISELECT): colchoneta/bandas/mancuernas/barra/reformer/bicicleta/sin_equipo/otro
+
+### 5.2.3 CONSENT_BLOCK (EXPANDED) — OBLIGATORIO
+- Consentimiento evaluación kinesiológica (BOOL3 + timestamp + texto)
+- Consentimiento registro/almacenamiento (BOOL3 + timestamp + texto)
+- Consentimiento contacto remoto (BOOL3 + timestamp + texto)
+- Consentimiento compartir informe con entrenador/nutri (BOOL3 + timestamp + texto)
+  - Si `SI` -> especificar `con_quien` (MULTISELECT): entrenador/nutri/médico/otro + contacto (TEXT opcional)
+- PF: Consentimiento para preguntas `SENSITIVE_PF` (BOOL3 + timestamp + texto)
+
+**Rules:**
+- Si cualquiera obligatorio != `SI` -> bloquear exportables + BADGE `CONSENT_INCOMPLETO`
+- Si PF consentimiento != `SI` -> ocultar/colapsar `RAMA_PF` sensible y no exigir campos
+
+### 5.2.4 MOTIVO_CONSULTA — COLLAPSED
+- Problema principal (TEXT)
+- Inicio (ENUM): `hoy | días | semanas | meses | años`
+- Mecanismo (ENUM): `trauma | sobrecarga | posparto | idiopático | otro`
+- Zonas (MULTISELECT) + Pain map
+
+**Routing (no bloqueante):**
+- Si mecanismo=posparto -> sugerir `RAMA_PF` (si PF consent)
+- Si “volver a competir/rendimiento” -> sugerir `RAMA_DEPORTIVA`
+- Si objetivo principal es “fuerza/hipertrofia/fitness” -> sugerir `RAMA_ENTRENAMIENTO`
+
+### 5.2.5 PAIN_MAP — COLLAPSED
+- Ubicación (MULTISELECT): `anterior | posterior | medial | lateral | profundo`
+- Irradiación (BOOL3 + severidad)
+- Lateralidad (ENUM): `IZQ | DER | bilateral | central`
+
+### 5.2.6 DOLOR_Y_COMPORTAMIENTO — COLLAPSED (smart expand si severidad)
+- Actual (SCALE_0_10)
+- Peor 24–48h (SCALE_0_10)
+- Mejor 24–48h (SCALE_0_10)
+- Patrón (ENUM): `constante | intermitente | por_carga | nocturno`
+- Rigidez mañanera (BOOL3 + severidad) + duración (ENUM): `<10min | 10-30 | 30-60 | >60 | NO_EVALUADO`
+
+**Inputs mínimos para IRRITABILIDAD_PROVISIONAL (H1):**
+- aparición con actividad (ENUM): `inmediato | minutos | >30min | desconocido`
+- alivio (ENUM): `inmediato | <60min | horas | días | desconocido`
+- nocturno (BOOL3) (si SI: severidad)
+- variabilidad (ENUM): `baja | moderada | alta`
+
+### 5.2.7 YELLOW_FLAGS (colapsado) — COLLAPSED
+- Sueño calidad (SCALE_0_10) + “me despierta el dolor” (BOOL3)
+- Estrés (SCALE_0_10)
+- Fatiga (SCALE_0_10)
+- Autoeficacia baja (BOOL3 + severidad)
+- Expectativas (ENUM): `activas | mixtas | pasivas`
+- Apoyo/logística (TEXT)
+
+### 5.2.8 BANDERAS_PSICOSOCIALES — COLLAPSED
+- Miedo a moverse (BOOL3 + severidad)
+- Evita actividades por miedo (BOOL3 + severidad)
+- Catastrofización (BOOL3 + severidad)
+
+### 5.2.9 PAIN MECHANISM + MIEDO/EVITACIÓN (I1–I2) — COLLAPSED (smart expand si positivo)
+**I1) PAIN MECHANISM (provisional; NO diagnóstico médico)**
+Definiciones operativas (solo para copy):
+- NOCICEPTIVO: patrón mecánico, proporcional, mejora con ajuste carga
+- NEUROPATICO: parestesias/eléctrico, distribución plausible, neuro screen alterado
+- NOCIPLASTICO: multisite, sueño/estrés/fatiga altos, hipersensibilidad, desproporción
+
+**Señales (BOOL3; severidad opcional):**
+- Neuropático (mínimo 6 ítems):
+  - parestesias/hormigueo
+  - entumecimiento
+  - dolor eléctrico/corrientazo
+  - ardor/quemazón
+  - distribución “tipo nervio/dermatoma” (ENUM: sí/no/no sé)
+  - debilidad percibida relevante
+  - (opcional) alodinia (dolor con contacto leve)
+- Nociplástico (mínimo 6 ítems):
+  - dolor multisite (≥2 regiones)
+  - sueño muy alterado
+  - estrés alto
+  - fatiga alta
+  - hipersensibilidad general
+  - dolor “desproporcionado” a carga (EVIDENCIA_LIMITADA; usar con cautela)
+
+**DECISION (universal):**
+- neuropático >=3 señales -> `NEUROPATICO_PROBABLE`
+- nociplástico >=3 señales -> `NOCIPLASTICO_PROBABLE`
+- si no -> `NOCICEPTIVO` o `MIXTO`
+
+**AUTO_IMPACT_ON_PLAN (texto exportable):**
+- neuropático: examen neuro + tolerancia neural + educación; evitar provocación sostenida
+- nociplástico: educación dolor + sueño/estrés + actividad graduada + metas funcionales
+- nociceptivo: carga/función por fases según irritabilidad
+
+`EVIDENCE_TIER=MEDIA` para neuropático (ideal integrar herramientas validadas con LR)  
+`EVIDENCE_TIER=EVIDENCIA_LIMITADA` para screening nociplástico abreviado (NO stop-rule)
+
+**I2) MIEDO/EVITACIÓN**
+FLAGS (BOOL3 + severidad):
+- evita por miedo
+- catastrofiza
+- autoeficacia baja
+
+BADGE:
+- ≥2 flags `SI` mod/sev -> `MIEDO_ELEVADO`
+
+`EVIDENCE_TIER=MEDIA` (screening/constructos validados; no diagnóstico psiquiátrico)
+
+### 5.2.10 RAMAS — COLLAPSED (smart expand según routing/triggers)
+
+#### RAMA_MSK
+- lesiones previas (TEXT)
+- cirugías (BOOL3 + detalle)
+
+**Outputs (si aplica):**
+- Consideraciones evaluación: restricciones post-qx, banderas neuro/vasculares según zona
+- Consideraciones tratamiento: progresión conservadora si post-qx reciente, coordinación con indicaciones médicas
+
+`EVIDENCE_TIER=MEDIA` (seguridad clínica general; depende del caso)
+
+#### RAMA_DEPORTIVA
+- volumen (NUMERIC) (unidad: hrs/sem o sesiones/sem)
+- cambios carga (BOOL3 + severidad)
+- calendario (TEXT)
+- objetivo (ENUM): `RTS | rendimiento | prevenir_lesión | otro`
+
+**Reglas (triage carga):**
+- Si cambios_carga = SI moderado/severo -> `ALERTA_AMARILLA` (riesgo por carga) + expand `GLOBAL_CONSIDERATIONS`
+  - EVAL: cuantificar carga (volumen/intensidad) y tareas gatillantes
+  - TX: progresión gradual + monitor 24h (link con irritabilidad)
+
+`EVIDENCE_TIER=ALTA` (consensos/cpg sobre manejo de carga y retorno)
+
+#### RAMA_PF (SENSITIVE_PF; requiere consentimiento PF)
+**GATING:**
+- si `cons_PF_sensitive != SI`:
+  - mostrar solo bloque informativo + opción de otorgar consentimiento
+  - NO exigir respuestas
+  - si usuario elige “Prefiero no responder” -> guardar `PREFIERO_NO_RESPONDER`
+
+**Campos (con `PREFIERO_NO_RESPONDER` disponible en sensibles):**
+- posparto (BOOL3) + tiempo (ENUM): `<6s | 6-12s | 3-6m | 6-12m | >12m | NO_EVALUADO`
+- embarazo (BOOL3)
+- incontinencia (BOOL3 + severidad) (PREF_NO_RESP)
+- prolapso/sensación de peso/bulto (BOOL3 + severidad) (PREF_NO_RESP)
+- dolor pélvico (BOOL3 + severidad) (PREF_NO_RESP)
+- dispareunia (BOOL3 + severidad) (PREF_NO_RESP)
+
+**STOP RULES PF (universal; decisional):**
+- sangrado anormal, fiebre, dolor pélvico agudo severo, signos infección -> detener + derivación  
+  -> `ALERTA_ROJA`
+
+`EVIDENCE_TIER=ALTA` (guías PF; stop rules de seguridad)
+
+#### RAMA_ENTRENAMIENTO
+- objetivo (ENUM): fuerza/hipertrofia/resistencia/salud/rendimiento/retorno_deporte/otro
+- equipamiento (MULTISELECT)
+
+**Extensión permitida (seguridad pre-ejercicio; no contradice universal):**
+- síntomas cardio durante ejercicio (BOOL3): dolor torácico/síncope/disnea desproporcionada/palpitaciones
+- regla: si `SI` -> `ALERTA_ROJA` (detener y derivar)  
+  `EVIDENCE_TIER=ALTA` (screening preparticipación)
+
+### 5.2.11 COMORBILIDADES_Y_MEDICACION (colapsado; smart expand por riesgo) — COLLAPSED
+**Mínimo universal (obligatorio):**
+- Cardiometabólicas (MULTISELECT)
+- Osteoporosis/fracturas (BOOL3)
+- Autoinmunes/inflamatorias (BOOL3)
+- Cáncer (BOOL3)
+- Anticoagulantes/corticoides (BOOL3)
+- Embarazo (BOOL3)
+- Medicación relevante (TEXT)
+
+**Extensión “completas” (obligatorio para este spec):**
+
+#### A) Cardiometabólicas (MULTISELECT)
+- HTA
+- diabetes tipo 1
+- diabetes tipo 2
+- dislipidemia
+- obesidad
+- cardiopatía coronaria
+- insuficiencia cardiaca
+- arritmias
+- ACV/TIA
+- trombosis/TEP previo
+- enfermedad vascular periférica
+
+#### B) Respiratorias (MULTISELECT)
+- asma
+- EPOC
+- apnea del sueño
+
+#### C) Óseas/MSK sistémicas
+- osteoporosis/osteopenia (BOOL3 + severidad opcional)
+- fractura por fragilidad previa (BOOL3 + detalle)
+- artritis inflamatoria sospechada/diagnosticada (BOOL3 + detalle)
+
+#### D) Neurológicas (MULTISELECT)
+- epilepsia
+- neuropatía periférica
+- EM / Parkinson (si aplica)
+- migraña severa (si aplica)
+
+#### E) Renales/Hepáticas (MULTISELECT)
+- enfermedad renal crónica
+- hepatopatía crónica
+
+#### F) Oncológicas (BOOL3 + detalle)
+- cáncer activo (BOOL3)
+- tratamiento actual (quimio/radio/otro) (TEXT)
+- remisión (<5 años) (BOOL3)
+
+#### G) Autoinmunes / Inmunológicas (BOOL3 + detalle)
+- inmunosupresión (BOOL3)
+- biológicos/inmunomoduladores (BOOL3)
+
+#### H) Salud mental (triage; sin diagnóstico)
+- ansiedad/depresión en tratamiento (BOOL3)
+- crisis reciente (BOOL3) (si SI -> `ALERTA_AMARILLA` + sugerir apoyo profesional)
+
+#### I) Medicación (MULTISELECT + notas)
+- anticoagulantes (warfarina/DOAC) (BOOL3)
+- antiagregantes (BOOL3)
+- corticoides sistémicos crónicos (BOOL3)
+- inmunosupresores/biológicos (BOOL3)
+- opioides (BOOL3)
+- gabapentinoides (BOOL3)
+- AINEs frecuentes (BOOL3)
+- hipoglicemiantes/insulina (BOOL3)
+- otros relevantes (TEXT)
+
+### 5.2.12 COMORBIDITY_ALERTS (auto)
+- Badge `COMORBIDIDAD_PRECAUCION` si riesgos relevantes
+
+**Reglas mínimas (decisionales para alertas, NO para diagnóstico):**
+- anticoagulantes/antiagregantes = SI -> `ALERTA_AMARILLA` + `COMORBIDIDAD_PRECAUCION`
+- corticoides sistémicos crónicos = SI -> `ALERTA_AMARILLA` + `COMORBIDIDAD_PRECAUCION`
+- cáncer activo / inmunosupresión = SI -> `ALERTA_AMARILLA` + `COMORBIDIDAD_PRECAUCION`
+- osteoporosis + dolor agudo focal post trauma -> `ALERTA_ROJA` (sospecha fractura; derivación)
+
+`EVIDENCE_TIER=ALTA` para red flags/seguridad; `MEDIA` para asociaciones no decisionales
+
+### 5.2.13 OBJETIVOS — COLLAPSED
+- Top 3 metas (TEXT) (3 campos)
+- Restricciones/logística (TEXT)
+
+### 5.2.14 ATTACHMENTS_PLACEHOLDER — COLLAPSED
+- Foto/video técnica (BOOL3)
+- Informe imagenológico (BOOL3)
+- Otro (BOOL3)
+
+---
+
+# 6) IRRITABILITY ENGINE — H1 PROVISIONAL (OBLIGATORIO, AUTOMÁTICO)
+
+## 6.1 INPUTS_MINIMOS (post entrevista)
+- dolor actual, peor 24–48h
+- aparición con actividad (inmediato/minutos/>30min/desconocido)
+- alivio (inmediato/<60min/horas/días/desconocido)
+- nocturno (BOOL3)
+- variabilidad (baja/moderada/alta)
+
+## 6.2 POINTS (exacto)
+- peor >=7 -> +2
+- actual >=5 -> +1
+- aparición inmediato/minutos -> +2
+- alivio horas/días -> +2
+- nocturno mod/sev -> +2
+- variabilidad alta -> +1
+
+## 6.3 CATEGORY
+- 0–2: `BAJA`
+- 3–5: `MODERADA`
+- 6+: `ALTA`
+
+## 6.4 OUTPUTS
+`IRRITABILIDAD_PROVISIONAL`:
+- score (NUMERIC)
+- categoría (ENUM): BAJA/MODERADA/ALTA
+- razones (bullets auto: qué puntos sumaron)
+
+BADGE:
+- `IRRITABILIDAD_BAJA/MODERADA/ALTA`
+
+**Nota de evidencia:**
+- `EVIDENCE_TIER=EVIDENCIA_LIMITADA` (constructo clínico útil; no diagnóstico).  
+- Consecuencia: NO usar solo para `ALERTA_ROJA`, sí para dosificación y smart expand.
+
+---
+
+# 7) ALERTAS GLOBALES (INTAKE) — STOP RULES + TRIAGE
+
+## 7.1 ALERTA_ROJA (auto)
+Se activa si:
+- cualquier red flag crítica reportada (universal)
+- PF stop rules: sangrado anormal, fiebre, dolor pélvico agudo severo, signos infección
+- síntomas cardio graves durante ejercicio (rama entrenamiento) (dolor torácico/síncope/disnea desproporcionada)
+
+**Output obligatorio:**
+`ALERT_SUMMARY` (exportable):
+- qué se detectó
+- por qué importa (neutral)
+- acción sugerida: derivación URGENTE/PREFERENTE/RUTINARIA
+
+## 7.2 ALERTA_AMARILLA (auto)
+Ejemplos mínimos:
+- dolor reposo >=7/10 o nocturno severo sin otros signos
+- `COMORBIDIDAD_PRECAUCION`
+- `MIEDO_ELEVADO`
+- cambios carga moderado/severo
+- posparto + síntomas PF + objetivo impacto (precaución; no urgencia)
+
+---
+
+# 8) INTERACTION ENGINE (OBLIGATORIO) — COMORBILIDADES/MEDICACIÓN + DATOS PERSONALES + SECCIONES
+
+## 8.1 OBJETIVO
+Cada dato relevante (comorbilidad/medicación/yellow flags/mecanismo dolor/objetivos/contexto) debe poder gatillar:
+1) `ALERTAS` (ROJA/AMARILLA/INFO)  
+2) `EVAL_CONSIDERATIONS` (qué evaluar y por qué)  
+3) `TX_CONSIDERATIONS` (principios iniciales; qué evitar; monitor)  
+4) `DATA_INTERACTIONS` (cruces explícitos entre secciones + datos personales)
+
+## 8.2 FORMATO ESTÁNDAR DE SALIDA POR GATILLO (declarativo)
+Cada regla genera un objeto (conceptual):
+- `TRIGGER_ID`
+- `WHEN` (condición)
+- `ALERT_LEVEL` (ROJA/AMARILLA/INFO/NONE)
+- `EVAL_CONSIDERATIONS` (bullets)
+- `TX_CONSIDERATIONS` (bullets)
+- `DATA_INTERACTIONS` (bullets)
+- `EVIDENCE_TIER`
+- `EVIDENCE_ANCHOR`
+
+## 8.3 MATRIZ MÍNIMA DE GATILLOS (obligatoria)
+### A) Anticoagulantes/Antiagregantes = SI
+- ALERT_LEVEL: AMARILLA
+- EVAL: historia de sangrado/hematomas; revisar procedimientos con riesgo
+- TX: evitar/precaución técnicas invasivas; educación signos de sangrado; progresión gradual
+- INTERACTIONS:
+  - si además “dolor alto” + “miedo alto” -> priorizar educación y exposición gradual no invasiva
+- EVIDENCE_TIER: ALTA (seguridad clínica)
+- ANCHOR: 12.x (guías seguridad/medicación)
+
+### B) Corticoides sistémicos crónicos = SI
+- ALERT_LEVEL: AMARILLA
+- EVAL: riesgo fragilidad tendinosa/ósea; identificar cargas gatillantes
+- TX: progresión conservadora; evitar picos de carga/impacto inicial
+- INTERACTIONS:
+  - si además “cambio de carga severo” -> reforzar control de carga + monitor 24h
+- EVIDENCE_TIER: MEDIA
+- ANCHOR: 12.x
+
+### C) Osteoporosis/fractura fragilidad = SI
+- ALERT_LEVEL: AMARILLA (sube a ROJA si trauma + dolor agudo focal)
+- EVAL: red flags fractura; dolor vertebral; historia caídas
+- TX: educación seguridad, dosificación gradual; evitar flexión/rotación repetida dolorosa si sospecha vertebral
+- INTERACTIONS:
+  - edad alta + dolor nocturno severo -> subir vigilancia (sin alarmismo)
+- EVIDENCE_TIER: ALTA
+- ANCHOR: 12.x (guías + diagnósticos)
+
+### D) Diabetes = SI
+- ALERT_LEVEL: AMARILLA (más fuerte si neuropatía/síntomas neuro)
+- EVAL: neuropatía, control glicemia, pie diabético si aplica
+- TX: educación hipoglicemia; progresión; evitar picos excesivos si complicaciones
+- INTERACTIONS:
+  - si `NEUROPATICO_PROBABLE` -> priorizar examen neuro + educación + dosificación
+- EVIDENCE_TIER: ALTA
+- ANCHOR: 12.x (guías/consensos diabetes)
+
+### E) Cáncer activo / inmunosupresión = SI
+- ALERT_LEVEL: AMARILLA
+- EVAL: síntomas sistémicos, fiebre, dolor óseo inexplicado
+- TX: ejercicio dosificado; coordinación con equipo médico; higiene y prudencia
+- INTERACTIONS:
+  - si `síntomas sistémicos = SI` + dolor severo -> elevar a ROJA según juicio clínico
+- EVIDENCE_TIER: MEDIA-ALTA
+- ANCHOR: 12.x
+
+### F) Embarazo/Posparto = SI
+- ALERT_LEVEL: INFO/AMARILLA (ROJA si stop rules PF)
+- EVAL: síntomas PF, tolerancia a impacto, banderas urgentes
+- TX: progresión gradual; PFMT si corresponde; educación retorno
+- INTERACTIONS:
+  - posparto + “volver a correr/saltar” + fuga/prolapso/dolor pélvico -> recomendar evaluación PF + progresión controlada
+- EVIDENCE_TIER: ALTA
+- ANCHOR: 12.x (guías PF + postpartum activity)
+
+### G) MIEDO_ELEVADO = SI
+- ALERT_LEVEL: INFO/AMARILLA (según severidad)
+- EVAL: identificar conductas evitativas, expectativas, barreras
+- TX: educación dolor neutral; metas graduadas; énfasis en autoeficacia
+- INTERACTIONS:
+  - si `IRRITABILIDAD_ALTA` -> exposición graduada + cargas bajas/moderadas + monitor 24h (evitar “todo o nada”)
+- EVIDENCE_TIER: MEDIA
+- ANCHOR: 12.x (revisiones fear-avoidance)
+
+### H) NOCIPLASTICO_PROBABLE = SI (screen abreviado)
+- ALERT_LEVEL: INFO (NO stop-rule)
+- EVAL: sueño/estrés/fatiga; dolor multisite; sensibilidad
+- TX: educación; actividad graduada; higiene del sueño; metas funcionales
+- INTERACTIONS:
+  - si además “estrés alto” + “fatiga alta” -> priorizar recuperación y adherencia por sobre volumen
+- EVIDENCE_TIER: EVIDENCIA_LIMITADA (screen breve) / MEDIA (marco conceptual)
+- ANCHOR: 12.x
+
+---
+
+# 9) GLOBAL_CONSIDERATIONS (AUTO) — OBLIGATORIO, EXPORTABLE
+
+## 9.1 OBJETIVO
+Consolidar en un bloque exportable:
+- seguridad/alertas
+- calidad de datos (consentimientos, faltantes)
+- perfil dolor (mecanismo + irritabilidad + miedo)
+- comorbilidades/medicación (precauciones)
+- foco de evaluación (1–5 bullets)
+- foco de tratamiento inicial (1–5 bullets)
+- interacciones explícitas (bullets)
+
+## 9.2 ESTRUCTURA (texto + tags)
+`GLOBAL_CONSIDERATIONS`:
+- `SAFETY`:
+  - ALERTA_ROJA/AMARILLA + acción sugerida (derivación/precaución)
+- `DATA_QUALITY`:
+  - consentimiento ok/incompleto
+  - campos críticos faltantes (si existen)
+- `PAIN_PROFILE`:
+  - mecanismo preliminar: NOC/NEUROP/NOCIP/MIXTO
+  - irritabilidad provisional + razones
+  - miedo/evitación (si aplica)
+- `COMORBIDITY_MEDICATION`:
+  - precauciones clave (bullets)
+- `EVAL_FOCUS` (1–5 bullets):
+  - qué evaluar primero y por qué
+- `TREATMENT_FOCUS` (1–5 bullets):
+  - principios iniciales (no prescripción detallada)
+  - qué evitar hoy (si aplica)
+  - monitor 24h (si irritabilidad moderada/alta)
+- `INTERACTIONS` (bullets):
+  - cruces explícitos (carga+dolor, anticoagulantes+invasiva, posparto+impacto+fuga, etc.)
+
+## 9.3 PRIVACY FILTERS POR EXPORT (obligatorio)
+- Export “Plan Paciente”: incluir Safety + Pain Profile + 1–3 recomendaciones simples; excluir detalles `SENSITIVE_PF`.
+- Export “Coach/Nutri”: excluir `SENSITIVE_PF` y `PII` sensible por defecto.
+- Export “Clínico”: incluye todo según rol.
+
+---
+
+# 10) QUICK vs FULL MINIMUMS (obligatorio; para no bloquear Top 3)
+
+## 10.1 QUICK_MODE_MINIMUMS (si faltan -> DATOS_INSUFICIENTES y bloquear Top 3)
+- Consentimientos obligatorios completos
+- Screening Red Flags global + específico
+- Dolor: actual + peor 24–48h + patrón/distribución
+- Irritabilidad provisional
+- Mecanismo dolor preliminar + miedo/evitación (flags clínicos)
+- (nota: la “1–2 tareas funcionales + 1 medida objetiva mínima” se completan típicamente en módulo; intake solo asegura lo global)
+
+## 10.2 DATOS_INSUFICIENTES vs INCOMPLETO
+- `DATOS_INSUFICIENTES`: faltan mínimos QUICK -> bloquear Top 3
+- `INCOMPLETO`: faltan datos no críticos -> motor corre
+
+---
+
+# 11) QA CHECKLIST (DEFINITION OF DONE) — INTAKE_GLOBAL
+
+## 11.1 UX/DATA
+- Intake existe siempre (independiente del módulo).
+- Estado por defecto: Intake colapsado; Consentimiento + Red Flags expandido.
+- Smart expand respeta triggers universales y específicos.
+- `BOOL3` default `NO_EVALUADO` en todos los booleanos.
+- “Prefiero no responder” se guarda explícito (no confundir con NO/NO_EVALUADO).
+- PF gating: sin consentimiento PF no se muestran preguntas sensibles y no se bloquea el resto.
+
+## 11.2 CLÍNICO/SEGURIDAD
+- Calcula `IRRITABILIDAD_PROVISIONAL` exactamente con H1.
+- Calcula `GLOBAL_PAIN_MECHANISM` con regla `>=3 señales`.
+- Calcula `MIEDO_ELEVADO` con regla `>=2 flags mod/sev`.
+- Genera `COMORBIDIDAD_PRECAUCION` cuando corresponde.
+- Genera `GLOBAL_CONSIDERATIONS` exportable y respeta filtros de privacidad.
+
+## 11.3 AUDITORÍA
+- Guarda timestamps y `change_log` en ediciones del intake.
+- En conflictos offline: conserva ambas versiones y exige merge manual.
+
+---
+
+# 12) LISTA DE FUENTES (25+) — AÑO, TIPO, POR QUÉ IMPORTA (SOLO ALTA CALIDAD)
+
+> Nota: Estas fuentes son “anclas” de evidencia para justificar reglas del intake. Si una regla no tiene LR/alta evidencia (ej: screening nociplástico abreviado), debe declararse `EVIDENCIA_LIMITADA` y NO usar como stop-rule.
+
+1) **NICE NG59** (2016; CPG). LBP/sciatica: triage, red flags, manejo prudente.  
+2) **WHO Guideline: Low Back Pain** (2023; CPG global). Marco actualizado para seguridad y manejo.  
+3) **Henschke et al. (Cochrane)** (2013; SR diagnóstica). Red flags para malignidad en LBP: utilidad limitada aislada.  
+4) **Henschke et al.** (2008; SR diagnóstica). Red flags para fractura vertebral: identifica señales con mejor rendimiento.  
+5) **Downie et al.** (2013; evidencia diagnóstica/triage). Resalta precisión limitada de red flags aisladas y necesidad de combinación/contexto.  
+6) **IASP/NeuPSIG** (2011; consenso). Definición moderna de dolor neuropático (base conceptual).  
+7) **NeuPSIG Grading System** (2016; consenso). Criterios de gradación neuropática (evitar sobrediagnóstico).  
+8) **IASP “Nociplastic pain”** (2017; consenso/terminología). Define nociplástico y su diferencia conceptual.  
+9) **Nijs et al.** (2021; consenso aplicado/revisión). Operacionaliza criterios nociplásticos (uso clínico prudente).  
+10) **Scholz et al. (ICD-11 chronic pain classification)** (2019; consenso/clasificación). Lenguaje estandarizado dolor crónico.  
+11) **FABQ (Fear-Avoidance Beliefs Questionnaire)** (1993; instrumento validado). Screening miedo/creencias (si se integra).  
+12) **TSK (Tampa Scale of Kinesiophobia)** (revisiones/validaciones 2000–2012; medición). Screening miedo al movimiento.  
+13) **ACSM Preparticipation Health Screening** (2015; guía/consenso). Triage seguridad para ejercicio.  
+14) **American Diabetes Association (ADA) + Exercise** (2016; position statement). Precauciones, dosificación en diabetes.  
+15) **ADA Standards of Care (capítulos de ejercicio)** (actualizaciones anuales; CPG). Ajustes por complicaciones (neuropatía, CV).  
+16) **Cochrane PFMT for urinary incontinence (Dumoulin et al.)** (2018; SR/MA). Alta evidencia PFMT en UI.  
+17) **Cochrane PFMT antenatal/postnatal (Woodley et al.)** (2020; SR/MA). PFMT en embarazo/posparto.  
+18) **NICE NG123** (2019; CPG). UI y POP en mujeres: PFMT primera línea, evaluación.  
+19) **NICE NG210** (2021; CPG). Disfunción piso pélvico: prevención y manejo no quirúrgico.  
+20) **Guías/consensos retorno a actividad postparto** (2019–2025; consenso). Recomendaciones para progresión de impacto.  
+21) **IOC/BJSM Consensus Statements sobre load management** (2016–2020; consenso). Cambios de carga y riesgo de lesión.  
+22) **Revisiones SR/MA sobre carga aguda:crónica y riesgo** (2016–2020; SR/MA). Sustenta flags por cambios de carga (usar con prudencia).  
+23) **DN4 validation studies** (2005–2012; diagnóstico con métricas). Herramienta de screening neuropático con rendimiento reportado (si se formaliza).  
+24) **LANSS / painDETECT validation** (2001–2013; diagnóstico). Alternativas de screening neuropático (si se integra).  
+25) **Guidelines exercise in cancer survivors (ACSM/consensos)** (2019–2022; guías). Precauciones y principios en onco/inmunosupresión.  
+26) **Osteoporosis exercise guidelines (consensos/CPG)** (2019–2022; guías). Dosificación segura, prevención caídas, precauciones vertebrales.  
+27) **Anticoagulation safety guidance (guías clínicas)** (2018–2023; guías). Precauciones por sangrado/hematomas en intervención.  
+28) **Perinatal pelvic health consensus/CPG** (2019–2024; guías/consenso). Triage y manejo conservador PF.  
+29) **Chronic pain education + activity graded (SR/CPG)** (2017–2023; SR/guías). Enfoque para nociplástico (educación + actividad graduada).  
+30) **Red flags neuro (cauda equina) síntesis en guías** (2016–2023; CPG). Stop-rules por esfínteres/silla de montar/debilidad progresiva.
+
+END OF FILE
