@@ -12,14 +12,14 @@
       theme: {
         extend: {
           colors: {
-            ink: "#102024",        // Ink Blue
-            sandstone: "#D9CBB3",  // Sandstone
-            taupe: "#8C857F",      // Taupe Grey
-            iron: "#363636",       // Iron Grey
-            cream: "#F5EFE5"       // Cream Bone
+            ink: "#102024",
+            sandstone: "#D9CBB3",
+            taupe: "#8C857F",
+            iron: "#363636",
+            cream: "#F5EFE5"
           },
           boxShadow: {
-            soft: "0 12px 34px rgba(0,0,0,0.35)",
+            soft: "0 14px 40px rgba(0,0,0,0.38)",
             insetSoft: "inset 0 0 0 1px rgba(245,239,229,0.08)"
           }
         }
@@ -32,25 +32,39 @@
 
   <style>
     ::selection { background: rgba(217,203,179,0.35); }
+    input[type="range"] { -webkit-appearance: none; appearance: none; height: 6px; border-radius: 999px; background: rgba(245,239,229,0.14); outline: none; }
+    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 999px; background: #D9CBB3; border: 2px solid rgba(16,32,36,0.65); }
+    input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 999px; background: #D9CBB3; border: 2px solid rgba(16,32,36,0.65); }
   </style>
 </head>
 
 <body class="min-h-screen bg-ink text-cream">
-  <div class="max-w-6xl mx-auto px-4 py-6 md:py-10">
+  <div class="max-w-7xl mx-auto px-4 py-6 md:py-10">
+
     <!-- Header -->
     <div class="flex items-start justify-between gap-4">
-      <div>
-        <h1 class="text-2xl md:text-3xl font-semibold tracking-tight">
-          Generador de Informe Kinesiológico Flash
-        </h1>
-        <p class="mt-1 text-sm text-cream/70">
-          Uso interno • tap-tap-tap • texto empático para paciente • PDF 1 página
-        </p>
+      <div class="flex items-start gap-3">
+        <div class="mt-1 w-10 h-10 rounded-2xl bg-iron border border-cream/10 shadow-insetSoft flex items-center justify-center">
+          <!-- Icon: Document -->
+          <svg class="w-5 h-5 text-sandstone" viewBox="0 0 24 24" fill="none">
+            <path d="M7 3h7l3 3v15a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+            <path d="M14 3v4a2 2 0 0 0 2 2h4" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+            <path d="M8 12h8M8 16h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-2xl md:text-3xl font-semibold tracking-tight">
+            Generador de Informe Kinesiológico Flash
+          </h1>
+          <p class="mt-1 text-sm text-cream/70">
+            All U Moves • rápido • claro • sin promesas • PDF 1 página con logo
+          </p>
+        </div>
       </div>
 
       <div class="hidden md:flex items-center gap-2">
-        <div class="px-3 py-2 rounded-2xl bg-iron shadow-insetSoft border border-cream/10">
-          <div class="text-xs text-cream/60">All U Moves</div>
+        <div class="px-3 py-2 rounded-2xl bg-iron border border-cream/10 shadow-insetSoft">
+          <div class="text-xs text-cream/55">Paleta</div>
           <div class="mt-2 flex items-center gap-2">
             <span class="w-4 h-4 rounded-full" style="background:#102024; border:1px solid rgba(245,239,229,0.18)"></span>
             <span class="w-4 h-4 rounded-full" style="background:#D9CBB3"></span>
@@ -62,187 +76,387 @@
       </div>
     </div>
 
-    <!-- Main -->
+    <!-- Main grid -->
     <div class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-      <!-- Form -->
-      <section class="rounded-3xl bg-iron shadow-soft border border-cream/10 overflow-hidden">
-        <div class="px-5 py-4 border-b border-cream/10">
-          <h2 class="text-lg font-semibold">Formulario rápido</h2>
-          <p class="text-sm text-cream/70 mt-1">Completa en segundos. La vista previa se actualiza sola.</p>
+
+      <!-- LEFT: Form -->
+      <section class="rounded-3xl bg-iron border border-cream/10 shadow-soft overflow-hidden">
+        <div class="px-5 py-4 border-b border-cream/10 flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <!-- Icon: Bolt -->
+            <svg class="w-5 h-5 text-sandstone" viewBox="0 0 24 24" fill="none">
+              <path d="M13 2 3 14h8l-1 8 11-13h-8l0-7Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+            </svg>
+            <h2 class="text-lg font-semibold">Inputs esenciales</h2>
+          </div>
+          <div class="text-xs text-cream/55">tap-tap-tap</div>
         </div>
 
-        <div class="p-5 space-y-5">
-          <!-- Tú / Usted -->
-          <div>
-            <label class="block text-sm text-cream/80 mb-2">Tono</label>
-            <div class="grid grid-cols-2 gap-3">
-              <label class="cursor-pointer">
-                <input class="sr-only peer" type="radio" name="tono" value="tu" checked />
-                <div class="rounded-2xl border border-cream/10 bg-ink/40 px-4 py-3
-                            peer-checked:border-sandstone/70 peer-checked:bg-ink/70
-                            hover:border-cream/20 transition">
-                  <div class="text-sm font-medium">Tú</div>
-                  <div class="text-xs text-cream/60 mt-1">Cercano</div>
+        <div class="p-5 space-y-4">
+
+          <!-- Row 1: Tone + Patient -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="rounded-2xl bg-ink/60 border border-cream/10 p-4">
+              <div class="flex items-center gap-2 mb-2">
+                <!-- Icon: Chat -->
+                <svg class="w-5 h-5 text-sandstone" viewBox="0 0 24 24" fill="none">
+                  <path d="M7 8h10M7 12h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                  <path d="M20 12a7 7 0 0 1-7 7H7l-3 3v-6a7 7 0 1 1 16-4Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                </svg>
+                <div class="text-sm font-semibold">Tono</div>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <label class="cursor-pointer">
+                  <input class="sr-only peer" type="radio" name="tono" value="tu" checked />
+                  <div class="rounded-2xl px-3 py-2 border border-cream/10 bg-ink/40
+                              peer-checked:border-sandstone/70 peer-checked:bg-ink/70
+                              hover:border-cream/20 transition">
+                    <div class="text-sm font-medium">Tú</div>
+                    <div class="text-xs text-cream/55">cercano</div>
+                  </div>
+                </label>
+                <label class="cursor-pointer">
+                  <input class="sr-only peer" type="radio" name="tono" value="usted" />
+                  <div class="rounded-2xl px-3 py-2 border border-cream/10 bg-ink/40
+                              peer-checked:border-sandstone/70 peer-checked:bg-ink/70
+                              hover:border-cream/20 transition">
+                    <div class="text-sm font-medium">Usted</div>
+                    <div class="text-xs text-cream/55">formal</div>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div class="rounded-2xl bg-ink/60 border border-cream/10 p-4">
+              <div class="flex items-center gap-2 mb-2">
+                <!-- Icon: User -->
+                <svg class="w-5 h-5 text-sandstone" viewBox="0 0 24 24" fill="none">
+                  <path d="M20 21a8 8 0 1 0-16 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                  <path d="M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="currentColor" stroke-width="1.8"/>
+                </svg>
+                <div class="text-sm font-semibold">Paciente</div>
+              </div>
+              <input id="nombre" type="text" placeholder="Nombre"
+                class="w-full rounded-2xl bg-ink/40 border border-cream/10 px-4 py-3 outline-none
+                       focus:border-sandstone/60 focus:ring-2 focus:ring-sandstone/20" autocomplete="name" />
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
+                <input id="actividad" type="text" placeholder="Actividad/Deporte (opcional)"
+                  class="w-full rounded-2xl bg-ink/40 border border-cream/10 px-4 py-3 outline-none
+                         focus:border-sandstone/60 focus:ring-2 focus:ring-sandstone/20" />
+                <div class="rounded-2xl bg-ink/40 border border-cream/10 px-4 py-3 flex items-center justify-between gap-3">
+                  <div class="text-sm text-cream/80">Logo PDF</div>
+                  <label class="cursor-pointer inline-flex items-center gap-2 text-sm font-semibold text-sandstone">
+                    <input id="logoInput" type="file" accept="image/*" class="hidden" />
+                    <span class="px-3 py-1.5 rounded-2xl bg-iron border border-cream/10 hover:border-cream/20 transition">Subir</span>
+                  </label>
                 </div>
-              </label>
-              <label class="cursor-pointer">
-                <input class="sr-only peer" type="radio" name="tono" value="usted" />
-                <div class="rounded-2xl border border-cream/10 bg-ink/40 px-4 py-3
-                            peer-checked:border-sandstone/70 peer-checked:bg-ink/70
-                            hover:border-cream/20 transition">
-                  <div class="text-sm font-medium">Usted</div>
-                  <div class="text-xs text-cream/60 mt-1">Formal</div>
-                </div>
-              </label>
+              </div>
+              <div class="mt-2 text-xs text-cream/55" id="logoStatus">Sin logo cargado (opcional).</div>
             </div>
           </div>
 
-          <!-- Nombre -->
-          <div>
-            <label class="block text-sm text-cream/80 mb-2" for="nombre">Nombre paciente</label>
-            <input id="nombre" type="text" placeholder="Ej: Emilie"
-              class="w-full rounded-2xl bg-ink/60 border border-cream/10 px-4 py-3 outline-none
-                     focus:border-sandstone/60 focus:ring-2 focus:ring-sandstone/20"
-              autocomplete="name" />
-          </div>
-
-          <!-- Actividad -->
-          <div>
-            <label class="block text-sm text-cream/80 mb-2" for="actividad">Actividad / Deporte (opcional)</label>
-            <input id="actividad" type="text" placeholder="Ej: running, gimnasio, boxeo"
-              class="w-full rounded-2xl bg-ink/60 border border-cream/10 px-4 py-3 outline-none
-                     focus:border-sandstone/60 focus:ring-2 focus:ring-sandstone/20" />
-          </div>
-
-          <!-- Zona -->
-          <div>
-            <label class="block text-sm text-cream/80 mb-2" for="zona">Zona molestia</label>
-            <select id="zona"
-              class="w-full rounded-2xl bg-ink/60 border border-cream/10 px-4 py-3 outline-none
-                     focus:border-sandstone/60 focus:ring-2 focus:ring-sandstone/20">
-              <option value="">Selecciona…</option>
-              <option>Cuello</option>
-              <option>Hombro</option>
-              <option>Lumbar</option>
-              <option>Rodilla</option>
-              <option>Tobillo</option>
-            </select>
-          </div>
-
-          <!-- Hallazgo -->
-          <div>
-            <div class="flex items-center justify-between gap-3 mb-2">
-              <label class="block text-sm text-cream/80">Lo que vimos</label>
-              <span class="text-xs text-cream/50">1 toque</span>
+          <!-- Row 2: Segment + Zone -->
+          <div class="rounded-2xl bg-ink/60 border border-cream/10 p-4">
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2">
+                <!-- Icon: Target -->
+                <svg class="w-5 h-5 text-sandstone" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 21a9 9 0 1 0-9-9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                  <path d="M12 17a5 5 0 1 0-5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                  <path d="M12 13a1 1 0 1 0-1-1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                  <path d="M21 3 12 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                </svg>
+                <div class="text-sm font-semibold">Motivo + Zona</div>
+              </div>
+              <div class="text-xs text-cream/55">define recomendaciones</div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <label class="cursor-pointer">
-                <input class="sr-only peer" type="radio" name="hallazgo" value="rango_limitado" />
-                <div class="rounded-2xl border border-cream/10 bg-ink/40 px-4 py-3
-                            peer-checked:border-sandstone/70 peer-checked:bg-ink/70
-                            hover:border-cream/20 transition">
-                  <div class="text-sm font-medium">Rango limitado</div>
-                  <div class="text-xs text-cream/60 mt-1">Se siente “más tieso”</div>
+            <div class="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label class="block text-xs text-cream/60 mb-2">Motivo (segmento)</label>
+                <div class="grid grid-cols-1 gap-2">
+                  <label class="cursor-pointer">
+                    <input class="sr-only peer" type="radio" name="segmento" value="agudo" checked />
+                    <div class="rounded-2xl px-3 py-2 border border-cream/10 bg-ink/40
+                                peer-checked:border-sandstone/70 peer-checked:bg-ink/70
+                                hover:border-cream/20 transition">
+                      <div class="text-sm font-medium">Agudo</div>
+                      <div class="text-xs text-cream/55">&lt; 2 semanas</div>
+                    </div>
+                  </label>
+                  <label class="cursor-pointer">
+                    <input class="sr-only peer" type="radio" name="segmento" value="persistente" />
+                    <div class="rounded-2xl px-3 py-2 border border-cream/10 bg-ink/40
+                                peer-checked:border-sandstone/70 peer-checked:bg-ink/70
+                                hover:border-cream/20 transition">
+                      <div class="text-sm font-medium">Recurrente/Persistente</div>
+                      <div class="text-xs text-cream/55">&gt; 2–3 semanas</div>
+                    </div>
+                  </label>
+                  <label class="cursor-pointer">
+                    <input class="sr-only peer" type="radio" name="segmento" value="performance" />
+                    <div class="rounded-2xl px-3 py-2 border border-cream/10 bg-ink/40
+                                peer-checked:border-sandstone/70 peer-checked:bg-ink/70
+                                hover:border-cream/20 transition">
+                      <div class="text-sm font-medium">Performance/Prevención</div>
+                      <div class="text-xs text-cream/55">optimizar carga</div>
+                    </div>
+                  </label>
                 </div>
-              </label>
+              </div>
 
-              <label class="cursor-pointer">
-                <input class="sr-only peer" type="radio" name="hallazgo" value="falta_fuerza" />
-                <div class="rounded-2xl border border-cream/10 bg-ink/40 px-4 py-3
-                            peer-checked:border-sandstone/70 peer-checked:bg-ink/70
-                            hover:border-cream/20 transition">
-                  <div class="text-sm font-medium">Falta de fuerza</div>
-                  <div class="text-xs text-cream/60 mt-1">Cuesta sostener esfuerzos</div>
-                </div>
-              </label>
+              <div>
+                <label class="block text-xs text-cream/60 mb-2">Zona principal</label>
+                <select id="zona"
+                  class="w-full rounded-2xl bg-ink/40 border border-cream/10 px-4 py-3 outline-none
+                         focus:border-sandstone/60 focus:ring-2 focus:ring-sandstone/20">
+                  <option value="">Selecciona…</option>
+                  <option value="Cuello">Cuello</option>
+                  <option value="Espalda alta/torácica">Espalda alta/torácica</option>
+                  <option value="Hombro">Hombro</option>
+                  <option value="Codo">Codo</option>
+                  <option value="Muñeca/Mano">Muñeca/Mano</option>
+                  <option value="Lumbar">Lumbar</option>
+                  <option value="Cadera/Ingle">Cadera/Ingle</option>
+                  <option value="Rodilla">Rodilla</option>
+                  <option value="Tobillo/Pie">Tobillo/Pie</option>
+                  <option value="Tendón de Aquiles">Tendón de Aquiles</option>
+                  <option value="Otra">Otra</option>
+                </select>
+                <input id="zonaOtra" type="text" placeholder="Si 'Otra', escribe aquí"
+                  class="mt-2 w-full rounded-2xl bg-ink/40 border border-cream/10 px-4 py-3 outline-none
+                         focus:border-sandstone/60 focus:ring-2 focus:ring-sandstone/20 hidden" />
+              </div>
 
-              <label class="cursor-pointer">
-                <input class="sr-only peer" type="radio" name="hallazgo" value="fatiga_muscular" />
-                <div class="rounded-2xl border border-cream/10 bg-ink/40 px-4 py-3
-                            peer-checked:border-sandstone/70 peer-checked:bg-ink/70
-                            hover:border-cream/20 transition">
-                  <div class="text-sm font-medium">Fatiga muscular</div>
-                  <div class="text-xs text-cream/60 mt-1">Se cansa rápido al repetir</div>
+              <div>
+                <label class="block text-xs text-cream/60 mb-2">Lado</label>
+                <div class="grid grid-cols-3 gap-2">
+                  <label class="cursor-pointer">
+                    <input class="sr-only peer" type="radio" name="lado" value="izquierdo" />
+                    <div class="rounded-2xl px-3 py-3 border border-cream/10 bg-ink/40 text-center
+                                peer-checked:border-sandstone/70 peer-checked:bg-ink/70 hover:border-cream/20 transition">
+                      <div class="text-sm font-medium">Izq</div>
+                    </div>
+                  </label>
+                  <label class="cursor-pointer">
+                    <input class="sr-only peer" type="radio" name="lado" value="derecho" />
+                    <div class="rounded-2xl px-3 py-3 border border-cream/10 bg-ink/40 text-center
+                                peer-checked:border-sandstone/70 peer-checked:bg-ink/70 hover:border-cream/20 transition">
+                      <div class="text-sm font-medium">Der</div>
+                    </div>
+                  </label>
+                  <label class="cursor-pointer">
+                    <input class="sr-only peer" type="radio" name="lado" value="bilateral" checked />
+                    <div class="rounded-2xl px-3 py-3 border border-cream/10 bg-ink/40 text-center
+                                peer-checked:border-sandstone/70 peer-checked:bg-ink/70 hover:border-cream/20 transition">
+                      <div class="text-sm font-medium">Bilat</div>
+                    </div>
+                  </label>
                 </div>
-              </label>
 
-              <label class="cursor-pointer">
-                <input class="sr-only peer" type="radio" name="hallazgo" value="buena_mov_sensibilidad" />
-                <div class="rounded-2xl border border-cream/10 bg-ink/40 px-4 py-3
-                            peer-checked:border-sandstone/70 peer-checked:bg-ink/70
-                            hover:border-cream/20 transition">
-                  <div class="text-sm font-medium">Buena movilidad, sensibilidad</div>
-                  <div class="text-xs text-cream/60 mt-1">Molesta al exigir</div>
+                <div class="mt-3">
+                  <label class="block text-xs text-cream/60 mb-2">Irritabilidad</label>
+                  <div class="grid grid-cols-3 gap-2">
+                    <label class="cursor-pointer">
+                      <input class="sr-only peer" type="radio" name="irrit" value="baja" />
+                      <div class="rounded-2xl px-3 py-2 border border-cream/10 bg-ink/40 text-center
+                                  peer-checked:border-sandstone/70 peer-checked:bg-ink/70 hover:border-cream/20 transition">
+                        <div class="text-sm font-medium">Baja</div>
+                        <div class="text-xs text-cream/55">tolera carga</div>
+                      </div>
+                    </label>
+                    <label class="cursor-pointer">
+                      <input class="sr-only peer" type="radio" name="irrit" value="media" checked />
+                      <div class="rounded-2xl px-3 py-2 border border-cream/10 bg-ink/40 text-center
+                                  peer-checked:border-sandstone/70 peer-checked:bg-ink/70 hover:border-cream/20 transition">
+                        <div class="text-sm font-medium">Media</div>
+                        <div class="text-xs text-cream/55">ajustar</div>
+                      </div>
+                    </label>
+                    <label class="cursor-pointer">
+                      <input class="sr-only peer" type="radio" name="irrit" value="alta" />
+                      <div class="rounded-2xl px-3 py-2 border border-cream/10 bg-ink/40 text-center
+                                  peer-checked:border-sandstone/70 peer-checked:bg-ink/70 hover:border-cream/20 transition">
+                        <div class="text-sm font-medium">Alta</div>
+                        <div class="text-xs text-cream/55">más calma</div>
+                      </div>
+                    </label>
+                  </div>
                 </div>
-              </label>
+
+              </div>
             </div>
           </div>
 
-          <!-- Recomendación -->
-          <div>
-            <div class="flex items-center justify-between gap-3 mb-2">
-              <label class="block text-sm text-cream/80">En qué enfocarte</label>
-              <span class="text-xs text-cream/50">1 toque</span>
+          <!-- Row 3: Impression + Findings -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="rounded-2xl bg-ink/60 border border-cream/10 p-4">
+              <div class="flex items-center gap-2 mb-2">
+                <!-- Icon: Clipboard -->
+                <svg class="w-5 h-5 text-sandstone" viewBox="0 0 24 24" fill="none">
+                  <path d="M9 4h6l1 2h3v15a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V6h3l1-2Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                  <path d="M9 8h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                </svg>
+                <div class="text-sm font-semibold">Impresión clínica (flash)</div>
+              </div>
+              <select id="impresion"
+                class="w-full rounded-2xl bg-ink/40 border border-cream/10 px-4 py-3 outline-none
+                       focus:border-sandstone/60 focus:ring-2 focus:ring-sandstone/20">
+                <option value="">Selecciona…</option>
+                <option value="Sobrecarga/irritación por entrenamiento o actividad">Sobrecarga / irritación por carga</option>
+                <option value="Tendón/músculo reactivo (sin confirmar) asociado a carga">Tendón/músculo reactivo (no confirmado)</option>
+                <option value="Rigidez y falta de movilidad específica">Rigidez / movilidad específica</option>
+                <option value="Déficit de fuerza/control (sin lesión grave aparente)">Déficit de fuerza/control</option>
+                <option value="Sensibilidad/irritación con movimientos repetidos">Sensibilidad con repetición</option>
+                <option value="Molestia mecánica (se agrava con ciertas posiciones/cargas)">Molestia mecánica por posiciones/carga</option>
+              </select>
+              <textarea id="notaCorta" rows="3" placeholder="Nota breve (opcional): ejemplo 'molesta al bajar escaleras', 'dolor al press', etc."
+                class="mt-2 w-full rounded-2xl bg-ink/40 border border-cream/10 px-4 py-3 outline-none
+                       focus:border-sandstone/60 focus:ring-2 focus:ring-sandstone/20"></textarea>
+              <div class="mt-2 text-xs text-cream/55">
+                Esto es una impresión rápida (no diagnóstico definitivo).
+              </div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <label class="cursor-pointer">
-                <input class="sr-only peer" type="radio" name="reco" value="movilidad_diaria" />
-                <div class="rounded-2xl border border-cream/10 bg-ink/40 px-4 py-3
-                            peer-checked:border-sandstone/70 peer-checked:bg-ink/70
-                            hover:border-cream/20 transition">
-                  <div class="text-sm font-medium">Movilidad diaria</div>
-                  <div class="text-xs text-cream/60 mt-1">Corta, constante</div>
-                </div>
-              </label>
+            <div class="rounded-2xl bg-ink/60 border border-cream/10 p-4">
+              <div class="flex items-center gap-2 mb-2">
+                <!-- Icon: Check -->
+                <svg class="w-5 h-5 text-sandstone" viewBox="0 0 24 24" fill="none">
+                  <path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <div class="text-sm font-semibold">Lo que se reporta / se observa</div>
+              </div>
 
-              <label class="cursor-pointer">
-                <input class="sr-only peer" type="radio" name="reco" value="zona_media" />
-                <div class="rounded-2xl border border-cream/10 bg-ink/40 px-4 py-3
-                            peer-checked:border-sandstone/70 peer-checked:bg-ink/70
-                            hover:border-cream/20 transition">
-                  <div class="text-sm font-medium">Fortalecer zona media</div>
-                  <div class="text-xs text-cream/60 mt-1">Soporte y control</div>
-                </div>
-              </label>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <label class="flex items-center gap-2 rounded-2xl bg-ink/40 border border-cream/10 px-3 py-2 cursor-pointer hover:border-cream/20 transition">
+                  <input type="checkbox" class="accent-sandstone" id="f_dolorCarga">
+                  <span class="text-sm">Dolor al cargar/esforzar</span>
+                </label>
+                <label class="flex items-center gap-2 rounded-2xl bg-ink/40 border border-cream/10 px-3 py-2 cursor-pointer hover:border-cream/20 transition">
+                  <input type="checkbox" class="accent-sandstone" id="f_rigidez">
+                  <span class="text-sm">Rigidez / rango limitado</span>
+                </label>
+                <label class="flex items-center gap-2 rounded-2xl bg-ink/40 border border-cream/10 px-3 py-2 cursor-pointer hover:border-cream/20 transition">
+                  <input type="checkbox" class="accent-sandstone" id="f_debilidad">
+                  <span class="text-sm">Debilidad / poca confianza</span>
+                </label>
+                <label class="flex items-center gap-2 rounded-2xl bg-ink/40 border border-cream/10 px-3 py-2 cursor-pointer hover:border-cream/20 transition">
+                  <input type="checkbox" class="accent-sandstone" id="f_fatiga">
+                  <span class="text-sm">Fatiga rápida</span>
+                </label>
+                <label class="flex items-center gap-2 rounded-2xl bg-ink/40 border border-cream/10 px-3 py-2 cursor-pointer hover:border-cream/20 transition">
+                  <input type="checkbox" class="accent-sandstone" id="f_sensibilidad">
+                  <span class="text-sm">Sensibilidad al movimiento</span>
+                </label>
+                <label class="flex items-center gap-2 rounded-2xl bg-ink/40 border border-cream/10 px-3 py-2 cursor-pointer hover:border-cream/20 transition">
+                  <input type="checkbox" class="accent-sandstone" id="f_inestabilidad">
+                  <span class="text-sm">Inestabilidad / “falla”</span>
+                </label>
+              </div>
 
-              <label class="cursor-pointer">
-                <input class="sr-only peer" type="radio" name="reco" value="estabilidad" />
-                <div class="rounded-2xl border border-cream/10 bg-ink/40 px-4 py-3
-                            peer-checked:border-sandstone/70 peer-checked:bg-ink/70
-                            hover:border-cream/20 transition">
-                  <div class="text-sm font-medium">Estabilidad</div>
-                  <div class="text-xs text-cream/60 mt-1">Control + confianza</div>
+              <div class="mt-3 grid grid-cols-2 gap-2">
+                <div class="rounded-2xl bg-ink/40 border border-cream/10 px-3 py-2">
+                  <label class="block text-xs text-cream/60 mb-1">Dolor actual (0–10)</label>
+                  <input id="nrs" type="range" min="0" max="10" step="1" value="0" />
+                  <div class="mt-1 text-sm text-cream/80">NRS: <span id="nrsVal" class="font-semibold text-sandstone">0</span></div>
                 </div>
-              </label>
+                <div class="rounded-2xl bg-ink/40 border border-cream/10 px-3 py-2">
+                  <label class="block text-xs text-cream/60 mb-1">Objetivo 7–14 días</label>
+                  <select id="objetivo"
+                    class="w-full rounded-2xl bg-ink/40 border border-cream/10 px-3 py-2 outline-none
+                           focus:border-sandstone/60 focus:ring-2 focus:ring-sandstone/20">
+                    <option value="">Selecciona…</option>
+                    <option value="volver a entrenar con menos molestia y mejor control">Volver a entrenar con menos molestia</option>
+                    <option value="mejorar rango y tolerancia al movimiento">Mejorar rango/tolerancia</option>
+                    <option value="ganar fuerza/control en movimientos clave">Ganar fuerza/control</option>
+                    <option value="reducir irritación y recuperar confianza">Reducir irritación + confianza</option>
+                  </select>
+                </div>
+              </div>
 
-              <label class="cursor-pointer">
-                <input class="sr-only peer" type="radio" name="reco" value="descanso" />
-                <div class="rounded-2xl border border-cream/10 bg-ink/40 px-4 py-3
-                            peer-checked:border-sandstone/70 peer-checked:bg-ink/70
-                            hover:border-cream/20 transition">
-                  <div class="text-sm font-medium">Descanso y carga</div>
-                  <div class="text-xs text-cream/60 mt-1">Sueño + progresión</div>
+            </div>
+          </div>
+
+          <!-- PSFS -->
+          <div class="rounded-2xl bg-ink/60 border border-cream/10 p-4">
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2">
+                <!-- Icon: Chart -->
+                <svg class="w-5 h-5 text-sandstone" viewBox="0 0 24 24" fill="none">
+                  <path d="M4 19V5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                  <path d="M4 19h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                  <path d="M8 16v-6M12 16V8M16 16v-10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                </svg>
+                <div class="text-sm font-semibold">PSFS (rápido)</div>
+              </div>
+              <div class="text-xs text-cream/55">0 = no puedo • 10 = normal</div>
+            </div>
+
+            <div class="mt-3 grid grid-cols-1 gap-3">
+              <div class="grid grid-cols-1 md:grid-cols-6 gap-2">
+                <input id="psfs1_txt" class="md:col-span-4 rounded-2xl bg-ink/40 border border-cream/10 px-4 py-3 outline-none focus:border-sandstone/60 focus:ring-2 focus:ring-sandstone/20"
+                  placeholder="Actividad 1 (ej: subir escaleras / correr / press)" />
+                <div class="md:col-span-2 rounded-2xl bg-ink/40 border border-cream/10 px-4 py-3">
+                  <div class="text-xs text-cream/60">Puntaje</div>
+                  <div class="flex items-center gap-3 mt-2">
+                    <input id="psfs1_val" type="range" min="0" max="10" step="1" value="8" class="flex-1" />
+                    <div class="w-8 text-center font-semibold text-sandstone" id="psfs1_show">8</div>
+                  </div>
                 </div>
-              </label>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-6 gap-2">
+                <input id="psfs2_txt" class="md:col-span-4 rounded-2xl bg-ink/40 border border-cream/10 px-4 py-3 outline-none focus:border-sandstone/60 focus:ring-2 focus:ring-sandstone/20"
+                  placeholder="Actividad 2 (opcional)" />
+                <div class="md:col-span-2 rounded-2xl bg-ink/40 border border-cream/10 px-4 py-3">
+                  <div class="text-xs text-cream/60">Puntaje</div>
+                  <div class="flex items-center gap-3 mt-2">
+                    <input id="psfs2_val" type="range" min="0" max="10" step="1" value="8" class="flex-1" />
+                    <div class="w-8 text-center font-semibold text-sandstone" id="psfs2_show">8</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-6 gap-2">
+                <input id="psfs3_txt" class="md:col-span-4 rounded-2xl bg-ink/40 border border-cream/10 px-4 py-3 outline-none focus:border-sandstone/60 focus:ring-2 focus:ring-sandstone/20"
+                  placeholder="Actividad 3 (opcional)" />
+                <div class="md:col-span-2 rounded-2xl bg-ink/40 border border-cream/10 px-4 py-3">
+                  <div class="text-xs text-cream/60">Puntaje</div>
+                  <div class="flex items-center gap-3 mt-2">
+                    <input id="psfs3_val" type="range" min="0" max="10" step="1" value="8" class="flex-1" />
+                    <div class="w-8 text-center font-semibold text-sandstone" id="psfs3_show">8</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-2 text-xs text-cream/55">
+              (Se imprime en el PDF como lista + promedio simple si hay actividades completas)
             </div>
           </div>
 
           <!-- Actions -->
-          <div class="flex flex-col sm:flex-row gap-3 pt-1">
+          <div class="flex flex-col sm:flex-row gap-3">
             <button id="btnGenerar"
               class="w-full sm:w-auto inline-flex items-center justify-center gap-2
                      rounded-2xl bg-sandstone text-ink font-semibold px-5 py-3
                      hover:opacity-95 active:opacity-90 transition">
+              <!-- Icon: Spark -->
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2l1.5 6L20 10l-6.5 2L12 18l-1.5-6L4 10l6.5-2L12 2Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+              </svg>
               Generar informe
-              <span aria-hidden="true">→</span>
             </button>
 
             <button id="btnLimpiar"
-              class="w-full sm:w-auto inline-flex items-center justify-center
+              class="w-full sm:w-auto inline-flex items-center justify-center gap-2
                      rounded-2xl bg-ink/60 border border-cream/10 text-cream/90 px-5 py-3
                      hover:border-cream/20 transition">
+              <!-- Icon: Refresh -->
+              <svg class="w-5 h-5 text-cream/80" viewBox="0 0 24 24" fill="none">
+                <path d="M20 12a8 8 0 1 1-2.3-5.7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                <path d="M20 4v6h-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
               Limpiar
             </button>
 
@@ -253,15 +467,19 @@
         </div>
       </section>
 
-      <!-- Preview -->
-      <section class="rounded-3xl bg-iron shadow-soft border border-cream/10 overflow-hidden">
+      <!-- RIGHT: Preview -->
+      <section class="rounded-3xl bg-iron border border-cream/10 shadow-soft overflow-hidden">
         <div class="px-5 py-4 border-b border-cream/10 flex items-center justify-between gap-3">
-          <div>
+          <div class="flex items-center gap-2">
+            <!-- Icon: Eye -->
+            <svg class="w-5 h-5 text-sandstone" viewBox="0 0 24 24" fill="none">
+              <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+              <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="1.8"/>
+            </svg>
             <h2 class="text-lg font-semibold">Vista previa</h2>
-            <p class="text-sm text-cream/70 mt-1">Texto para paciente + exportación a PDF.</p>
           </div>
-          <div class="hidden sm:flex items-center gap-2">
-            <span class="text-xs text-cream/50">Listo</span>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-cream/55" id="readyLabel">incompleto</span>
             <span id="readyDot" class="w-2.5 h-2.5 rounded-full bg-cream/20"></span>
           </div>
         </div>
@@ -270,46 +488,54 @@
           <div class="rounded-2xl bg-ink/60 border border-cream/10 p-4">
             <div class="flex items-start justify-between gap-3">
               <div>
-                <div class="text-xs text-cream/50">All U Moves</div>
-                <div class="text-sm font-semibold">Informe Kinesiológico</div>
+                <div class="text-xs text-cream/55">All U Moves</div>
+                <div class="text-sm font-semibold">Informe Kinesiológico (Flash)</div>
               </div>
-              <div class="text-xs text-cream/50" id="previewTono"></div>
+              <div class="text-xs text-cream/55" id="previewMeta">—</div>
             </div>
 
             <div class="mt-4">
               <p class="text-sm leading-relaxed text-cream/90 whitespace-pre-wrap" id="previewText">
-                Completa el formulario y presiona “Generar informe”.
+                Completa lo esencial y presiona “Generar informe”.
               </p>
             </div>
           </div>
 
-          <div class="flex flex-col sm:flex-row gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button id="btnPDF" disabled
-              class="w-full sm:w-auto inline-flex items-center justify-center gap-2
-                     rounded-2xl bg-sandstone text-ink font-semibold px-5 py-3
-                     disabled:opacity-40 disabled:cursor-not-allowed
-                     hover:opacity-95 active:opacity-90 transition">
+              class="inline-flex items-center justify-center gap-2 rounded-2xl bg-sandstone text-ink font-semibold px-5 py-3
+                     disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-95 active:opacity-90 transition">
+              <!-- Icon: Download -->
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                <path d="M12 3v10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                <path d="M8 11l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M4 17v3h16v-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
               Descargar PDF
             </button>
 
             <button id="btnCopiar" disabled
-              class="w-full sm:w-auto inline-flex items-center justify-center
-                     rounded-2xl bg-ink/60 border border-cream/10 text-cream/90 px-5 py-3
-                     disabled:opacity-40 disabled:cursor-not-allowed
-                     hover:border-cream/20 transition">
+              class="inline-flex items-center justify-center gap-2 rounded-2xl bg-ink/60 border border-cream/10 text-cream/90 px-5 py-3
+                     disabled:opacity-40 disabled:cursor-not-allowed hover:border-cream/20 transition">
+              <!-- Icon: Copy -->
+              <svg class="w-5 h-5 text-cream/85" viewBox="0 0 24 24" fill="none">
+                <path d="M9 9h10v10H9V9Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                <path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
               Copiar texto
             </button>
           </div>
 
-          <p class="text-xs text-cream/50">
-            Nota: requiere internet para cargar Tailwind y jsPDF (CDN). En GitHub Pages funciona igual.
-          </p>
+          <div class="rounded-2xl bg-ink/60 border border-cream/10 p-4 text-xs text-cream/60">
+            Checklist mental rápido: zona + motivo + irritabilidad + 1–3 actividades (PSFS). Eso ya da un informe útil sin vender humo.
+          </div>
         </div>
       </section>
+
     </div>
 
     <div class="mt-6 text-xs text-cream/40">
-      All U Moves • Informe Kinesiológico Flash • 1 archivo • responsive • sin degradados
+      Sin degradados • paleta sólida • responsive iPhone/PC • PDF 1 página • logo incrustado si lo subes
     </div>
   </div>
 
@@ -317,114 +543,303 @@
     const $ = (id) => document.getElementById(id);
 
     const palette = {
-      ink: [16, 32, 36],          // #102024
-      sandstone: [217, 203, 179], // #D9CBB3
-      taupe: [140, 133, 127],     // #8C857F
-      iron: [54, 54, 54],         // #363636
-      cream: [245, 239, 229]      // #F5EFE5
+      ink: [16, 32, 36],
+      sandstone: [217, 203, 179],
+      taupe: [140, 133, 127],
+      iron: [54, 54, 54],
+      cream: [245, 239, 229]
     };
 
-    const hallazgoMap = {
-      rango_limitado: {
-        tu: "menos movilidad de lo habitual, lo que puede sentirse como rigidez o limitación",
-        usted: "menos movilidad de lo habitual, lo que puede sentirse como rigidez o limitación"
-      },
-      falta_fuerza: {
-        tu: "una baja de fuerza en la zona, por eso algunos movimientos se sienten más demandantes",
-        usted: "una baja de fuerza en la zona, por eso algunos movimientos se sienten más demandantes"
-      },
-      fatiga_muscular: {
-        tu: "fatiga muscular más rápida de lo esperable, sobre todo con esfuerzos repetidos",
-        usted: "fatiga muscular más rápida de lo esperable, sobre todo con esfuerzos repetidos"
-      },
-      buena_mov_sensibilidad: {
-        tu: "buena movilidad, pero con sensibilidad/molestia al exigir la zona",
-        usted: "buena movilidad, pero con sensibilidad/molestia al exigir la zona"
-      }
-    };
+    let logoDataUrl = ""; // base64 dataURL for jsPDF
 
-    const recoMap = {
-      movilidad_diaria: {
-        tu: "movilidad diaria suave y controlada",
-        usted: "movilidad diaria suave y controlada"
-      },
-      zona_media: {
-        tu: "fortalecer tu zona media para mejorar soporte y control",
-        usted: "fortalecer su zona media para mejorar soporte y control"
-      },
-      estabilidad: {
-        tu: "ejercicios de estabilidad y control para ganar confianza en el movimiento",
-        usted: "ejercicios de estabilidad y control para ganar confianza en el movimiento"
-      },
-      descanso: {
-        tu: "gestión de descanso y carga (sueño, pausas y progresión gradual)",
-        usted: "gestión de descanso y carga (sueño, pausas y progresión gradual)"
-      }
-    };
-
+    // --- UI helpers
     function getRadioValue(name) {
       const el = document.querySelector(`input[name="${name}"]:checked`);
       return el ? el.value : "";
     }
+    function toneKey() { return getRadioValue("tono") === "usted" ? "usted" : "tu"; }
+    function valOrDash(v) { return (v && String(v).trim()) ? String(v).trim() : "—"; }
 
-    function tonoKey() {
-      const t = getRadioValue("tono");
-      return (t === "usted") ? "usted" : "tu";
+    // Show "Otra" field for zone
+    $("zona").addEventListener("change", () => {
+      const isOtra = $("zona").value === "Otra";
+      $("zonaOtra").classList.toggle("hidden", !isOtra);
+      generateAndPreview();
+    });
+
+    // NRS label
+    $("nrs").addEventListener("input", () => {
+      $("nrsVal").textContent = $("nrs").value;
+      generateAndPreview();
+    });
+
+    // PSFS labels
+    function bindPSFS(rangeId, showId) {
+      $(rangeId).addEventListener("input", () => {
+        $(showId).textContent = $(rangeId).value;
+        generateAndPreview();
+      });
+      $(rangeId).addEventListener("change", generateAndPreview);
+    }
+    bindPSFS("psfs1_val", "psfs1_show");
+    bindPSFS("psfs2_val", "psfs2_show");
+    bindPSFS("psfs3_val", "psfs3_show");
+
+    // Logo upload
+    $("logoInput").addEventListener("change", async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      try {
+        const dataUrl = await fileToDataURL(file);
+        logoDataUrl = dataUrl;
+        $("logoStatus").textContent = "Logo cargado ✔ (se incrustará en el PDF).";
+        generateAndPreview();
+      } catch (err) {
+        logoDataUrl = "";
+        $("logoStatus").textContent = "No se pudo cargar el logo.";
+      }
+    });
+
+    function fileToDataURL(file) {
+      return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = reject;
+        r.readAsDataURL(file);
+      });
+    }
+
+    // --- Clinical-ish text engine (flash, no promises)
+    function zoneSpecificPlan(zone) {
+      // 3 bullets max, super prácticos y “no humo”
+      const plans = {
+        "Cuello": [
+          "Movilidad suave (2–3 veces/día): rotaciones y flexo-extensión en rango cómodo.",
+          "Control escapular + postura dinámica: pausas cada 30–60 min si trabajas sentado.",
+          "Fuerza ligera (día por medio): tirón/remo suave + sostén isométrico corto."
+        ],
+        "Espalda alta/torácica": [
+          "Movilidad torácica (2–3 veces/día): extensión suave + rotaciones controladas.",
+          "Activación escapular (día por medio): retracciones y control sin dolor.",
+          "Evitar picos de carga en empuje/halón si sube la molestia; progresión gradual."
+        ],
+        "Hombro": [
+          "Rango cómodo diario: elevar/rotar sin forzar el final del recorrido.",
+          "Isométricos (día por medio): empujar suave contra pared (rotación/abducción) 3–5 x 20–30s.",
+          "Progresión de fuerza: volver a cargas por bloques, evitando picos sobre la cabeza si irrita."
+        ],
+        "Codo": [
+          "Reducir el gesto que irrita (agarre/rápida repetición) por 7–14 días, no ‘cero movimiento’.",
+          "Isométricos (día por medio): agarre o extensión/flexión suave 3–5 x 20–30s.",
+          "Reintroducción de carga: subir de a poco repeticiones y peso, priorizando técnica."
+        ],
+        "Muñeca/Mano": [
+          "Movilidad y tolerancia diaria: flex-ext + pron-sup en rango cómodo.",
+          "Fuerza progresiva 3–4 días/sem: agarre, apoyo parcial, y control de muñeca.",
+          "Modifica apoyos/cargas (barra, puños, straps) si el apoyo directo molesta."
+        ],
+        "Lumbar": [
+          "Movimiento frecuente: caminatas cortas (10–20 min) y evitar estar ‘quieto’ mucho rato.",
+          "Control y fuerza (3–4 días/sem): bisagra de cadera ligera + anti-rotación/estabilidad.",
+          "Regla de carga: si al día siguiente sube demasiado, baja volumen/intensidad."
+        ],
+        "Cadera/Ingle": [
+          "Rango cómodo diario: movilidad de cadera sin dolor agudo.",
+          "Fuerza 3–4 días/sem: puente/abducción/aducción isométrica suave según tolerancia.",
+          "Gestionar cambios bruscos de dirección/carrera si eso dispara síntomas."
+        ],
+        "Rodilla": [
+          "Tolerancia al rango: flex-ext controlada diaria sin ‘reventar’ dolor.",
+          "Fuerza 3–4 días/sem: cuádriceps (isométricos/sentadilla parcial) + cadera.",
+          "Si corres/saltas: reducir impacto 7–14 días y volver con progresión (volumen primero)."
+        ],
+        "Tobillo/Pie": [
+          "Movilidad de tobillo diaria: dorsiflexión suave y controlada.",
+          "Fuerza 3–4 días/sem: elevaciones de talón (progresivas) + balance/propiocepción.",
+          "Ajuste de carga: bajar impacto si hay sensibilidad y volver gradual."
+        ],
+        "Tendón de Aquiles": [
+          "Evitar picos de salto/sprint 7–14 días si irrita, pero mantener actividad tolerable.",
+          "Fuerza 3–4 días/sem: elevaciones de talón controladas (progresivas) según tolerancia.",
+          "Regla clave: progresión gradual; si al día siguiente está más reactivo, baja volumen."
+        ],
+        "Otra": [
+          "Mantener movimiento tolerable a diario (sin forzar dolor alto).",
+          "Fuerza/estabilidad 3–4 días/sem en patrones básicos, con progresión gradual.",
+          "Reglas de carga y seguimiento: si no mejora en 7–14 días, re-evaluar."
+        ]
+      };
+      return plans[zone] || plans["Otra"];
+    }
+
+    function segmentPreamble(segmento, tono) {
+      const tu = tono === "tu";
+      const pre = {
+        agudo: tu
+          ? "Como esto es reciente, la prioridad es calmar la irritación, mantener movimiento seguro y evitar picos de carga."
+          : "Como esto es reciente, la prioridad es calmar la irritación, mantener movimiento seguro y evitar picos de carga.",
+        persistente: tu
+          ? "Como esto lleva más tiempo, la prioridad es mejorar tolerancia a carga y confianza con una progresión ordenada."
+          : "Como esto lleva más tiempo, la prioridad es mejorar tolerancia a carga y confianza con una progresión ordenada.",
+        performance: tu
+          ? "En prevención/performance, la prioridad es ajustar carga, reforzar patrones y reducir factores que te hacen recaer."
+          : "En prevención/performance, la prioridad es ajustar carga, reforzar patrones y reducir factores que le hacen recaer."
+      };
+      return pre[segmento] || pre.agudo;
+    }
+
+    function irritRules(irrit, tono) {
+      // Pain/carga rules (sin promesas)
+      const tu = tono === "tu";
+      if (irrit === "alta") {
+        return tu
+          ? "Regla de carga: mantén los ejercicios en molestia baja (0–3/10). Si sube a 4–5, baja rango o volumen. Si pasa 5/10, detén y ajusta."
+          : "Regla de carga: mantenga los ejercicios en molestia baja (0–3/10). Si sube a 4–5, baje rango o volumen. Si pasa 5/10, detenga y ajuste.";
+      }
+      if (irrit === "baja") {
+        return tu
+          ? "Regla de carga: puedes trabajar con molestia leve (0–4/10) si baja al terminar y no empeora claramente al día siguiente."
+          : "Regla de carga: puede trabajar con molestia leve (0–4/10) si baja al terminar y no empeora claramente al día siguiente.";
+      }
+      return tu
+        ? "Regla de carga: apúntale a molestia leve (0–4/10). Si al día siguiente estás más reactivo(a), baja volumen/intensidad."
+        : "Regla de carga: apúntele a molestia leve (0–4/10). Si al día siguiente está más reactivo(a), baje volumen/intensidad.";
+    }
+
+    function buildPSFS() {
+      const items = [];
+      const a1 = ($("psfs1_txt").value || "").trim();
+      const a2 = ($("psfs2_txt").value || "").trim();
+      const a3 = ($("psfs3_txt").value || "").trim();
+      if (a1) items.push({ a: a1, s: Number($("psfs1_val").value) });
+      if (a2) items.push({ a: a2, s: Number($("psfs2_val").value) });
+      if (a3) items.push({ a: a3, s: Number($("psfs3_val").value) });
+
+      let avg = null;
+      if (items.length) {
+        const sum = items.reduce((acc, x) => acc + x.s, 0);
+        avg = Math.round((sum / items.length) * 10) / 10;
+      }
+      return { items, avg };
+    }
+
+    function buildFindings() {
+      const f = [];
+      if ($("f_dolorCarga").checked) f.push("dolor al cargar/esforzar");
+      if ($("f_rigidez").checked) f.push("rigidez o rango limitado");
+      if ($("f_debilidad").checked) f.push("debilidad o baja confianza");
+      if ($("f_fatiga").checked) f.push("fatiga rápida");
+      if ($("f_sensibilidad").checked) f.push("sensibilidad al movimiento");
+      if ($("f_inestabilidad").checked) f.push("sensación de inestabilidad");
+      return f;
     }
 
     function buildReport() {
+      const tono = toneKey();
+      const tu = tono === "tu";
+
       const nombre = ($("nombre").value || "").trim();
       const actividad = ($("actividad").value || "").trim();
-      const zona = ($("zona").value || "").trim();
-      const hallazgoKey = getRadioValue("hallazgo");
-      const recoKey = getRadioValue("reco");
-      const tono = tonoKey();
+
+      let zona = ($("zona").value || "").trim();
+      if (zona === "Otra") zona = ($("zonaOtra").value || "").trim() || "Otra zona";
+
+      const lado = getRadioValue("lado") || "bilateral";
+      const segmento = getRadioValue("segmento") || "agudo";
+      const irrit = getRadioValue("irrit") || "media";
+      const impresion = ($("impresion").value || "").trim();
+      const nota = ($("notaCorta").value || "").trim();
+      const objetivo = ($("objetivo").value || "").trim();
+      const nrs = Number($("nrs").value || 0);
 
       const missing = [];
       if (!nombre) missing.push("Nombre");
-      if (!zona) missing.push("Zona");
-      if (!hallazgoKey) missing.push("Lo que vimos");
-      if (!recoKey) missing.push("En qué enfocarte");
+      if (!zona || zona === "Selecciona…") missing.push("Zona");
+      if (!impresion) missing.push("Impresión");
+      if (!objetivo) missing.push("Objetivo");
 
       if (missing.length) {
         return { ok: false, message: `Falta: ${missing.join(", ")}.`, text: "" };
       }
 
-      const hallazgoHuman = (hallazgoMap[hallazgoKey] && hallazgoMap[hallazgoKey][tono]) || "algunos factores que vale la pena trabajar";
-      const recoHuman = (recoMap[recoKey] && recoMap[recoKey][tono]) || "un enfoque simple y constante";
+      const psfs = buildPSFS();
+      const findings = buildFindings();
 
-      // Ajustes de pronombre/registro
-      const hola = `Hola ${nombre},`;
-      const gracias = (tono === "usted") ? "gracias por evaluarse hoy." : "gracias por evaluarte hoy.";
-      const zonaPron = (tono === "usted") ? `su ${zona}` : `tu ${zona}`;
-      const sugerimos = (tono === "usted") ? "le sugerimos" : "te sugerimos";
-      const esperar = (tono === "usted") ? "le esperamos" : "te esperamos";
-      const recordatorio = (tono === "usted") ? "Recuerde" : "Recuerda";
+      // Meta phrases
+      const ladoTxt = (lado === "izquierdo") ? "lado izquierdo" :
+                      (lado === "derecho") ? "lado derecho" : "bilateral";
+      const zonaTxt = `${zona} (${ladoTxt})`;
 
-      const actividadLinea = actividad
-        ? ((tono === "usted") ? `Para sus entrenamientos de ${actividad}, ` : `Para tus entrenamientos de ${actividad}, `)
-        : ((tono === "usted") ? "Para sus entrenamientos, " : "Para tus entrenamientos, ");
+      const hola = tu ? `Hola ${nombre},` : `Hola ${nombre},`;
+      const gracias = tu ? "gracias por evaluarte hoy." : "gracias por evaluarse hoy.";
+      const paraEntreno = actividad
+        ? (tu ? `Para tus entrenamientos de ${actividad}, ` : `Para sus entrenamientos de ${actividad}, `)
+        : (tu ? "Para tus entrenamientos, " : "Para sus entrenamientos, ");
 
-      // Texto compacto 1 página, con números sin promesa
+      const vimosLine = tu
+        ? `Hoy observamos que tu ${zonaTxt} se comporta como: ${impresion}.`
+        : `Hoy observamos que su ${zonaTxt} se comporta como: ${impresion}.`;
+
+      const findingsLine = findings.length
+        ? (tu ? `Se reporta/observa: ${findings.join(", ")}.` : `Se reporta/observa: ${findings.join(", ")}.`)
+        : (tu ? "No marcamos hallazgos extra hoy (flash)." : "No marcamos hallazgos extra hoy (flash).");
+
+      const preamble = segmentPreamble(segmento, tono);
+
+      const plan = zoneSpecificPlan(zona);
+      // Ajuste leve por irritabilidad: si alta, prioriza 2 bullets y más conservador
+      const planBullets = (irrit === "alta") ? plan.slice(0, 2) : plan.slice(0, 3);
+
+      const rules = irritRules(irrit, tono);
+
+      const psfsBlock = psfs.items.length
+        ? (() => {
+            const lines = psfs.items.map((x, i) => `- ${x.a}: ${x.s}/10`);
+            const avg = (psfs.avg !== null) ? `Promedio PSFS: ${psfs.avg}/10.` : "";
+            return `PSFS (0–10):\n${lines.join("\n")}\n${avg}`.trim();
+          })()
+        : "PSFS: no registrado hoy.";
+
+      const nrsLine = `Dolor actual (NRS): ${nrs}/10.`;
+
+      const objetivoLine = tu
+        ? `Objetivo 7–14 días: ${objetivo}.`
+        : `Objetivo 7–14 días: ${objetivo}.`;
+
+      const cierre = tu
+        ? "Esto es una guía inicial basada en una evaluación rápida. Si en 7–14 días no avanzas como esperas, lo ideal es re-evaluar y ajustar el plan."
+        : "Esto es una guía inicial basada en una evaluación rápida. Si en 7–14 días no avanza como espera, lo ideal es re-evaluar y ajustar el plan.";
+
       const text =
 `${hola} ${gracias}
 
-Lo que vimos: ${zonaPron} presenta ${hallazgoHuman}.
+Resumen:
+- Zona: ${zonaTxt}
+- ${nrsLine}
+- ${objetivoLine}
 
-En qué enfocarte (guía inicial 7–14 días): ${actividadLinea}${sugerimos} enfocarte en ${recoHuman}, con una progresión gradual según cómo responda el cuerpo.
+Lo que vimos:
+${vimosLine}
+${findingsLine}
+${nota ? `Nota breve: ${nota}` : ""}
 
-${recordatorio} que esto es una guía inicial; para un plan detallado y progresivo, ${esperar} en consulta.`;
+En qué enfocarte (guía 7–14 días):
+${preamble}
+${paraEntreno}te sugerimos priorizar:
+- ${planBullets.join("\n- ")}
+
+Reglas de carga:
+${rules}
+
+${psfsBlock}
+
+${cierre}`;
 
       return {
         ok: true,
         message: "Informe generado.",
         text,
-        nombre,
-        actividad,
-        zona,
-        tono,
-        hallazgoHuman,
-        recoHuman
+        meta: { nombre, zona: zonaTxt, segmento, irrit, tono, actividad }
       };
     }
 
@@ -432,14 +847,19 @@ ${recordatorio} que esto es una guía inicial; para un plan detallado y progresi
       $("btnPDF").disabled = !isReady;
       $("btnCopiar").disabled = !isReady;
       $("readyDot").className = "w-2.5 h-2.5 rounded-full " + (isReady ? "bg-sandstone" : "bg-cream/20");
+      $("readyLabel").textContent = isReady ? "listo" : "incompleto";
     }
 
     function renderPreview(result) {
-      const tono = tonoKey();
-      $("previewTono").textContent = (tono === "usted") ? "Tono: Usted" : "Tono: Tú";
+      const tono = toneKey();
+      const tonoTxt = (tono === "usted") ? "Usted" : "Tú";
+      const zona = $("zona").value === "Otra" ? ($("zonaOtra").value || "Otra") : ($("zona").value || "—");
+      const seg = getRadioValue("segmento") || "—";
+      const segTxt = seg === "agudo" ? "Agudo" : (seg === "persistente" ? "Persistente" : "Performance");
+      $("previewMeta").textContent = `Tono: ${tonoTxt} • Zona: ${valOrDash(zona)} • ${segTxt}`;
 
       if (!result.ok) {
-        $("previewText").textContent = "Completa el formulario y presiona “Generar informe”.";
+        $("previewText").textContent = "Completa lo esencial y presiona “Generar informe”.";
         $("status").textContent = result.message || "";
         setReady(false);
         return;
@@ -455,26 +875,49 @@ ${recordatorio} que esto es una guía inicial; para un plan detallado y progresi
       return r;
     }
 
-    // Events
-    $("btnGenerar").addEventListener("click", () => generateAndPreview());
-
-    ["nombre", "actividad", "zona"].forEach(id => $(id).addEventListener("input", generateAndPreview));
-    document.querySelectorAll('input[name="hallazgo"], input[name="reco"], input[name="tono"]').forEach(el => {
+    // Auto preview on changes
+    const autoIds = ["nombre","actividad","zonaOtra","impresion","notaCorta","objetivo","psfs1_txt","psfs2_txt","psfs3_txt"];
+    autoIds.forEach(id => $(id).addEventListener("input", generateAndPreview));
+    document.querySelectorAll('input[name="tono"], input[name="segmento"], input[name="lado"], input[name="irrit"]').forEach(el => {
       el.addEventListener("change", generateAndPreview);
     });
+    ["f_dolorCarga","f_rigidez","f_debilidad","f_fatiga","f_sensibilidad","f_inestabilidad"].forEach(id => {
+      $(id).addEventListener("change", generateAndPreview);
+    });
+
+    // Buttons
+    $("btnGenerar").addEventListener("click", () => generateAndPreview());
 
     $("btnLimpiar").addEventListener("click", () => {
       $("nombre").value = "";
       $("actividad").value = "";
       $("zona").value = "";
-      document.querySelectorAll('input[name="hallazgo"], input[name="reco"]').forEach(el => el.checked = false);
-      // Reset tono a "tú"
+      $("zonaOtra").value = "";
+      $("zonaOtra").classList.add("hidden");
+
       document.querySelector('input[name="tono"][value="tu"]').checked = true;
+      document.querySelector('input[name="segmento"][value="agudo"]').checked = true;
+      document.querySelector('input[name="lado"][value="bilateral"]').checked = true;
+      document.querySelector('input[name="irrit"][value="media"]').checked = true;
+
+      $("impresion").value = "";
+      $("notaCorta").value = "";
+      $("objetivo").value = "";
+      $("nrs").value = 0; $("nrsVal").textContent = "0";
+
+      ["f_dolorCarga","f_rigidez","f_debilidad","f_fatiga","f_sensibilidad","f_inestabilidad"].forEach(id => $(id).checked = false);
+
+      $("psfs1_txt").value = ""; $("psfs1_val").value = 8; $("psfs1_show").textContent = "8";
+      $("psfs2_txt").value = ""; $("psfs2_val").value = 8; $("psfs2_show").textContent = "8";
+      $("psfs3_txt").value = ""; $("psfs3_val").value = 8; $("psfs3_show").textContent = "8";
 
       $("status").textContent = "";
-      $("previewText").textContent = "Completa el formulario y presiona “Generar informe”.";
-      $("previewTono").textContent = "Tono: Tú";
+      $("previewText").textContent = "Completa lo esencial y presiona “Generar informe”.";
+      logoDataUrl = "";
+      $("logoInput").value = "";
+      $("logoStatus").textContent = "Sin logo cargado (opcional).";
       setReady(false);
+      generateAndPreview();
     });
 
     $("btnCopiar").addEventListener("click", async () => {
@@ -489,6 +932,7 @@ ${recordatorio} que esto es una guía inicial; para un plan detallado y progresi
       }
     });
 
+    // PDF (1 página estética + logo)
     $("btnPDF").addEventListener("click", () => {
       const r = buildReport();
       if (!r.ok) return renderPreview(r);
@@ -498,104 +942,145 @@ ${recordatorio} que esto es una guía inicial; para un plan detallado y progresi
 
       const pageW = doc.internal.pageSize.getWidth();
       const pageH = doc.internal.pageSize.getHeight();
-      const margin = 48;
+      const margin = 44;
 
-      // Page background (Cream)
+      // Background cream
       doc.setFillColor(...palette.cream);
       doc.rect(0, 0, pageW, pageH, "F");
 
-      // Header band (Ink)
+      // Header band ink
       doc.setFillColor(...palette.ink);
       doc.rect(0, 0, pageW, 96, "F");
 
-      // Logo placeholder (for later)
-      // (No logo yet; just reserving space)
-      doc.setDrawColor(...palette.sandstone);
-      doc.setLineWidth(1);
-      doc.rect(margin, 24, 46, 46); // square placeholder
+      // Logo area
+      const logoBoxX = margin;
+      const logoBoxY = 22;
+      const logoBoxW = 52;
+      const logoBoxH = 52;
+
+      if (logoDataUrl) {
+        // Fit logo into the box maintaining aspect ratio (simple approach)
+        // jsPDF needs format type: 'PNG' or 'JPEG'. We'll infer from data url.
+        const fmt = logoDataUrl.startsWith("data:image/png") ? "PNG" : "JPEG";
+        try {
+          // Draw subtle frame
+          doc.setDrawColor(...palette.sandstone);
+          doc.setLineWidth(1);
+          doc.roundedRect(logoBoxX, logoBoxY, logoBoxW, logoBoxH, 10, 10, "S");
+          // Insert image with some padding
+          doc.addImage(logoDataUrl, fmt, logoBoxX + 6, logoBoxY + 6, logoBoxW - 12, logoBoxH - 12);
+        } catch (e) {
+          // fallback to placeholder
+          doc.setDrawColor(...palette.sandstone);
+          doc.setLineWidth(1);
+          doc.roundedRect(logoBoxX, logoBoxY, logoBoxW, logoBoxH, 10, 10, "S");
+        }
+      } else {
+        doc.setDrawColor(...palette.sandstone);
+        doc.setLineWidth(1);
+        doc.roundedRect(logoBoxX, logoBoxY, logoBoxW, logoBoxH, 10, 10, "S");
+        doc.setTextColor(...palette.cream);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.text("LOGO", logoBoxX + 13, logoBoxY + 32);
+      }
 
       // Header text
       doc.setTextColor(...palette.cream);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(16);
-      doc.text("All U Moves", margin + 62, 46);
+      doc.text("All U Moves", margin + 70, 46);
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(12);
-      doc.text("Informe Kinesiológico", margin + 62, 68);
+      doc.text("Informe Kinesiológico", margin + 70, 68);
 
       // Content card
       const cardX = margin;
-      const cardY = 120;
+      const cardY = 118;
       const cardW = pageW - margin * 2;
-      const cardH = pageH - cardY - 96;
+      const cardH = pageH - cardY - 78;
 
       doc.setFillColor(255, 255, 255);
       doc.setDrawColor(...palette.taupe);
-      doc.setLineWidth(0.8);
+      doc.setLineWidth(0.9);
       doc.roundedRect(cardX, cardY, cardW, cardH, 14, 14, "FD");
 
-      // Small header inside card
+      // Small meta line
+      const meta = r.meta;
+      const segTxt = meta.segmento === "agudo" ? "Agudo" : (meta.segmento === "persistente" ? "Persistente" : "Performance");
+      const tonoTxt = meta.tono === "usted" ? "Usted" : "Tú";
+
       doc.setTextColor(...palette.iron);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
-      const pacienteLine = `Paciente: ${r.nombre}`;
-      const tonoLine = `Tono: ${r.tono === "usted" ? "Usted" : "Tú"}`;
-      doc.text(pacienteLine, cardX + 18, cardY + 28);
+      doc.text(`Paciente: ${meta.nombre}`, cardX + 18, cardY + 28);
+
       doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
-      doc.text(tonoLine, cardX + 18, cardY + 46);
+      doc.text(`Zona: ${meta.zona}`, cardX + 18, cardY + 46);
+      doc.text(`Motivo: ${segTxt} • Irritabilidad: ${meta.irrit} • Tono: ${tonoTxt}`, cardX + 18, cardY + 62);
 
-      if (r.actividad) {
-        doc.text(`Actividad: ${r.actividad}`, cardX + 18, cardY + 64);
+      if (meta.actividad && meta.actividad.trim()) {
+        doc.text(`Actividad: ${meta.actividad.trim()}`, cardX + 18, cardY + 78);
       }
 
       // Divider
-      const divY = cardY + (r.actividad ? 78 : 62);
+      const divY = cardY + (meta.actividad && meta.actividad.trim() ? 92 : 76);
       doc.setDrawColor(...palette.sandstone);
       doc.setLineWidth(1);
       doc.line(cardX + 18, divY, cardX + cardW - 18, divY);
 
-      // Body text (compact, 1 page)
-      doc.setTextColor(...palette.ink);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(11);
-
-      const bodyText = r.text;
+      // Body text, 1 page: shrink font if needed
       const maxTextW = cardW - 36;
-      const lines = doc.splitTextToSize(bodyText, maxTextW);
+      let fontSize = 10.8;
+      let lineHeight = 1.35;
 
-      // Ensure it stays on one page by limiting max lines (very conservative)
-      // If it exceeds, we slightly reduce font size.
-      let fontSize = 11;
-      let finalLines = lines;
-      const maxLines = 26; // fits well in card
-      if (lines.length > maxLines) {
-        fontSize = 10;
-        doc.setFontSize(fontSize);
-        finalLines = doc.splitTextToSize(bodyText, maxTextW);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...palette.ink);
+
+      function splitWithSize(size) {
+        doc.setFontSize(size);
+        return doc.splitTextToSize(r.text, maxTextW);
       }
 
-      const textStartY = divY + 26;
-      doc.text(finalLines, cardX + 18, textStartY, { lineHeightFactor: 1.35 });
+      let lines = splitWithSize(fontSize);
 
-      // Footer note (no promises)
+      // Fit heuristic
+      const availableH = (cardY + cardH) - (divY + 22) - 18; // some padding
+      const approxLineH = (fontSize * lineHeight) + 2;
+      const maxLines = Math.floor(availableH / approxLineH);
+
+      if (lines.length > maxLines) {
+        fontSize = 10.0;
+        lines = splitWithSize(fontSize);
+      }
+      if (lines.length > maxLines) {
+        fontSize = 9.4;
+        lines = splitWithSize(fontSize);
+      }
+      if (lines.length > maxLines) {
+        fontSize = 8.9;
+        lines = splitWithSize(fontSize);
+        lineHeight = 1.25;
+      }
+
+      doc.setFontSize(fontSize);
+      doc.text(lines, cardX + 18, divY + 26, { lineHeightFactor: lineHeight });
+
+      // Footer note
       doc.setTextColor(...palette.taupe);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
-      doc.text(
-        "Guía inicial (7–14 días) basada en lo observado hoy. Ajustes según evolución y tolerancia.",
-        margin, pageH - 52
-      );
+      doc.text("Guía inicial (Flash) basada en lo observado hoy. No reemplaza una evaluación completa.", margin, pageH - 44);
 
-      // Filename
-      const safeName = (r.nombre || "Paciente").trim().replace(/[^\p{L}\p{N}\s_-]/gu, "");
+      const safeName = (meta.nombre || "Paciente").trim().replace(/[^\p{L}\p{N}\s_-]/gu, "");
       doc.save(`AllU_Moves_Informe_Kinesiologico_${safeName}.pdf`);
     });
 
-    // Initial state
-    $("previewTono").textContent = "Tono: Tú";
+    // Init
     setReady(false);
+    generateAndPreview();
   </script>
 </body>
 </html>
