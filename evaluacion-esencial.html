@@ -19,8 +19,8 @@
             cream: "#F5EFE5"       // Cream Bone
           },
           boxShadow: {
-            soft: "0 10px 30px rgba(0,0,0,0.30)",
-            insetSoft: "inset 0 0 0 1px rgba(245,239,229,0.06)"
+            soft: "0 12px 34px rgba(0,0,0,0.35)",
+            insetSoft: "inset 0 0 0 1px rgba(245,239,229,0.08)"
           }
         }
       }
@@ -28,31 +28,29 @@
   </script>
 
   <!-- jsPDF via CDN -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
-          integrity="sha512-qZvrmS2hQf4ZbGzqQv+vF0GmYh3b9u2P2Q5h6oQvYwWw3o8bQ0h0+o0m3G3r4d7bF5d7b3nqGz0Qm4mWm0g=="
-          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous"></script>
 
   <style>
-    /* Sin degradados. Solo pequeñas mejoras de “feel” */
     ::selection { background: rgba(217,203,179,0.35); }
   </style>
 </head>
 
 <body class="min-h-screen bg-ink text-cream">
   <div class="max-w-6xl mx-auto px-4 py-6 md:py-10">
-    <!-- Top bar -->
+    <!-- Header -->
     <div class="flex items-start justify-between gap-4">
       <div>
         <h1 class="text-2xl md:text-3xl font-semibold tracking-tight">
           Generador de Informe Kinesiológico Flash
         </h1>
         <p class="mt-1 text-sm text-cream/70">
-          Uso interno • tap-tap-tap • texto empático para paciente • PDF bonito
+          Uso interno • tap-tap-tap • texto empático para paciente • PDF 1 página
         </p>
       </div>
+
       <div class="hidden md:flex items-center gap-2">
-        <div class="px-3 py-2 rounded-2xl bg-iron shadow-insetSoft">
-          <span class="text-xs text-cream/70">Paleta</span>
+        <div class="px-3 py-2 rounded-2xl bg-iron shadow-insetSoft border border-cream/10">
+          <div class="text-xs text-cream/60">All U Moves</div>
           <div class="mt-2 flex items-center gap-2">
             <span class="w-4 h-4 rounded-full" style="background:#102024; border:1px solid rgba(245,239,229,0.18)"></span>
             <span class="w-4 h-4 rounded-full" style="background:#D9CBB3"></span>
@@ -64,16 +62,41 @@
       </div>
     </div>
 
-    <!-- Main grid -->
+    <!-- Main -->
     <div class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-      <!-- Form card -->
-      <section class="rounded-3xl bg-iron shadow-soft shadow-insetSoft border border-cream/10 overflow-hidden">
+      <!-- Form -->
+      <section class="rounded-3xl bg-iron shadow-soft border border-cream/10 overflow-hidden">
         <div class="px-5 py-4 border-b border-cream/10">
           <h2 class="text-lg font-semibold">Formulario rápido</h2>
-          <p class="text-sm text-cream/70 mt-1">Selecciona y genera. La vista previa se actualiza al instante.</p>
+          <p class="text-sm text-cream/70 mt-1">Completa en segundos. La vista previa se actualiza sola.</p>
         </div>
 
         <div class="p-5 space-y-5">
+          <!-- Tú / Usted -->
+          <div>
+            <label class="block text-sm text-cream/80 mb-2">Tono</label>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="cursor-pointer">
+                <input class="sr-only peer" type="radio" name="tono" value="tu" checked />
+                <div class="rounded-2xl border border-cream/10 bg-ink/40 px-4 py-3
+                            peer-checked:border-sandstone/70 peer-checked:bg-ink/70
+                            hover:border-cream/20 transition">
+                  <div class="text-sm font-medium">Tú</div>
+                  <div class="text-xs text-cream/60 mt-1">Cercano</div>
+                </div>
+              </label>
+              <label class="cursor-pointer">
+                <input class="sr-only peer" type="radio" name="tono" value="usted" />
+                <div class="rounded-2xl border border-cream/10 bg-ink/40 px-4 py-3
+                            peer-checked:border-sandstone/70 peer-checked:bg-ink/70
+                            hover:border-cream/20 transition">
+                  <div class="text-sm font-medium">Usted</div>
+                  <div class="text-xs text-cream/60 mt-1">Formal</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
           <!-- Nombre -->
           <div>
             <label class="block text-sm text-cream/80 mb-2" for="nombre">Nombre paciente</label>
@@ -81,6 +104,14 @@
               class="w-full rounded-2xl bg-ink/60 border border-cream/10 px-4 py-3 outline-none
                      focus:border-sandstone/60 focus:ring-2 focus:ring-sandstone/20"
               autocomplete="name" />
+          </div>
+
+          <!-- Actividad -->
+          <div>
+            <label class="block text-sm text-cream/80 mb-2" for="actividad">Actividad / Deporte (opcional)</label>
+            <input id="actividad" type="text" placeholder="Ej: running, gimnasio, boxeo"
+              class="w-full rounded-2xl bg-ink/60 border border-cream/10 px-4 py-3 outline-none
+                     focus:border-sandstone/60 focus:ring-2 focus:ring-sandstone/20" />
           </div>
 
           <!-- Zona -->
@@ -101,19 +132,18 @@
           <!-- Hallazgo -->
           <div>
             <div class="flex items-center justify-between gap-3 mb-2">
-              <label class="block text-sm text-cream/80">Hallazgo principal</label>
+              <label class="block text-sm text-cream/80">Lo que vimos</label>
               <span class="text-xs text-cream/50">1 toque</span>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="hallazgoGroup">
-              <!-- Option template: input.peer + label card -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label class="cursor-pointer">
                 <input class="sr-only peer" type="radio" name="hallazgo" value="rango_limitado" />
                 <div class="rounded-2xl border border-cream/10 bg-ink/40 px-4 py-3
                             peer-checked:border-sandstone/70 peer-checked:bg-ink/70
                             hover:border-cream/20 transition">
                   <div class="text-sm font-medium">Rango limitado</div>
-                  <div class="text-xs text-cream/60 mt-1">Menos movimiento del habitual</div>
+                  <div class="text-xs text-cream/60 mt-1">Se siente “más tieso”</div>
                 </div>
               </label>
 
@@ -123,7 +153,7 @@
                             peer-checked:border-sandstone/70 peer-checked:bg-ink/70
                             hover:border-cream/20 transition">
                   <div class="text-sm font-medium">Falta de fuerza</div>
-                  <div class="text-xs text-cream/60 mt-1">Te cuesta sostener cargas</div>
+                  <div class="text-xs text-cream/60 mt-1">Cuesta sostener esfuerzos</div>
                 </div>
               </label>
 
@@ -133,7 +163,7 @@
                             peer-checked:border-sandstone/70 peer-checked:bg-ink/70
                             hover:border-cream/20 transition">
                   <div class="text-sm font-medium">Fatiga muscular</div>
-                  <div class="text-xs text-cream/60 mt-1">Se cansa rápido con repetición</div>
+                  <div class="text-xs text-cream/60 mt-1">Se cansa rápido al repetir</div>
                 </div>
               </label>
 
@@ -143,7 +173,7 @@
                             peer-checked:border-sandstone/70 peer-checked:bg-ink/70
                             hover:border-cream/20 transition">
                   <div class="text-sm font-medium">Buena movilidad, sensibilidad</div>
-                  <div class="text-xs text-cream/60 mt-1">Se mueve bien, molesta al exigir</div>
+                  <div class="text-xs text-cream/60 mt-1">Molesta al exigir</div>
                 </div>
               </label>
             </div>
@@ -152,18 +182,18 @@
           <!-- Recomendación -->
           <div>
             <div class="flex items-center justify-between gap-3 mb-2">
-              <label class="block text-sm text-cream/80">Recomendación clave</label>
+              <label class="block text-sm text-cream/80">En qué enfocarte</label>
               <span class="text-xs text-cream/50">1 toque</span>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="recoGroup">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label class="cursor-pointer">
                 <input class="sr-only peer" type="radio" name="reco" value="movilidad_diaria" />
                 <div class="rounded-2xl border border-cream/10 bg-ink/40 px-4 py-3
                             peer-checked:border-sandstone/70 peer-checked:bg-ink/70
                             hover:border-cream/20 transition">
                   <div class="text-sm font-medium">Movilidad diaria</div>
-                  <div class="text-xs text-cream/60 mt-1">Rutina corta y constante</div>
+                  <div class="text-xs text-cream/60 mt-1">Corta, constante</div>
                 </div>
               </label>
 
@@ -173,7 +203,7 @@
                             peer-checked:border-sandstone/70 peer-checked:bg-ink/70
                             hover:border-cream/20 transition">
                   <div class="text-sm font-medium">Fortalecer zona media</div>
-                  <div class="text-xs text-cream/60 mt-1">Más soporte y control</div>
+                  <div class="text-xs text-cream/60 mt-1">Soporte y control</div>
                 </div>
               </label>
 
@@ -182,7 +212,7 @@
                 <div class="rounded-2xl border border-cream/10 bg-ink/40 px-4 py-3
                             peer-checked:border-sandstone/70 peer-checked:bg-ink/70
                             hover:border-cream/20 transition">
-                  <div class="text-sm font-medium">Ejercicios de estabilidad</div>
+                  <div class="text-sm font-medium">Estabilidad</div>
                   <div class="text-xs text-cream/60 mt-1">Control + confianza</div>
                 </div>
               </label>
@@ -192,8 +222,8 @@
                 <div class="rounded-2xl border border-cream/10 bg-ink/40 px-4 py-3
                             peer-checked:border-sandstone/70 peer-checked:bg-ink/70
                             hover:border-cream/20 transition">
-                  <div class="text-sm font-medium">Gestión de descanso</div>
-                  <div class="text-xs text-cream/60 mt-1">Sueño, pausas, progresión</div>
+                  <div class="text-sm font-medium">Descanso y carga</div>
+                  <div class="text-xs text-cream/60 mt-1">Sueño + progresión</div>
                 </div>
               </label>
             </div>
@@ -223,15 +253,15 @@
         </div>
       </section>
 
-      <!-- Preview / Output card -->
-      <section class="rounded-3xl bg-iron shadow-soft shadow-insetSoft border border-cream/10 overflow-hidden">
+      <!-- Preview -->
+      <section class="rounded-3xl bg-iron shadow-soft border border-cream/10 overflow-hidden">
         <div class="px-5 py-4 border-b border-cream/10 flex items-center justify-between gap-3">
           <div>
             <h2 class="text-lg font-semibold">Vista previa</h2>
-            <p class="text-sm text-cream/70 mt-1">Esto es lo que verá el paciente (texto y PDF).</p>
+            <p class="text-sm text-cream/70 mt-1">Texto para paciente + exportación a PDF.</p>
           </div>
           <div class="hidden sm:flex items-center gap-2">
-            <span class="text-xs text-cream/50">Listo para PDF</span>
+            <span class="text-xs text-cream/50">Listo</span>
             <span id="readyDot" class="w-2.5 h-2.5 rounded-full bg-cream/20"></span>
           </div>
         </div>
@@ -241,20 +271,15 @@
             <div class="flex items-start justify-between gap-3">
               <div>
                 <div class="text-xs text-cream/50">All U Moves</div>
-                <div class="text-sm font-semibold">Informe de Bienestar</div>
+                <div class="text-sm font-semibold">Informe Kinesiológico</div>
               </div>
-              <div class="text-xs text-cream/50" id="previewDate"></div>
+              <div class="text-xs text-cream/50" id="previewTono"></div>
             </div>
 
             <div class="mt-4">
               <p class="text-sm leading-relaxed text-cream/90 whitespace-pre-wrap" id="previewText">
                 Completa el formulario y presiona “Generar informe”.
               </p>
-            </div>
-
-            <div class="mt-5 pt-4 border-t border-cream/10">
-              <div class="text-xs text-cream/60">Firma</div>
-              <div class="mt-2 h-10 rounded-2xl bg-ink/40 border border-cream/10"></div>
             </div>
           </div>
 
@@ -277,48 +302,64 @@
           </div>
 
           <p class="text-xs text-cream/50">
-            Tip: en GitHub Pages esto funciona igual. Solo necesita internet para cargar Tailwind y jsPDF (CDN).
+            Nota: requiere internet para cargar Tailwind y jsPDF (CDN). En GitHub Pages funciona igual.
           </p>
         </div>
       </section>
     </div>
 
     <div class="mt-6 text-xs text-cream/40">
-      Hecho para uso interno • sin jerga médica compleja • estilo wellness/medical minimalista • sin degradados
+      All U Moves • Informe Kinesiológico Flash • 1 archivo • responsive • sin degradados
     </div>
   </div>
 
   <script>
-    // --- Helpers
     const $ = (id) => document.getElementById(id);
 
     const palette = {
-      ink: [16, 32, 36],       // #102024
+      ink: [16, 32, 36],          // #102024
       sandstone: [217, 203, 179], // #D9CBB3
-      taupe: [140, 133, 127],  // #8C857F
-      iron: [54, 54, 54],      // #363636
-      cream: [245, 239, 229]   // #F5EFE5
+      taupe: [140, 133, 127],     // #8C857F
+      iron: [54, 54, 54],         // #363636
+      cream: [245, 239, 229]      // #F5EFE5
     };
 
-    function todayLabel() {
-      const d = new Date();
-      // Formato amable: 14 ene 2026
-      const months = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
-      return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
-    }
-
     const hallazgoMap = {
-      rango_limitado: "menos movilidad de lo habitual, lo que puede estar generando incomodidad o rigidez",
-      falta_fuerza: "una baja de fuerza en la zona, por eso algunos movimientos se sienten más demandantes",
-      fatiga_muscular: "fatiga muscular más rápida de lo esperable, sobre todo con esfuerzos repetidos",
-      buena_mov_sensibilidad: "buena movilidad, pero con sensibilidad/molestia al exigir la zona"
+      rango_limitado: {
+        tu: "menos movilidad de lo habitual, lo que puede sentirse como rigidez o limitación",
+        usted: "menos movilidad de lo habitual, lo que puede sentirse como rigidez o limitación"
+      },
+      falta_fuerza: {
+        tu: "una baja de fuerza en la zona, por eso algunos movimientos se sienten más demandantes",
+        usted: "una baja de fuerza en la zona, por eso algunos movimientos se sienten más demandantes"
+      },
+      fatiga_muscular: {
+        tu: "fatiga muscular más rápida de lo esperable, sobre todo con esfuerzos repetidos",
+        usted: "fatiga muscular más rápida de lo esperable, sobre todo con esfuerzos repetidos"
+      },
+      buena_mov_sensibilidad: {
+        tu: "buena movilidad, pero con sensibilidad/molestia al exigir la zona",
+        usted: "buena movilidad, pero con sensibilidad/molestia al exigir la zona"
+      }
     };
 
     const recoMap = {
-      movilidad_diaria: "movilidad diaria suave y controlada",
-      zona_media: "fortalecer tu zona media para mejorar soporte y control",
-      estabilidad: "ejercicios de estabilidad y control para ganar confianza en el movimiento",
-      descanso: "gestión de descanso y carga (sueño, pausas y progresión gradual)"
+      movilidad_diaria: {
+        tu: "movilidad diaria suave y controlada",
+        usted: "movilidad diaria suave y controlada"
+      },
+      zona_media: {
+        tu: "fortalecer tu zona media para mejorar soporte y control",
+        usted: "fortalecer su zona media para mejorar soporte y control"
+      },
+      estabilidad: {
+        tu: "ejercicios de estabilidad y control para ganar confianza en el movimiento",
+        usted: "ejercicios de estabilidad y control para ganar confianza en el movimiento"
+      },
+      descanso: {
+        tu: "gestión de descanso y carga (sueño, pausas y progresión gradual)",
+        usted: "gestión de descanso y carga (sueño, pausas y progresión gradual)"
+      }
     };
 
     function getRadioValue(name) {
@@ -326,38 +367,65 @@
       return el ? el.value : "";
     }
 
+    function tonoKey() {
+      const t = getRadioValue("tono");
+      return (t === "usted") ? "usted" : "tu";
+    }
+
     function buildReport() {
       const nombre = ($("nombre").value || "").trim();
+      const actividad = ($("actividad").value || "").trim();
       const zona = ($("zona").value || "").trim();
       const hallazgoKey = getRadioValue("hallazgo");
       const recoKey = getRadioValue("reco");
+      const tono = tonoKey();
 
       const missing = [];
       if (!nombre) missing.push("Nombre");
       if (!zona) missing.push("Zona");
-      if (!hallazgoKey) missing.push("Hallazgo");
-      if (!recoKey) missing.push("Recomendación");
+      if (!hallazgoKey) missing.push("Lo que vimos");
+      if (!recoKey) missing.push("En qué enfocarte");
 
       if (missing.length) {
-        return {
-          ok: false,
-          message: `Falta: ${missing.join(", ")}.`,
-          text: ""
-        };
+        return { ok: false, message: `Falta: ${missing.join(", ")}.`, text: "" };
       }
 
-      const hallazgoHuman = hallazgoMap[hallazgoKey] || "algunos factores que vale la pena trabajar";
-      const recoHuman = recoMap[recoKey] || "un enfoque simple y constante";
+      const hallazgoHuman = (hallazgoMap[hallazgoKey] && hallazgoMap[hallazgoKey][tono]) || "algunos factores que vale la pena trabajar";
+      const recoHuman = (recoMap[recoKey] && recoMap[recoKey][tono]) || "un enfoque simple y constante";
 
+      // Ajustes de pronombre/registro
+      const hola = `Hola ${nombre},`;
+      const gracias = (tono === "usted") ? "gracias por evaluarse hoy." : "gracias por evaluarte hoy.";
+      const zonaPron = (tono === "usted") ? `su ${zona}` : `tu ${zona}`;
+      const sugerimos = (tono === "usted") ? "le sugerimos" : "te sugerimos";
+      const esperar = (tono === "usted") ? "le esperamos" : "te esperamos";
+      const recordatorio = (tono === "usted") ? "Recuerde" : "Recuerda";
+
+      const actividadLinea = actividad
+        ? ((tono === "usted") ? `Para sus entrenamientos de ${actividad}, ` : `Para tus entrenamientos de ${actividad}, `)
+        : ((tono === "usted") ? "Para sus entrenamientos, " : "Para tus entrenamientos, ");
+
+      // Texto compacto 1 página, con números sin promesa
       const text =
-`Hola ${nombre}, gracias por evaluarte hoy.
+`${hola} ${gracias}
 
-Encontramos que tu ${zona} presenta ${hallazgoHuman}.
-Para tus entrenamientos, te sugerimos enfocarte en ${recoHuman}.
+Lo que vimos: ${zonaPron} presenta ${hallazgoHuman}.
 
-Recuerda que esto es una guía inicial; para un plan detallado y progresivo, te esperamos en consulta.`;
+En qué enfocarte (guía inicial 7–14 días): ${actividadLinea}${sugerimos} enfocarte en ${recoHuman}, con una progresión gradual según cómo responda el cuerpo.
 
-      return { ok: true, message: "Informe generado.", text, nombre, zona, hallazgoHuman, recoHuman };
+${recordatorio} que esto es una guía inicial; para un plan detallado y progresivo, ${esperar} en consulta.`;
+
+      return {
+        ok: true,
+        message: "Informe generado.",
+        text,
+        nombre,
+        actividad,
+        zona,
+        tono,
+        hallazgoHuman,
+        recoHuman
+      };
     }
 
     function setReady(isReady) {
@@ -366,11 +434,10 @@ Recuerda que esto es una guía inicial; para un plan detallado y progresivo, te 
       $("readyDot").className = "w-2.5 h-2.5 rounded-full " + (isReady ? "bg-sandstone" : "bg-cream/20");
     }
 
-    // --- Live preview date
-    $("previewDate").textContent = todayLabel();
-
-    // --- Actions
     function renderPreview(result) {
+      const tono = tonoKey();
+      $("previewTono").textContent = (tono === "usted") ? "Tono: Usted" : "Tono: Tú";
+
       if (!result.ok) {
         $("previewText").textContent = "Completa el formulario y presiona “Generar informe”.";
         $("status").textContent = result.message || "";
@@ -388,20 +455,25 @@ Recuerda que esto es una guía inicial; para un plan detallado y progresivo, te 
       return r;
     }
 
+    // Events
     $("btnGenerar").addEventListener("click", () => generateAndPreview());
 
-    // Auto preview on change (tap-tap-tap)
-    ["nombre", "zona"].forEach(id => $(id).addEventListener("input", generateAndPreview));
-    document.querySelectorAll('input[name="hallazgo"], input[name="reco"]').forEach(el => {
+    ["nombre", "actividad", "zona"].forEach(id => $(id).addEventListener("input", generateAndPreview));
+    document.querySelectorAll('input[name="hallazgo"], input[name="reco"], input[name="tono"]').forEach(el => {
       el.addEventListener("change", generateAndPreview);
     });
 
     $("btnLimpiar").addEventListener("click", () => {
       $("nombre").value = "";
+      $("actividad").value = "";
       $("zona").value = "";
       document.querySelectorAll('input[name="hallazgo"], input[name="reco"]').forEach(el => el.checked = false);
+      // Reset tono a "tú"
+      document.querySelector('input[name="tono"][value="tu"]').checked = true;
+
       $("status").textContent = "";
       $("previewText").textContent = "Completa el formulario y presiona “Generar informe”.";
+      $("previewTono").textContent = "Tono: Tú";
       setReady(false);
     });
 
@@ -428,62 +500,101 @@ Recuerda que esto es una guía inicial; para un plan detallado y progresivo, te 
       const pageH = doc.internal.pageSize.getHeight();
       const margin = 48;
 
-      // Header block (solid Ink)
-      doc.setFillColor(...palette.ink);
-      doc.rect(0, 0, pageW, 90, "F");
+      // Page background (Cream)
+      doc.setFillColor(...palette.cream);
+      doc.rect(0, 0, pageW, pageH, "F");
 
-      // Header text (Cream)
+      // Header band (Ink)
+      doc.setFillColor(...palette.ink);
+      doc.rect(0, 0, pageW, 96, "F");
+
+      // Logo placeholder (for later)
+      // (No logo yet; just reserving space)
+      doc.setDrawColor(...palette.sandstone);
+      doc.setLineWidth(1);
+      doc.rect(margin, 24, 46, 46); // square placeholder
+
+      // Header text
       doc.setTextColor(...palette.cream);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(16);
-      doc.text("All U Moves - Informe de Bienestar", margin, 38);
+      doc.text("All U Moves", margin + 62, 46);
 
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      doc.text(`Fecha: ${todayLabel()}`, margin, 62);
-
-      // Body
-      doc.setTextColor(...palette.ink);
-      doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
-      doc.text("Resumen", margin, 120);
+      doc.text("Informe Kinesiológico", margin + 62, 68);
 
+      // Content card
+      const cardX = margin;
+      const cardY = 120;
+      const cardW = pageW - margin * 2;
+      const cardH = pageH - cardY - 96;
+
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor(...palette.taupe);
+      doc.setLineWidth(0.8);
+      doc.roundedRect(cardX, cardY, cardW, cardH, 14, 14, "FD");
+
+      // Small header inside card
+      doc.setTextColor(...palette.iron);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      const pacienteLine = `Paciente: ${r.nombre}`;
+      const tonoLine = `Tono: ${r.tono === "usted" ? "Usted" : "Tú"}`;
+      doc.text(pacienteLine, cardX + 18, cardY + 28);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.text(tonoLine, cardX + 18, cardY + 46);
+
+      if (r.actividad) {
+        doc.text(`Actividad: ${r.actividad}`, cardX + 18, cardY + 64);
+      }
+
+      // Divider
+      const divY = cardY + (r.actividad ? 78 : 62);
+      doc.setDrawColor(...palette.sandstone);
+      doc.setLineWidth(1);
+      doc.line(cardX + 18, divY, cardX + cardW - 18, divY);
+
+      // Body text (compact, 1 page)
+      doc.setTextColor(...palette.ink);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(11);
 
-      const bodyText = r.text.replace(/\n\n/g, "\n");
-      const lines = doc.splitTextToSize(bodyText, pageW - margin * 2);
-      doc.text(lines, margin, 145, { lineHeightFactor: 1.35 });
+      const bodyText = r.text;
+      const maxTextW = cardW - 36;
+      const lines = doc.splitTextToSize(bodyText, maxTextW);
 
-      // Separator
-      const afterTextY = 145 + (lines.length * 14.5);
-      const sepY = Math.min(afterTextY + 18, pageH - 150);
-      doc.setDrawColor(...palette.taupe);
-      doc.setLineWidth(1);
-      doc.line(margin, sepY, pageW - margin, sepY);
+      // Ensure it stays on one page by limiting max lines (very conservative)
+      // If it exceeds, we slightly reduce font size.
+      let fontSize = 11;
+      let finalLines = lines;
+      const maxLines = 26; // fits well in card
+      if (lines.length > maxLines) {
+        fontSize = 10;
+        doc.setFontSize(fontSize);
+        finalLines = doc.splitTextToSize(bodyText, maxTextW);
+      }
 
-      // Signature area
-      const sigY = Math.min(sepY + 55, pageH - 85);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      doc.setTextColor(...palette.iron);
-      doc.text("Firma / Kinesiólogo(a):", margin, sigY);
+      const textStartY = divY + 26;
+      doc.text(finalLines, cardX + 18, textStartY, { lineHeightFactor: 1.35 });
 
-      // Signature line
-      doc.setDrawColor(...palette.iron);
-      doc.setLineWidth(1);
-      doc.line(margin + 120, sigY + 2, pageW - margin, sigY + 2);
-
-      // Footer
+      // Footer note (no promises)
       doc.setTextColor(...palette.taupe);
+      doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
-      doc.text("Este informe es una guía inicial. Para un plan detallado y progresivo, agenda tu consulta.", margin, pageH - 48);
+      doc.text(
+        "Guía inicial (7–14 días) basada en lo observado hoy. Ajustes según evolución y tolerancia.",
+        margin, pageH - 52
+      );
 
+      // Filename
       const safeName = (r.nombre || "Paciente").trim().replace(/[^\p{L}\p{N}\s_-]/gu, "");
-      doc.save(`AllUmoves_Informe_${safeName}.pdf`);
+      doc.save(`AllU_Moves_Informe_Kinesiologico_${safeName}.pdf`);
     });
 
     // Initial state
+    $("previewTono").textContent = "Tono: Tú";
     setReady(false);
   </script>
 </body>
