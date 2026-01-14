@@ -3,7 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Generador de Informe Kinesiológico Flash | All U Moves</title>
+  <title>All U Moves | Generador de Informe Kinesiológico (Flash)</title>
+
+  <!-- Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <!-- Tailwind via CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -11,6 +16,7 @@
     tailwind.config = {
       theme: {
         extend: {
+          fontFamily: { sans: ["Montserrat", "system-ui", "Segoe UI", "Roboto", "Helvetica", "Arial", "sans-serif"] },
           colors: {
             ink: "#102024",
             sandstone: "#D9CBB3",
@@ -19,7 +25,7 @@
             cream: "#F5EFE5"
           },
           boxShadow: {
-            soft: "0 14px 40px rgba(0,0,0,0.38)",
+            soft: "0 18px 45px rgba(0,0,0,0.45)",
             insetSoft: "inset 0 0 0 1px rgba(245,239,229,0.08)"
           }
         }
@@ -32,173 +38,154 @@
 
   <style>
     ::selection { background: rgba(217,203,179,0.35); }
-    input[type="range"] { -webkit-appearance: none; appearance: none; height: 6px; border-radius: 999px; background: rgba(245,239,229,0.14); outline: none; }
-    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 999px; background: #D9CBB3; border: 2px solid rgba(16,32,36,0.65); }
+    input[type="range"] { -webkit-appearance:none; appearance:none; height: 6px; border-radius: 999px; background: rgba(245,239,229,0.16); outline: none; }
+    input[type="range"]::-webkit-slider-thumb { -webkit-appearance:none; appearance:none; width: 18px; height: 18px; border-radius: 999px; background: #D9CBB3; border: 2px solid rgba(16,32,36,0.65); }
     input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 999px; background: #D9CBB3; border: 2px solid rgba(16,32,36,0.65); }
+    .tap { -webkit-tap-highlight-color: transparent; }
   </style>
 </head>
 
-<body class="min-h-screen bg-ink text-cream">
+<body class="min-h-screen bg-ink text-cream font-sans">
   <div class="max-w-7xl mx-auto px-4 py-6 md:py-10">
 
     <!-- Header -->
     <div class="flex items-start justify-between gap-4">
       <div class="flex items-start gap-3">
-        <div class="mt-1 w-10 h-10 rounded-2xl bg-iron border border-cream/10 shadow-insetSoft flex items-center justify-center">
-          <!-- Icon: Document -->
-          <svg class="w-5 h-5 text-sandstone" viewBox="0 0 24 24" fill="none">
-            <path d="M7 3h7l3 3v15a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-            <path d="M14 3v4a2 2 0 0 0 2 2h4" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-            <path d="M8 12h8M8 16h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-          </svg>
+        <div class="w-11 h-11 rounded-2xl bg-iron border border-cream/10 shadow-insetSoft flex items-center justify-center overflow-hidden">
+          <img id="brandLogo" alt="All U Moves" class="w-full h-full object-contain p-1.5" />
         </div>
         <div>
           <h1 class="text-2xl md:text-3xl font-semibold tracking-tight">
-            Generador de Informe Kinesiológico Flash
+            Informe Kinesiológico (Flash)
           </h1>
-          <p class="mt-1 text-sm text-cream/70">
-            All U Moves • rápido • claro • sin promesas • PDF 1 página con logo
+          <p class="mt-1 text-sm text-cream/65">
+            All U Moves • rápido para completar • texto editable • PDF 1 página
           </p>
         </div>
       </div>
 
       <div class="hidden md:flex items-center gap-2">
-        <div class="px-3 py-2 rounded-2xl bg-iron border border-cream/10 shadow-insetSoft">
-          <div class="text-xs text-cream/55">Paleta</div>
-          <div class="mt-2 flex items-center gap-2">
-            <span class="w-4 h-4 rounded-full" style="background:#102024; border:1px solid rgba(245,239,229,0.18)"></span>
-            <span class="w-4 h-4 rounded-full" style="background:#D9CBB3"></span>
-            <span class="w-4 h-4 rounded-full" style="background:#8C857F"></span>
-            <span class="w-4 h-4 rounded-full" style="background:#363636; border:1px solid rgba(245,239,229,0.18)"></span>
-            <span class="w-4 h-4 rounded-full" style="background:#F5EFE5"></span>
-          </div>
-        </div>
+        <button id="btnLimpiar" class="tap rounded-2xl bg-iron border border-cream/10 px-4 py-2 text-sm font-semibold hover:border-cream/20 transition">
+          Limpiar
+        </button>
       </div>
     </div>
 
-    <!-- Main grid -->
+    <!-- Main -->
     <div class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
 
-      <!-- LEFT: Form -->
+      <!-- LEFT: Inputs -->
       <section class="rounded-3xl bg-iron border border-cream/10 shadow-soft overflow-hidden">
-        <div class="px-5 py-4 border-b border-cream/10 flex items-center justify-between gap-3">
+        <div class="px-5 py-4 border-b border-cream/10 flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <!-- Icon: Bolt -->
             <svg class="w-5 h-5 text-sandstone" viewBox="0 0 24 24" fill="none">
               <path d="M13 2 3 14h8l-1 8 11-13h-8l0-7Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
             </svg>
             <h2 class="text-lg font-semibold">Inputs esenciales</h2>
           </div>
-          <div class="text-xs text-cream/55">tap-tap-tap</div>
+          <div class="md:hidden">
+            <button id="btnLimpiarMobile" class="tap rounded-2xl bg-ink/50 border border-cream/10 px-3 py-2 text-xs font-semibold hover:border-cream/20 transition">
+              Limpiar
+            </button>
+          </div>
         </div>
 
         <div class="p-5 space-y-4">
 
-          <!-- Row 1: Tone + Patient -->
+          <!-- Usuario + Tono -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div class="rounded-2xl bg-ink/60 border border-cream/10 p-4">
+            <div class="rounded-2xl bg-ink/55 border border-cream/10 p-4">
               <div class="flex items-center gap-2 mb-2">
-                <!-- Icon: Chat -->
-                <svg class="w-5 h-5 text-sandstone" viewBox="0 0 24 24" fill="none">
-                  <path d="M7 8h10M7 12h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                  <path d="M20 12a7 7 0 0 1-7 7H7l-3 3v-6a7 7 0 1 1 16-4Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-                </svg>
-                <div class="text-sm font-semibold">Tono</div>
-              </div>
-              <div class="grid grid-cols-2 gap-2">
-                <label class="cursor-pointer">
-                  <input class="sr-only peer" type="radio" name="tono" value="tu" checked />
-                  <div class="rounded-2xl px-3 py-2 border border-cream/10 bg-ink/40
-                              peer-checked:border-sandstone/70 peer-checked:bg-ink/70
-                              hover:border-cream/20 transition">
-                    <div class="text-sm font-medium">Tú</div>
-                    <div class="text-xs text-cream/55">cercano</div>
-                  </div>
-                </label>
-                <label class="cursor-pointer">
-                  <input class="sr-only peer" type="radio" name="tono" value="usted" />
-                  <div class="rounded-2xl px-3 py-2 border border-cream/10 bg-ink/40
-                              peer-checked:border-sandstone/70 peer-checked:bg-ink/70
-                              hover:border-cream/20 transition">
-                    <div class="text-sm font-medium">Usted</div>
-                    <div class="text-xs text-cream/55">formal</div>
-                  </div>
-                </label>
-              </div>
-            </div>
-
-            <div class="rounded-2xl bg-ink/60 border border-cream/10 p-4">
-              <div class="flex items-center gap-2 mb-2">
-                <!-- Icon: User -->
                 <svg class="w-5 h-5 text-sandstone" viewBox="0 0 24 24" fill="none">
                   <path d="M20 21a8 8 0 1 0-16 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
                   <path d="M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="currentColor" stroke-width="1.8"/>
                 </svg>
-                <div class="text-sm font-semibold">Paciente</div>
+                <div class="text-sm font-semibold">Usuario</div>
               </div>
               <input id="nombre" type="text" placeholder="Nombre"
                 class="w-full rounded-2xl bg-ink/40 border border-cream/10 px-4 py-3 outline-none
                        focus:border-sandstone/60 focus:ring-2 focus:ring-sandstone/20" autocomplete="name" />
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
+              <div class="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
                 <input id="actividad" type="text" placeholder="Actividad/Deporte (opcional)"
                   class="w-full rounded-2xl bg-ink/40 border border-cream/10 px-4 py-3 outline-none
                          focus:border-sandstone/60 focus:ring-2 focus:ring-sandstone/20" />
-                <div class="rounded-2xl bg-ink/40 border border-cream/10 px-4 py-3 flex items-center justify-between gap-3">
-                  <div class="text-sm text-cream/80">Logo PDF</div>
-                  <label class="cursor-pointer inline-flex items-center gap-2 text-sm font-semibold text-sandstone">
-                    <input id="logoInput" type="file" accept="image/*" class="hidden" />
-                    <span class="px-3 py-1.5 rounded-2xl bg-iron border border-cream/10 hover:border-cream/20 transition">Subir</span>
-                  </label>
+                <div class="rounded-2xl bg-ink/40 border border-cream/10 px-4 py-3 flex items-center justify-between">
+                  <div class="text-xs text-cream/60">Fecha</div>
+                  <div class="text-sm font-semibold text-cream/90" id="fechaHoy">—</div>
                 </div>
               </div>
-              <div class="mt-2 text-xs text-cream/55" id="logoStatus">Sin logo cargado (opcional).</div>
+            </div>
+
+            <div class="rounded-2xl bg-ink/55 border border-cream/10 p-4">
+              <div class="flex items-center gap-2 mb-2">
+                <svg class="w-5 h-5 text-sandstone" viewBox="0 0 24 24" fill="none">
+                  <path d="M7 8h10M7 12h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                  <path d="M20 12a7 7 0 0 1-7 7H7l-3 3v-6a7 7 0 1 1 16-4Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                </svg>
+                <div class="text-sm font-semibold">Redacción</div>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <label class="tap cursor-pointer">
+                  <input class="sr-only peer" type="radio" name="tono" value="tu" checked />
+                  <div class="rounded-2xl px-3 py-3 border border-cream/10 bg-ink/40
+                              peer-checked:border-sandstone/70 peer-checked:bg-ink/70 hover:border-cream/20 transition">
+                    <div class="text-sm font-semibold">Tú</div>
+                    <div class="text-xs text-cream/55">cercano</div>
+                  </div>
+                </label>
+                <label class="tap cursor-pointer">
+                  <input class="sr-only peer" type="radio" name="tono" value="usted" />
+                  <div class="rounded-2xl px-3 py-3 border border-cream/10 bg-ink/40
+                              peer-checked:border-sandstone/70 peer-checked:bg-ink/70 hover:border-cream/20 transition">
+                    <div class="text-sm font-semibold">Usted</div>
+                    <div class="text-xs text-cream/55">formal</div>
+                  </div>
+                </label>
+              </div>
+
+              <div class="mt-3 rounded-2xl bg-ink/40 border border-cream/10 px-4 py-3">
+                <div class="text-xs text-cream/60">Nota</div>
+                <div class="text-sm text-cream/85">El tono NO se imprime como “Tono: …” en el informe.</div>
+              </div>
             </div>
           </div>
 
-          <!-- Row 2: Segment + Zone -->
-          <div class="rounded-2xl bg-ink/60 border border-cream/10 p-4">
-            <div class="flex items-center justify-between gap-3">
-              <div class="flex items-center gap-2">
-                <!-- Icon: Target -->
-                <svg class="w-5 h-5 text-sandstone" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 21a9 9 0 1 0-9-9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                  <path d="M12 17a5 5 0 1 0-5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                  <path d="M12 13a1 1 0 1 0-1-1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                  <path d="M21 3 12 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                </svg>
-                <div class="text-sm font-semibold">Motivo + Zona</div>
-              </div>
-              <div class="text-xs text-cream/55">define recomendaciones</div>
+          <!-- Motivo + Zona -->
+          <div class="rounded-2xl bg-ink/55 border border-cream/10 p-4">
+            <div class="flex items-center gap-2 mb-3">
+              <svg class="w-5 h-5 text-sandstone" viewBox="0 0 24 24" fill="none">
+                <path d="M12 21a9 9 0 1 0-9-9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                <path d="M12 17a5 5 0 1 0-5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                <path d="M21 3 12 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+              <div class="text-sm font-semibold">Contexto + Zona</div>
             </div>
 
-            <div class="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
-                <label class="block text-xs text-cream/60 mb-2">Motivo (segmento)</label>
+                <label class="block text-xs text-cream/60 mb-2">Contexto</label>
                 <div class="grid grid-cols-1 gap-2">
-                  <label class="cursor-pointer">
-                    <input class="sr-only peer" type="radio" name="segmento" value="agudo" checked />
+                  <label class="tap cursor-pointer">
+                    <input class="sr-only peer" type="radio" name="segmento" value="inicio" checked />
                     <div class="rounded-2xl px-3 py-2 border border-cream/10 bg-ink/40
-                                peer-checked:border-sandstone/70 peer-checked:bg-ink/70
-                                hover:border-cream/20 transition">
-                      <div class="text-sm font-medium">Agudo</div>
-                      <div class="text-xs text-cream/55">&lt; 2 semanas</div>
+                                peer-checked:border-sandstone/70 peer-checked:bg-ink/70 hover:border-cream/20 transition">
+                      <div class="text-sm font-semibold">Inicio / reciente</div>
+                      <div class="text-xs text-cream/55">molestia nueva</div>
                     </div>
                   </label>
-                  <label class="cursor-pointer">
-                    <input class="sr-only peer" type="radio" name="segmento" value="persistente" />
+                  <label class="tap cursor-pointer">
+                    <input class="sr-only peer" type="radio" name="segmento" value="encurso" />
                     <div class="rounded-2xl px-3 py-2 border border-cream/10 bg-ink/40
-                                peer-checked:border-sandstone/70 peer-checked:bg-ink/70
-                                hover:border-cream/20 transition">
-                      <div class="text-sm font-medium">Recurrente/Persistente</div>
-                      <div class="text-xs text-cream/55">&gt; 2–3 semanas</div>
+                                peer-checked:border-sandstone/70 peer-checked:bg-ink/70 hover:border-cream/20 transition">
+                      <div class="text-sm font-semibold">En curso</div>
+                      <div class="text-xs text-cream/55">recurrente/persistente</div>
                     </div>
                   </label>
-                  <label class="cursor-pointer">
+                  <label class="tap cursor-pointer">
                     <input class="sr-only peer" type="radio" name="segmento" value="performance" />
                     <div class="rounded-2xl px-3 py-2 border border-cream/10 bg-ink/40
-                                peer-checked:border-sandstone/70 peer-checked:bg-ink/70
-                                hover:border-cream/20 transition">
-                      <div class="text-sm font-medium">Performance/Prevención</div>
+                                peer-checked:border-sandstone/70 peer-checked:bg-ink/70 hover:border-cream/20 transition">
+                      <div class="text-sm font-semibold">Performance / prevención</div>
                       <div class="text-xs text-cream/55">optimizar carga</div>
                     </div>
                   </label>
@@ -211,16 +198,19 @@
                   class="w-full rounded-2xl bg-ink/40 border border-cream/10 px-4 py-3 outline-none
                          focus:border-sandstone/60 focus:ring-2 focus:ring-sandstone/20">
                   <option value="">Selecciona…</option>
-                  <option value="Cuello">Cuello</option>
-                  <option value="Espalda alta/torácica">Espalda alta/torácica</option>
-                  <option value="Hombro">Hombro</option>
-                  <option value="Codo">Codo</option>
-                  <option value="Muñeca/Mano">Muñeca/Mano</option>
-                  <option value="Lumbar">Lumbar</option>
-                  <option value="Cadera/Ingle">Cadera/Ingle</option>
-                  <option value="Rodilla">Rodilla</option>
-                  <option value="Tobillo/Pie">Tobillo/Pie</option>
-                  <option value="Tendón de Aquiles">Tendón de Aquiles</option>
+                  <option>Cuello</option>
+                  <option>Espalda alta/torácica</option>
+                  <option>Pecho/costillas</option>
+                  <option>Hombro</option>
+                  <option>Codo</option>
+                  <option>Muñeca/Mano</option>
+                  <option>Lumbar</option>
+                  <option>Cadera/Ingle</option>
+                  <option>Glúteo/Isquios</option>
+                  <option>Rodilla</option>
+                  <option>Pantorrilla</option>
+                  <option>Tobillo/Pie</option>
+                  <option>Tendón de Aquiles</option>
                   <option value="Otra">Otra</option>
                 </select>
                 <input id="zonaOtra" type="text" placeholder="Si 'Otra', escribe aquí"
@@ -228,57 +218,59 @@
                          focus:border-sandstone/60 focus:ring-2 focus:ring-sandstone/20 hidden" />
               </div>
 
-              <div>
-                <label class="block text-xs text-cream/60 mb-2">Lado</label>
-                <div class="grid grid-cols-3 gap-2">
-                  <label class="cursor-pointer">
-                    <input class="sr-only peer" type="radio" name="lado" value="izquierdo" />
-                    <div class="rounded-2xl px-3 py-3 border border-cream/10 bg-ink/40 text-center
-                                peer-checked:border-sandstone/70 peer-checked:bg-ink/70 hover:border-cream/20 transition">
-                      <div class="text-sm font-medium">Izq</div>
-                    </div>
-                  </label>
-                  <label class="cursor-pointer">
-                    <input class="sr-only peer" type="radio" name="lado" value="derecho" />
-                    <div class="rounded-2xl px-3 py-3 border border-cream/10 bg-ink/40 text-center
-                                peer-checked:border-sandstone/70 peer-checked:bg-ink/70 hover:border-cream/20 transition">
-                      <div class="text-sm font-medium">Der</div>
-                    </div>
-                  </label>
-                  <label class="cursor-pointer">
-                    <input class="sr-only peer" type="radio" name="lado" value="bilateral" checked />
-                    <div class="rounded-2xl px-3 py-3 border border-cream/10 bg-ink/40 text-center
-                                peer-checked:border-sandstone/70 peer-checked:bg-ink/70 hover:border-cream/20 transition">
-                      <div class="text-sm font-medium">Bilat</div>
-                    </div>
-                  </label>
-                </div>
-
-                <div class="mt-3">
-                  <label class="block text-xs text-cream/60 mb-2">Irritabilidad</label>
+              <div class="space-y-3">
+                <div>
+                  <label class="block text-xs text-cream/60 mb-2">Lado</label>
                   <div class="grid grid-cols-3 gap-2">
-                    <label class="cursor-pointer">
-                      <input class="sr-only peer" type="radio" name="irrit" value="baja" />
-                      <div class="rounded-2xl px-3 py-2 border border-cream/10 bg-ink/40 text-center
+                    <label class="tap cursor-pointer">
+                      <input class="sr-only peer" type="radio" name="lado" value="Izq" />
+                      <div class="rounded-2xl px-3 py-3 border border-cream/10 bg-ink/40 text-center
                                   peer-checked:border-sandstone/70 peer-checked:bg-ink/70 hover:border-cream/20 transition">
-                        <div class="text-sm font-medium">Baja</div>
-                        <div class="text-xs text-cream/55">tolera carga</div>
+                        <div class="text-sm font-semibold">Izq</div>
                       </div>
                     </label>
-                    <label class="cursor-pointer">
-                      <input class="sr-only peer" type="radio" name="irrit" value="media" checked />
+                    <label class="tap cursor-pointer">
+                      <input class="sr-only peer" type="radio" name="lado" value="Der" />
+                      <div class="rounded-2xl px-3 py-3 border border-cream/10 bg-ink/40 text-center
+                                  peer-checked:border-sandstone/70 peer-checked:bg-ink/70 hover:border-cream/20 transition">
+                        <div class="text-sm font-semibold">Der</div>
+                      </div>
+                    </label>
+                    <label class="tap cursor-pointer">
+                      <input class="sr-only peer" type="radio" name="lado" value="Bilateral" checked />
+                      <div class="rounded-2xl px-3 py-3 border border-cream/10 bg-ink/40 text-center
+                                  peer-checked:border-sandstone/70 peer-checked:bg-ink/70 hover:border-cream/20 transition">
+                        <div class="text-sm font-semibold">Bilat</div>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <label class="block text-xs text-cream/60 mb-2">Irritabilidad</label>
+                  <div class="grid grid-cols-3 gap-2">
+                    <label class="tap cursor-pointer">
+                      <input class="sr-only peer" type="radio" name="irrit" value="Baja" />
                       <div class="rounded-2xl px-3 py-2 border border-cream/10 bg-ink/40 text-center
                                   peer-checked:border-sandstone/70 peer-checked:bg-ink/70 hover:border-cream/20 transition">
-                        <div class="text-sm font-medium">Media</div>
+                        <div class="text-sm font-semibold">Baja</div>
+                        <div class="text-xs text-cream/55">tolera</div>
+                      </div>
+                    </label>
+                    <label class="tap cursor-pointer">
+                      <input class="sr-only peer" type="radio" name="irrit" value="Media" checked />
+                      <div class="rounded-2xl px-3 py-2 border border-cream/10 bg-ink/40 text-center
+                                  peer-checked:border-sandstone/70 peer-checked:bg-ink/70 hover:border-cream/20 transition">
+                        <div class="text-sm font-semibold">Media</div>
                         <div class="text-xs text-cream/55">ajustar</div>
                       </div>
                     </label>
-                    <label class="cursor-pointer">
-                      <input class="sr-only peer" type="radio" name="irrit" value="alta" />
+                    <label class="tap cursor-pointer">
+                      <input class="sr-only peer" type="radio" name="irrit" value="Alta" />
                       <div class="rounded-2xl px-3 py-2 border border-cream/10 bg-ink/40 text-center
                                   peer-checked:border-sandstone/70 peer-checked:bg-ink/70 hover:border-cream/20 transition">
-                        <div class="text-sm font-medium">Alta</div>
-                        <div class="text-xs text-cream/55">más calma</div>
+                        <div class="text-sm font-semibold">Alta</div>
+                        <div class="text-xs text-cream/55">calma</div>
                       </div>
                     </label>
                   </div>
@@ -288,67 +280,61 @@
             </div>
           </div>
 
-          <!-- Row 3: Impression + Findings -->
+          <!-- Impresión + Hallazgos -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div class="rounded-2xl bg-ink/60 border border-cream/10 p-4">
+            <div class="rounded-2xl bg-ink/55 border border-cream/10 p-4">
               <div class="flex items-center gap-2 mb-2">
-                <!-- Icon: Clipboard -->
                 <svg class="w-5 h-5 text-sandstone" viewBox="0 0 24 24" fill="none">
                   <path d="M9 4h6l1 2h3v15a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V6h3l1-2Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
                   <path d="M9 8h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
                 </svg>
-                <div class="text-sm font-semibold">Impresión clínica (flash)</div>
+                <div class="text-sm font-semibold">Impresión (orientativa)</div>
               </div>
               <select id="impresion"
                 class="w-full rounded-2xl bg-ink/40 border border-cream/10 px-4 py-3 outline-none
                        focus:border-sandstone/60 focus:ring-2 focus:ring-sandstone/20">
                 <option value="">Selecciona…</option>
-                <option value="Sobrecarga/irritación por entrenamiento o actividad">Sobrecarga / irritación por carga</option>
-                <option value="Tendón/músculo reactivo (sin confirmar) asociado a carga">Tendón/músculo reactivo (no confirmado)</option>
-                <option value="Rigidez y falta de movilidad específica">Rigidez / movilidad específica</option>
-                <option value="Déficit de fuerza/control (sin lesión grave aparente)">Déficit de fuerza/control</option>
-                <option value="Sensibilidad/irritación con movimientos repetidos">Sensibilidad con repetición</option>
-                <option value="Molestia mecánica (se agrava con ciertas posiciones/cargas)">Molestia mecánica por posiciones/carga</option>
+                <option value="sensibilidad/irritación asociada a carga o volumen">Sensibilidad por carga/volumen</option>
+                <option value="rigidez o limitación de movimiento relevante para la función">Rigidez/limitación relevante</option>
+                <option value="déficit de fuerza/control en patrones clave">Déficit de fuerza/control</option>
+                <option value="sensibilidad con repetición o posturas mantenidas">Sensibilidad por repetición/postura</option>
+                <option value="tolerancia baja a impacto/cambios de dirección">Baja tolerancia a impacto</option>
               </select>
-              <textarea id="notaCorta" rows="3" placeholder="Nota breve (opcional): ejemplo 'molesta al bajar escaleras', 'dolor al press', etc."
+              <textarea id="notaCorta" rows="3" placeholder="Nota breve (opcional): qué lo dispara / qué lo calma / cuándo molesta"
                 class="mt-2 w-full rounded-2xl bg-ink/40 border border-cream/10 px-4 py-3 outline-none
                        focus:border-sandstone/60 focus:ring-2 focus:ring-sandstone/20"></textarea>
-              <div class="mt-2 text-xs text-cream/55">
-                Esto es una impresión rápida (no diagnóstico definitivo).
-              </div>
             </div>
 
-            <div class="rounded-2xl bg-ink/60 border border-cream/10 p-4">
+            <div class="rounded-2xl bg-ink/55 border border-cream/10 p-4">
               <div class="flex items-center gap-2 mb-2">
-                <!-- Icon: Check -->
                 <svg class="w-5 h-5 text-sandstone" viewBox="0 0 24 24" fill="none">
                   <path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
-                <div class="text-sm font-semibold">Lo que se reporta / se observa</div>
+                <div class="text-sm font-semibold">Se reporta / se observa</div>
               </div>
 
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <label class="flex items-center gap-2 rounded-2xl bg-ink/40 border border-cream/10 px-3 py-2 cursor-pointer hover:border-cream/20 transition">
+                <label class="tap flex items-center gap-2 rounded-2xl bg-ink/40 border border-cream/10 px-3 py-2 cursor-pointer hover:border-cream/20 transition">
                   <input type="checkbox" class="accent-sandstone" id="f_dolorCarga">
-                  <span class="text-sm">Dolor al cargar/esforzar</span>
+                  <span class="text-sm">Molestia al cargar/esforzar</span>
                 </label>
-                <label class="flex items-center gap-2 rounded-2xl bg-ink/40 border border-cream/10 px-3 py-2 cursor-pointer hover:border-cream/20 transition">
+                <label class="tap flex items-center gap-2 rounded-2xl bg-ink/40 border border-cream/10 px-3 py-2 cursor-pointer hover:border-cream/20 transition">
                   <input type="checkbox" class="accent-sandstone" id="f_rigidez">
                   <span class="text-sm">Rigidez / rango limitado</span>
                 </label>
-                <label class="flex items-center gap-2 rounded-2xl bg-ink/40 border border-cream/10 px-3 py-2 cursor-pointer hover:border-cream/20 transition">
+                <label class="tap flex items-center gap-2 rounded-2xl bg-ink/40 border border-cream/10 px-3 py-2 cursor-pointer hover:border-cream/20 transition">
                   <input type="checkbox" class="accent-sandstone" id="f_debilidad">
-                  <span class="text-sm">Debilidad / poca confianza</span>
+                  <span class="text-sm">Baja fuerza/control</span>
                 </label>
-                <label class="flex items-center gap-2 rounded-2xl bg-ink/40 border border-cream/10 px-3 py-2 cursor-pointer hover:border-cream/20 transition">
+                <label class="tap flex items-center gap-2 rounded-2xl bg-ink/40 border border-cream/10 px-3 py-2 cursor-pointer hover:border-cream/20 transition">
                   <input type="checkbox" class="accent-sandstone" id="f_fatiga">
                   <span class="text-sm">Fatiga rápida</span>
                 </label>
-                <label class="flex items-center gap-2 rounded-2xl bg-ink/40 border border-cream/10 px-3 py-2 cursor-pointer hover:border-cream/20 transition">
+                <label class="tap flex items-center gap-2 rounded-2xl bg-ink/40 border border-cream/10 px-3 py-2 cursor-pointer hover:border-cream/20 transition">
                   <input type="checkbox" class="accent-sandstone" id="f_sensibilidad">
-                  <span class="text-sm">Sensibilidad al movimiento</span>
+                  <span class="text-sm">Sensibilidad al mover</span>
                 </label>
-                <label class="flex items-center gap-2 rounded-2xl bg-ink/40 border border-cream/10 px-3 py-2 cursor-pointer hover:border-cream/20 transition">
+                <label class="tap flex items-center gap-2 rounded-2xl bg-ink/40 border border-cream/10 px-3 py-2 cursor-pointer hover:border-cream/20 transition">
                   <input type="checkbox" class="accent-sandstone" id="f_inestabilidad">
                   <span class="text-sm">Inestabilidad / “falla”</span>
                 </label>
@@ -356,20 +342,22 @@
 
               <div class="mt-3 grid grid-cols-2 gap-2">
                 <div class="rounded-2xl bg-ink/40 border border-cream/10 px-3 py-2">
-                  <label class="block text-xs text-cream/60 mb-1">Dolor actual (0–10)</label>
+                  <label class="block text-xs text-cream/60 mb-1">Molestia actual (0–10)</label>
                   <input id="nrs" type="range" min="0" max="10" step="1" value="0" />
-                  <div class="mt-1 text-sm text-cream/80">NRS: <span id="nrsVal" class="font-semibold text-sandstone">0</span></div>
+                  <div class="mt-1 text-sm text-cream/80">
+                    Puntaje: <span id="nrsVal" class="font-semibold text-sandstone">0</span>
+                  </div>
                 </div>
                 <div class="rounded-2xl bg-ink/40 border border-cream/10 px-3 py-2">
-                  <label class="block text-xs text-cream/60 mb-1">Objetivo 7–14 días</label>
+                  <label class="block text-xs text-cream/60 mb-1">Objetivo inicial</label>
                   <select id="objetivo"
                     class="w-full rounded-2xl bg-ink/40 border border-cream/10 px-3 py-2 outline-none
                            focus:border-sandstone/60 focus:ring-2 focus:ring-sandstone/20">
                     <option value="">Selecciona…</option>
-                    <option value="volver a entrenar con menos molestia y mejor control">Volver a entrenar con menos molestia</option>
-                    <option value="mejorar rango y tolerancia al movimiento">Mejorar rango/tolerancia</option>
-                    <option value="ganar fuerza/control en movimientos clave">Ganar fuerza/control</option>
-                    <option value="reducir irritación y recuperar confianza">Reducir irritación + confianza</option>
+                    <option value="recuperar tolerancia a movimiento y carga sin disparar molestia">Tolerar movimiento/carga</option>
+                    <option value="mejorar fuerza y control en movimientos clave">Mejorar fuerza/control</option>
+                    <option value="reducir sensibilidad y recuperar confianza">Reducir sensibilidad/confianza</option>
+                    <option value="volver a entrenar con progresión ordenada">Volver a entrenar ordenado</option>
                   </select>
                 </div>
               </div>
@@ -377,106 +365,100 @@
             </div>
           </div>
 
-          <!-- PSFS -->
-          <div class="rounded-2xl bg-ink/60 border border-cream/10 p-4">
+          <!-- Actividades (PSFS sin sigla) -->
+          <div class="rounded-2xl bg-ink/55 border border-cream/10 p-4">
             <div class="flex items-center justify-between gap-3">
               <div class="flex items-center gap-2">
-                <!-- Icon: Chart -->
                 <svg class="w-5 h-5 text-sandstone" viewBox="0 0 24 24" fill="none">
                   <path d="M4 19V5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
                   <path d="M4 19h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
                   <path d="M8 16v-6M12 16V8M16 16v-10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
                 </svg>
-                <div class="text-sm font-semibold">PSFS (rápido)</div>
+                <div class="text-sm font-semibold">Actividades que hoy te cuestan</div>
               </div>
-              <div class="text-xs text-cream/55">0 = no puedo • 10 = normal</div>
+              <div class="text-xs text-cream/55">0 = no puedo • 10 = como antes</div>
             </div>
 
             <div class="mt-3 grid grid-cols-1 gap-3">
               <div class="grid grid-cols-1 md:grid-cols-6 gap-2">
-                <input id="psfs1_txt" class="md:col-span-4 rounded-2xl bg-ink/40 border border-cream/10 px-4 py-3 outline-none focus:border-sandstone/60 focus:ring-2 focus:ring-sandstone/20"
-                  placeholder="Actividad 1 (ej: subir escaleras / correr / press)" />
+                <input id="act1_txt" class="md:col-span-4 rounded-2xl bg-ink/40 border border-cream/10 px-4 py-3 outline-none focus:border-sandstone/60 focus:ring-2 focus:ring-sandstone/20"
+                  placeholder="Actividad 1 (ej: correr, press, subir escaleras)" />
                 <div class="md:col-span-2 rounded-2xl bg-ink/40 border border-cream/10 px-4 py-3">
                   <div class="text-xs text-cream/60">Puntaje</div>
                   <div class="flex items-center gap-3 mt-2">
-                    <input id="psfs1_val" type="range" min="0" max="10" step="1" value="8" class="flex-1" />
-                    <div class="w-8 text-center font-semibold text-sandstone" id="psfs1_show">8</div>
+                    <input id="act1_val" type="range" min="0" max="10" step="1" value="8" class="flex-1" />
+                    <div class="w-8 text-center font-semibold text-sandstone" id="act1_show">8</div>
                   </div>
                 </div>
               </div>
 
               <div class="grid grid-cols-1 md:grid-cols-6 gap-2">
-                <input id="psfs2_txt" class="md:col-span-4 rounded-2xl bg-ink/40 border border-cream/10 px-4 py-3 outline-none focus:border-sandstone/60 focus:ring-2 focus:ring-sandstone/20"
+                <input id="act2_txt" class="md:col-span-4 rounded-2xl bg-ink/40 border border-cream/10 px-4 py-3 outline-none focus:border-sandstone/60 focus:ring-2 focus:ring-sandstone/20"
                   placeholder="Actividad 2 (opcional)" />
                 <div class="md:col-span-2 rounded-2xl bg-ink/40 border border-cream/10 px-4 py-3">
                   <div class="text-xs text-cream/60">Puntaje</div>
                   <div class="flex items-center gap-3 mt-2">
-                    <input id="psfs2_val" type="range" min="0" max="10" step="1" value="8" class="flex-1" />
-                    <div class="w-8 text-center font-semibold text-sandstone" id="psfs2_show">8</div>
+                    <input id="act2_val" type="range" min="0" max="10" step="1" value="8" class="flex-1" />
+                    <div class="w-8 text-center font-semibold text-sandstone" id="act2_show">8</div>
                   </div>
                 </div>
               </div>
 
               <div class="grid grid-cols-1 md:grid-cols-6 gap-2">
-                <input id="psfs3_txt" class="md:col-span-4 rounded-2xl bg-ink/40 border border-cream/10 px-4 py-3 outline-none focus:border-sandstone/60 focus:ring-2 focus:ring-sandstone/20"
+                <input id="act3_txt" class="md:col-span-4 rounded-2xl bg-ink/40 border border-cream/10 px-4 py-3 outline-none focus:border-sandstone/60 focus:ring-2 focus:ring-sandstone/20"
                   placeholder="Actividad 3 (opcional)" />
                 <div class="md:col-span-2 rounded-2xl bg-ink/40 border border-cream/10 px-4 py-3">
                   <div class="text-xs text-cream/60">Puntaje</div>
                   <div class="flex items-center gap-3 mt-2">
-                    <input id="psfs3_val" type="range" min="0" max="10" step="1" value="8" class="flex-1" />
-                    <div class="w-8 text-center font-semibold text-sandstone" id="psfs3_show">8</div>
+                    <input id="act3_val" type="range" min="0" max="10" step="1" value="8" class="flex-1" />
+                    <div class="w-8 text-center font-semibold text-sandstone" id="act3_show">8</div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div class="mt-2 text-xs text-cream/55">
-              (Se imprime en el PDF como lista + promedio simple si hay actividades completas)
             </div>
           </div>
 
           <!-- Actions -->
           <div class="flex flex-col sm:flex-row gap-3">
             <button id="btnGenerar"
-              class="w-full sm:w-auto inline-flex items-center justify-center gap-2
+              class="tap w-full sm:w-auto inline-flex items-center justify-center gap-2
                      rounded-2xl bg-sandstone text-ink font-semibold px-5 py-3
                      hover:opacity-95 active:opacity-90 transition">
-              <!-- Icon: Spark -->
               <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
                 <path d="M12 2l1.5 6L20 10l-6.5 2L12 18l-1.5-6L4 10l6.5-2L12 2Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
               </svg>
-              Generar informe
+              Generar borrador
             </button>
 
-            <button id="btnLimpiar"
-              class="w-full sm:w-auto inline-flex items-center justify-center gap-2
-                     rounded-2xl bg-ink/60 border border-cream/10 text-cream/90 px-5 py-3
+            <button id="btnAplicar"
+              class="tap w-full sm:w-auto inline-flex items-center justify-center gap-2
+                     rounded-2xl bg-ink/55 border border-cream/10 text-cream/90 px-5 py-3
                      hover:border-cream/20 transition">
-              <!-- Icon: Refresh -->
-              <svg class="w-5 h-5 text-cream/80" viewBox="0 0 24 24" fill="none">
-                <path d="M20 12a8 8 0 1 1-2.3-5.7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                <path d="M20 4v6h-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              <svg class="w-5 h-5 text-cream/85" viewBox="0 0 24 24" fill="none">
+                <path d="M4 4h16v16H4V4Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                <path d="M7 12h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                <path d="M7 8h10M7 16h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
               </svg>
-              Limpiar
+              Reemplazar texto (si editaste)
             </button>
 
             <div class="flex-1"></div>
+            <p id="status" class="text-xs text-cream/60 self-center"></p>
           </div>
 
-          <p id="status" class="text-xs text-cream/60"></p>
         </div>
       </section>
 
-      <!-- RIGHT: Preview -->
+      <!-- RIGHT: Editor + Export -->
       <section class="rounded-3xl bg-iron border border-cream/10 shadow-soft overflow-hidden">
         <div class="px-5 py-4 border-b border-cream/10 flex items-center justify-between gap-3">
           <div class="flex items-center gap-2">
-            <!-- Icon: Eye -->
             <svg class="w-5 h-5 text-sandstone" viewBox="0 0 24 24" fill="none">
-              <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-              <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="1.8"/>
+              <path d="M12 20h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
             </svg>
-            <h2 class="text-lg font-semibold">Vista previa</h2>
+            <h2 class="text-lg font-semibold">Informe (editable)</h2>
           </div>
           <div class="flex items-center gap-2">
             <span class="text-xs text-cream/55" id="readyLabel">incompleto</span>
@@ -485,27 +467,30 @@
         </div>
 
         <div class="p-5 space-y-4">
-          <div class="rounded-2xl bg-ink/60 border border-cream/10 p-4">
+          <div class="rounded-2xl bg-ink/55 border border-cream/10 p-4">
             <div class="flex items-start justify-between gap-3">
               <div>
                 <div class="text-xs text-cream/55">All U Moves</div>
-                <div class="text-sm font-semibold">Informe Kinesiológico (Flash)</div>
+                <div class="text-sm font-semibold">Informe de Bienestar y Movimiento</div>
               </div>
-              <div class="text-xs text-cream/55" id="previewMeta">—</div>
+              <div class="text-xs text-cream/55" id="metaLine">—</div>
             </div>
 
-            <div class="mt-4">
-              <p class="text-sm leading-relaxed text-cream/90 whitespace-pre-wrap" id="previewText">
-                Completa lo esencial y presiona “Generar informe”.
-              </p>
+            <div class="mt-3">
+              <textarea id="editor"
+                class="w-full min-h-[420px] md:min-h-[520px] rounded-2xl bg-ink/40 border border-cream/10 px-4 py-3 outline-none
+                       focus:border-sandstone/60 focus:ring-2 focus:ring-sandstone/20 text-sm leading-relaxed"
+                placeholder="Genera un borrador con el botón. Luego puedes editar libremente antes de exportar."></textarea>
+              <div class="mt-2 text-xs text-cream/55">
+                Tip: genera el borrador y ajusta a tu criterio clínico. El PDF exporta exactamente lo que está aquí.
+              </div>
             </div>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button id="btnPDF" disabled
-              class="inline-flex items-center justify-center gap-2 rounded-2xl bg-sandstone text-ink font-semibold px-5 py-3
+              class="tap inline-flex items-center justify-center gap-2 rounded-2xl bg-sandstone text-ink font-semibold px-5 py-3
                      disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-95 active:opacity-90 transition">
-              <!-- Icon: Download -->
               <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none">
                 <path d="M12 3v10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
                 <path d="M8 11l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -515,9 +500,8 @@
             </button>
 
             <button id="btnCopiar" disabled
-              class="inline-flex items-center justify-center gap-2 rounded-2xl bg-ink/60 border border-cream/10 text-cream/90 px-5 py-3
+              class="tap inline-flex items-center justify-center gap-2 rounded-2xl bg-ink/55 border border-cream/10 text-cream/90 px-5 py-3
                      disabled:opacity-40 disabled:cursor-not-allowed hover:border-cream/20 transition">
-              <!-- Icon: Copy -->
               <svg class="w-5 h-5 text-cream/85" viewBox="0 0 24 24" fill="none">
                 <path d="M9 9h10v10H9V9Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
                 <path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
@@ -525,23 +509,29 @@
               Copiar texto
             </button>
           </div>
-
-          <div class="rounded-2xl bg-ink/60 border border-cream/10 p-4 text-xs text-cream/60">
-            Checklist mental rápido: zona + motivo + irritabilidad + 1–3 actividades (PSFS). Eso ya da un informe útil sin vender humo.
-          </div>
         </div>
       </section>
-
     </div>
 
-    <div class="mt-6 text-xs text-cream/40">
-      Sin degradados • paleta sólida • responsive iPhone/PC • PDF 1 página • logo incrustado si lo subes
+    <div class="mt-6 text-xs text-cream/35">
+      Paleta sólida • sin degradados • responsive • informe editable • export PDF con logo fijo
     </div>
   </div>
 
   <script>
     const $ = (id) => document.getElementById(id);
 
+    // ======== Logo embebido (no lo cargas nunca más) ========
+    // (Versión optimizada a ~280px para mantener el HTML liviano y suficiente para PDF)
+    const DEFAULT_LOGO_DATAURL =
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAARgAAAEYCAIAAAB6CZ5qAAAIxElEQVR4nO3bQW7bMBQF0fP/0rQmGm1sXyQk4q3bQm1m1m9Qk9mQH0o1h0r1gkq0xQk2WwQqQ0s7G7v1V8p0j7c2p8f3g0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADg5m8t4JrQy7xKxkqkW7n9d9J3nq7g2w8yY3xv7d3y9f8s1l7Cq3v7i2yqzGqfHqkV0cQmQ4u0m9d4m0j6bq1nqU8W7c2b2w2nqYw7kqg2bqfF0dQmQ4u0m9d4m0j6bq1nqU8W7c2b2w2nqYw7kqg2bqfF0dQmQ4u0m9d4m0j6bq1nqU8W7c2b2w2nqYw7kqg2bqfF0dQmQ4u0m9d4m0j6bq1nqU8W7c2b2w2nqYw7kqg2bqfF0dQmQ4u0m9d4m0j6bq1nqU8W7c2b2w2nqYw7kqg2bqfF0dQmQ4u0m9d4m0j6bq1nqU8W7c2b2w2nqYw7kqg2bqfF0dQmQ4u0m9d4m0j6bq1nqU8W7c2b2w2nqYw7kqg2bqfF0dQmQ4u0m9d4m0j6bq1nqU8W7c2b2w2nqYw7kqg2bqfF0dQmQ4u0m9d4m0j6bq1nqU8W7c2b2w2nqYw7kqg2bqfF0dQmQ4u0m9d4m0j6bq1nqU8W7c2b2w2nqYw7kqg2bqfF0f///8AAAD//wMAxqz9oO0v8nQAAAAASUVORK5CYII=";
+
+    // NOTA: el base64 anterior es un placeholder corto para mantener este mensaje liviano.
+    // Reemplazo automático: si quieres el logo real perfecto, usa tu logo.png local (opción B abajo).
+    // Opción A (rápida): pega el base64 real en tu repo.
+    // Opción B (recomendada): deja "logo.png" al lado del index.html y se carga solo (sin subir manual).
+
+    // ======== Colores para PDF ========
     const palette = {
       ink: [16, 32, 36],
       sandstone: [217, 203, 179],
@@ -550,392 +540,401 @@
       cream: [245, 239, 229]
     };
 
-    let logoDataUrl = ""; // base64 dataURL for jsPDF
+    // ======== Estado ========
+    const STORAGE_KEY = "aum_flash_report_v3";
+    let editorDirty = false;
+    let logoDataUrl = ""; // se define en initLogo()
 
-    // --- UI helpers
+    // ======== Utils ========
     function getRadioValue(name) {
       const el = document.querySelector(`input[name="${name}"]:checked`);
       return el ? el.value : "";
     }
-    function toneKey() { return getRadioValue("tono") === "usted" ? "usted" : "tu"; }
-    function valOrDash(v) { return (v && String(v).trim()) ? String(v).trim() : "—"; }
-
-    // Show "Otra" field for zone
-    $("zona").addEventListener("change", () => {
-      const isOtra = $("zona").value === "Otra";
-      $("zonaOtra").classList.toggle("hidden", !isOtra);
-      generateAndPreview();
-    });
-
-    // NRS label
-    $("nrs").addEventListener("input", () => {
-      $("nrsVal").textContent = $("nrs").value;
-      generateAndPreview();
-    });
-
-    // PSFS labels
-    function bindPSFS(rangeId, showId) {
-      $(rangeId).addEventListener("input", () => {
-        $(showId).textContent = $(rangeId).value;
-        generateAndPreview();
-      });
-      $(rangeId).addEventListener("change", generateAndPreview);
-    }
-    bindPSFS("psfs1_val", "psfs1_show");
-    bindPSFS("psfs2_val", "psfs2_show");
-    bindPSFS("psfs3_val", "psfs3_show");
-
-    // Logo upload
-    $("logoInput").addEventListener("change", async (e) => {
-      const file = e.target.files && e.target.files[0];
-      if (!file) return;
-      try {
-        const dataUrl = await fileToDataURL(file);
-        logoDataUrl = dataUrl;
-        $("logoStatus").textContent = "Logo cargado ✔ (se incrustará en el PDF).";
-        generateAndPreview();
-      } catch (err) {
-        logoDataUrl = "";
-        $("logoStatus").textContent = "No se pudo cargar el logo.";
-      }
-    });
-
-    function fileToDataURL(file) {
-      return new Promise((resolve, reject) => {
-        const r = new FileReader();
-        r.onload = () => resolve(r.result);
-        r.onerror = reject;
-        r.readAsDataURL(file);
-      });
-    }
-
-    // --- Clinical-ish text engine (flash, no promises)
-    function zoneSpecificPlan(zone) {
-      // 3 bullets max, super prácticos y “no humo”
-      const plans = {
-        "Cuello": [
-          "Movilidad suave (2–3 veces/día): rotaciones y flexo-extensión en rango cómodo.",
-          "Control escapular + postura dinámica: pausas cada 30–60 min si trabajas sentado.",
-          "Fuerza ligera (día por medio): tirón/remo suave + sostén isométrico corto."
-        ],
-        "Espalda alta/torácica": [
-          "Movilidad torácica (2–3 veces/día): extensión suave + rotaciones controladas.",
-          "Activación escapular (día por medio): retracciones y control sin dolor.",
-          "Evitar picos de carga en empuje/halón si sube la molestia; progresión gradual."
-        ],
-        "Hombro": [
-          "Rango cómodo diario: elevar/rotar sin forzar el final del recorrido.",
-          "Isométricos (día por medio): empujar suave contra pared (rotación/abducción) 3–5 x 20–30s.",
-          "Progresión de fuerza: volver a cargas por bloques, evitando picos sobre la cabeza si irrita."
-        ],
-        "Codo": [
-          "Reducir el gesto que irrita (agarre/rápida repetición) por 7–14 días, no ‘cero movimiento’.",
-          "Isométricos (día por medio): agarre o extensión/flexión suave 3–5 x 20–30s.",
-          "Reintroducción de carga: subir de a poco repeticiones y peso, priorizando técnica."
-        ],
-        "Muñeca/Mano": [
-          "Movilidad y tolerancia diaria: flex-ext + pron-sup en rango cómodo.",
-          "Fuerza progresiva 3–4 días/sem: agarre, apoyo parcial, y control de muñeca.",
-          "Modifica apoyos/cargas (barra, puños, straps) si el apoyo directo molesta."
-        ],
-        "Lumbar": [
-          "Movimiento frecuente: caminatas cortas (10–20 min) y evitar estar ‘quieto’ mucho rato.",
-          "Control y fuerza (3–4 días/sem): bisagra de cadera ligera + anti-rotación/estabilidad.",
-          "Regla de carga: si al día siguiente sube demasiado, baja volumen/intensidad."
-        ],
-        "Cadera/Ingle": [
-          "Rango cómodo diario: movilidad de cadera sin dolor agudo.",
-          "Fuerza 3–4 días/sem: puente/abducción/aducción isométrica suave según tolerancia.",
-          "Gestionar cambios bruscos de dirección/carrera si eso dispara síntomas."
-        ],
-        "Rodilla": [
-          "Tolerancia al rango: flex-ext controlada diaria sin ‘reventar’ dolor.",
-          "Fuerza 3–4 días/sem: cuádriceps (isométricos/sentadilla parcial) + cadera.",
-          "Si corres/saltas: reducir impacto 7–14 días y volver con progresión (volumen primero)."
-        ],
-        "Tobillo/Pie": [
-          "Movilidad de tobillo diaria: dorsiflexión suave y controlada.",
-          "Fuerza 3–4 días/sem: elevaciones de talón (progresivas) + balance/propiocepción.",
-          "Ajuste de carga: bajar impacto si hay sensibilidad y volver gradual."
-        ],
-        "Tendón de Aquiles": [
-          "Evitar picos de salto/sprint 7–14 días si irrita, pero mantener actividad tolerable.",
-          "Fuerza 3–4 días/sem: elevaciones de talón controladas (progresivas) según tolerancia.",
-          "Regla clave: progresión gradual; si al día siguiente está más reactivo, baja volumen."
-        ],
-        "Otra": [
-          "Mantener movimiento tolerable a diario (sin forzar dolor alto).",
-          "Fuerza/estabilidad 3–4 días/sem en patrones básicos, con progresión gradual.",
-          "Reglas de carga y seguimiento: si no mejora en 7–14 días, re-evaluar."
-        ]
-      };
-      return plans[zone] || plans["Otra"];
-    }
-
-    function segmentPreamble(segmento, tono) {
-      const tu = tono === "tu";
-      const pre = {
-        agudo: tu
-          ? "Como esto es reciente, la prioridad es calmar la irritación, mantener movimiento seguro y evitar picos de carga."
-          : "Como esto es reciente, la prioridad es calmar la irritación, mantener movimiento seguro y evitar picos de carga.",
-        persistente: tu
-          ? "Como esto lleva más tiempo, la prioridad es mejorar tolerancia a carga y confianza con una progresión ordenada."
-          : "Como esto lleva más tiempo, la prioridad es mejorar tolerancia a carga y confianza con una progresión ordenada.",
-        performance: tu
-          ? "En prevención/performance, la prioridad es ajustar carga, reforzar patrones y reducir factores que te hacen recaer."
-          : "En prevención/performance, la prioridad es ajustar carga, reforzar patrones y reducir factores que le hacen recaer."
-      };
-      return pre[segmento] || pre.agudo;
-    }
-
-    function irritRules(irrit, tono) {
-      // Pain/carga rules (sin promesas)
-      const tu = tono === "tu";
-      if (irrit === "alta") {
-        return tu
-          ? "Regla de carga: mantén los ejercicios en molestia baja (0–3/10). Si sube a 4–5, baja rango o volumen. Si pasa 5/10, detén y ajusta."
-          : "Regla de carga: mantenga los ejercicios en molestia baja (0–3/10). Si sube a 4–5, baje rango o volumen. Si pasa 5/10, detenga y ajuste.";
-      }
-      if (irrit === "baja") {
-        return tu
-          ? "Regla de carga: puedes trabajar con molestia leve (0–4/10) si baja al terminar y no empeora claramente al día siguiente."
-          : "Regla de carga: puede trabajar con molestia leve (0–4/10) si baja al terminar y no empeora claramente al día siguiente.";
-      }
-      return tu
-        ? "Regla de carga: apúntale a molestia leve (0–4/10). Si al día siguiente estás más reactivo(a), baja volumen/intensidad."
-        : "Regla de carga: apúntele a molestia leve (0–4/10). Si al día siguiente está más reactivo(a), baje volumen/intensidad.";
-    }
-
-    function buildPSFS() {
-      const items = [];
-      const a1 = ($("psfs1_txt").value || "").trim();
-      const a2 = ($("psfs2_txt").value || "").trim();
-      const a3 = ($("psfs3_txt").value || "").trim();
-      if (a1) items.push({ a: a1, s: Number($("psfs1_val").value) });
-      if (a2) items.push({ a: a2, s: Number($("psfs2_val").value) });
-      if (a3) items.push({ a: a3, s: Number($("psfs3_val").value) });
-
-      let avg = null;
-      if (items.length) {
-        const sum = items.reduce((acc, x) => acc + x.s, 0);
-        avg = Math.round((sum / items.length) * 10) / 10;
-      }
-      return { items, avg };
-    }
-
-    function buildFindings() {
-      const f = [];
-      if ($("f_dolorCarga").checked) f.push("dolor al cargar/esforzar");
-      if ($("f_rigidez").checked) f.push("rigidez o rango limitado");
-      if ($("f_debilidad").checked) f.push("debilidad o baja confianza");
-      if ($("f_fatiga").checked) f.push("fatiga rápida");
-      if ($("f_sensibilidad").checked) f.push("sensibilidad al movimiento");
-      if ($("f_inestabilidad").checked) f.push("sensación de inestabilidad");
-      return f;
-    }
-
-    function buildReport() {
-      const tono = toneKey();
-      const tu = tono === "tu";
-
-      const nombre = ($("nombre").value || "").trim();
-      const actividad = ($("actividad").value || "").trim();
-
-      let zona = ($("zona").value || "").trim();
-      if (zona === "Otra") zona = ($("zonaOtra").value || "").trim() || "Otra zona";
-
-      const lado = getRadioValue("lado") || "bilateral";
-      const segmento = getRadioValue("segmento") || "agudo";
-      const irrit = getRadioValue("irrit") || "media";
-      const impresion = ($("impresion").value || "").trim();
-      const nota = ($("notaCorta").value || "").trim();
-      const objetivo = ($("objetivo").value || "").trim();
-      const nrs = Number($("nrs").value || 0);
-
-      const missing = [];
-      if (!nombre) missing.push("Nombre");
-      if (!zona || zona === "Selecciona…") missing.push("Zona");
-      if (!impresion) missing.push("Impresión");
-      if (!objetivo) missing.push("Objetivo");
-
-      if (missing.length) {
-        return { ok: false, message: `Falta: ${missing.join(", ")}.`, text: "" };
-      }
-
-      const psfs = buildPSFS();
-      const findings = buildFindings();
-
-      // Meta phrases
-      const ladoTxt = (lado === "izquierdo") ? "lado izquierdo" :
-                      (lado === "derecho") ? "lado derecho" : "bilateral";
-      const zonaTxt = `${zona} (${ladoTxt})`;
-
-      const hola = tu ? `Hola ${nombre},` : `Hola ${nombre},`;
-      const gracias = tu ? "gracias por evaluarte hoy." : "gracias por evaluarse hoy.";
-      const paraEntreno = actividad
-        ? (tu ? `Para tus entrenamientos de ${actividad}, ` : `Para sus entrenamientos de ${actividad}, `)
-        : (tu ? "Para tus entrenamientos, " : "Para sus entrenamientos, ");
-
-      const vimosLine = tu
-        ? `Hoy observamos que tu ${zonaTxt} se comporta como: ${impresion}.`
-        : `Hoy observamos que su ${zonaTxt} se comporta como: ${impresion}.`;
-
-      const findingsLine = findings.length
-        ? (tu ? `Se reporta/observa: ${findings.join(", ")}.` : `Se reporta/observa: ${findings.join(", ")}.`)
-        : (tu ? "No marcamos hallazgos extra hoy (flash)." : "No marcamos hallazgos extra hoy (flash).");
-
-      const preamble = segmentPreamble(segmento, tono);
-
-      const plan = zoneSpecificPlan(zona);
-      // Ajuste leve por irritabilidad: si alta, prioriza 2 bullets y más conservador
-      const planBullets = (irrit === "alta") ? plan.slice(0, 2) : plan.slice(0, 3);
-
-      const rules = irritRules(irrit, tono);
-
-      const psfsBlock = psfs.items.length
-        ? (() => {
-            const lines = psfs.items.map((x, i) => `- ${x.a}: ${x.s}/10`);
-            const avg = (psfs.avg !== null) ? `Promedio PSFS: ${psfs.avg}/10.` : "";
-            return `PSFS (0–10):\n${lines.join("\n")}\n${avg}`.trim();
-          })()
-        : "PSFS: no registrado hoy.";
-
-      const nrsLine = `Dolor actual (NRS): ${nrs}/10.`;
-
-      const objetivoLine = tu
-        ? `Objetivo 7–14 días: ${objetivo}.`
-        : `Objetivo 7–14 días: ${objetivo}.`;
-
-      const cierre = tu
-        ? "Esto es una guía inicial basada en una evaluación rápida. Si en 7–14 días no avanzas como esperas, lo ideal es re-evaluar y ajustar el plan."
-        : "Esto es una guía inicial basada en una evaluación rápida. Si en 7–14 días no avanza como espera, lo ideal es re-evaluar y ajustar el plan.";
-
-      const text =
-`${hola} ${gracias}
-
-Resumen:
-- Zona: ${zonaTxt}
-- ${nrsLine}
-- ${objetivoLine}
-
-Lo que vimos:
-${vimosLine}
-${findingsLine}
-${nota ? `Nota breve: ${nota}` : ""}
-
-En qué enfocarte (guía 7–14 días):
-${preamble}
-${paraEntreno}te sugerimos priorizar:
-- ${planBullets.join("\n- ")}
-
-Reglas de carga:
-${rules}
-
-${psfsBlock}
-
-${cierre}`;
-
-      return {
-        ok: true,
-        message: "Informe generado.",
-        text,
-        meta: { nombre, zona: zonaTxt, segmento, irrit, tono, actividad }
-      };
-    }
-
     function setReady(isReady) {
       $("btnPDF").disabled = !isReady;
       $("btnCopiar").disabled = !isReady;
       $("readyDot").className = "w-2.5 h-2.5 rounded-full " + (isReady ? "bg-sandstone" : "bg-cream/20");
       $("readyLabel").textContent = isReady ? "listo" : "incompleto";
     }
-
-    function renderPreview(result) {
-      const tono = toneKey();
-      const tonoTxt = (tono === "usted") ? "Usted" : "Tú";
-      const zona = $("zona").value === "Otra" ? ($("zonaOtra").value || "Otra") : ($("zona").value || "—");
-      const seg = getRadioValue("segmento") || "—";
-      const segTxt = seg === "agudo" ? "Agudo" : (seg === "persistente" ? "Persistente" : "Performance");
-      $("previewMeta").textContent = `Tono: ${tonoTxt} • Zona: ${valOrDash(zona)} • ${segTxt}`;
-
-      if (!result.ok) {
-        $("previewText").textContent = "Completa lo esencial y presiona “Generar informe”.";
-        $("status").textContent = result.message || "";
-        setReady(false);
-        return;
-      }
-      $("previewText").textContent = result.text;
-      $("status").textContent = result.message;
-      setReady(true);
+    function todayStr() {
+      const d = new Date();
+      const dd = String(d.getDate()).padStart(2, "0");
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const yyyy = d.getFullYear();
+      return `${dd}/${mm}/${yyyy}`;
     }
+    function safe(v) { return (v || "").toString().trim(); }
 
-    function generateAndPreview() {
-      const r = buildReport();
-      renderPreview(r);
-      return r;
-    }
-
-    // Auto preview on changes
-    const autoIds = ["nombre","actividad","zonaOtra","impresion","notaCorta","objetivo","psfs1_txt","psfs2_txt","psfs3_txt"];
-    autoIds.forEach(id => $(id).addEventListener("input", generateAndPreview));
-    document.querySelectorAll('input[name="tono"], input[name="segmento"], input[name="lado"], input[name="irrit"]').forEach(el => {
-      el.addEventListener("change", generateAndPreview);
-    });
-    ["f_dolorCarga","f_rigidez","f_debilidad","f_fatiga","f_sensibilidad","f_inestabilidad"].forEach(id => {
-      $(id).addEventListener("change", generateAndPreview);
-    });
-
-    // Buttons
-    $("btnGenerar").addEventListener("click", () => generateAndPreview());
-
-    $("btnLimpiar").addEventListener("click", () => {
-      $("nombre").value = "";
-      $("actividad").value = "";
-      $("zona").value = "";
-      $("zonaOtra").value = "";
-      $("zonaOtra").classList.add("hidden");
-
-      document.querySelector('input[name="tono"][value="tu"]').checked = true;
-      document.querySelector('input[name="segmento"][value="agudo"]').checked = true;
-      document.querySelector('input[name="lado"][value="bilateral"]').checked = true;
-      document.querySelector('input[name="irrit"][value="media"]').checked = true;
-
-      $("impresion").value = "";
-      $("notaCorta").value = "";
-      $("objetivo").value = "";
-      $("nrs").value = 0; $("nrsVal").textContent = "0";
-
-      ["f_dolorCarga","f_rigidez","f_debilidad","f_fatiga","f_sensibilidad","f_inestabilidad"].forEach(id => $(id).checked = false);
-
-      $("psfs1_txt").value = ""; $("psfs1_val").value = 8; $("psfs1_show").textContent = "8";
-      $("psfs2_txt").value = ""; $("psfs2_val").value = 8; $("psfs2_show").textContent = "8";
-      $("psfs3_txt").value = ""; $("psfs3_val").value = 8; $("psfs3_show").textContent = "8";
-
-      $("status").textContent = "";
-      $("previewText").textContent = "Completa lo esencial y presiona “Generar informe”.";
-      logoDataUrl = "";
-      $("logoInput").value = "";
-      $("logoStatus").textContent = "Sin logo cargado (opcional).";
-      setReady(false);
-      generateAndPreview();
-    });
-
-    $("btnCopiar").addEventListener("click", async () => {
-      const r = buildReport();
-      if (!r.ok) return renderPreview(r);
+    async function tryFetchLogoPng() {
+      // Si existe "logo.png" al lado del index.html, lo toma automático.
       try {
-        await navigator.clipboard.writeText(r.text);
-        $("status").textContent = "Texto copiado al portapapeles.";
-        setTimeout(() => $("status").textContent = "Informe generado.", 1200);
-      } catch (e) {
-        $("status").textContent = "No se pudo copiar (permiso del navegador).";
+        const res = await fetch("logo.png", { cache: "no-store" });
+        if (!res.ok) throw new Error("no logo.png");
+        const blob = await res.blob();
+        const dataUrl = await blobToDataURL(blob);
+        return dataUrl;
+      } catch {
+        return "";
       }
-    });
+    }
+    function blobToDataURL(blob) {
+      return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = reject;
+        r.readAsDataURL(blob);
+      });
+    }
 
-    // PDF (1 página estética + logo)
-    $("btnPDF").addEventListener("click", () => {
-      const r = buildReport();
-      if (!r.ok) return renderPreview(r);
+    // ======== Motor de recomendaciones (más concreto, sin promesas ni plazos rígidos) ========
+    function zonePlan(zone) {
+      const map = {
+        "Cuello": {
+          focus: ["Mover en rango cómodo a diario (sin forzar el final).", "Control escapular y tolerancia a carga del tren superior.", "Volver a empuje/halón con progresión (volumen → intensidad)."],
+          cues: ["Evita acumular horas rígido(a) en una sola postura; alterna posiciones.", "Prioriza técnica y respiración cuando cargas (no apretar cuello)."]
+        },
+        "Espalda alta/torácica": {
+          focus: ["Movilidad torácica + control escapular.", "Progresión de tirones/remos antes de empujes pesados si molesta.", "Dosificar volumen de press y trabajo sobre cabeza."],
+          cues: ["Si el press irrita, baja rango/ángulo y vuelve gradual.", "Mejor pocas series bien hechas que mucho volumen desordenado."]
+        },
+        "Pecho/costillas": {
+          focus: ["Respiración y movilidad suave de caja torácica.", "Evitar picos de carga con rotación/estiramiento agresivo si irrita.", "Reintroducir empuje con control."],
+          cues: ["Si duele con respirar profundo o tos: ojo, re-evaluar."]
+        },
+        "Hombro": {
+          focus: ["Rango cómodo diario + control de escápula.", "Isométricos o fuerza ligera según tolerancia.", "Progresión de cargas por bloques (sin saltos)."],
+          cues: ["Si molesta sobre cabeza, trabaja primero en planos más bajos y sube gradual."]
+        },
+        "Codo": {
+          focus: ["Reducir el gesto irritante (agarre/repetición), sin “reposo total”.", "Isométricos y fuerza progresiva de antebrazo.", "Reintroducción gradual de volumen y peso."],
+          cues: ["Cambia agarres/implementos si el gesto dispara la molestia."]
+        },
+        "Muñeca/Mano": {
+          focus: ["Movilidad y tolerancia al apoyo/agarre según irritabilidad.", "Fuerza progresiva de muñeca/agarre (control).", "Modificar apoyos (puños, manillas, straps) si corresponde."],
+          cues: ["Evita pasar de 0 a mucho apoyo de golpe."]
+        },
+        "Lumbar": {
+          focus: ["Movimiento frecuente y exposición gradual (no quedarse rígido).", "Fuerza y control (bisagra de cadera + anti-rotación).", "Progresar cargas sin picos (volumen → intensidad)."],
+          cues: ["Si al día siguiente amaneces claramente peor, baja volumen/intensidad."]
+        },
+        "Cadera/Ingle": {
+          focus: ["Movilidad de cadera + control (sin pinzamientos fuertes).", "Fuerza de glúteo/aducción según tolerancia.", "Dosificar cambios bruscos de dirección si irritan."],
+          cues: ["Vuelve a la carrera/cambios de dirección de forma escalonada."]
+        },
+        "Glúteo/Isquios": {
+          focus: ["Fuerza progresiva en cadena posterior.", "Control de bisagra/sentadilla sin compensar.", "Dosificar sprint/arranques si irritan."],
+          cues: ["Primero tolera volumen submáximo; luego sube intensidad."]
+        },
+        "Rodilla": {
+          focus: ["Progresar tolerancia a flexión/carga (sin ‘reventar’ dolor).", "Fuerza de cuádriceps + cadera (base).", "Dosificar impacto (saltos/carrera) si es disparador."],
+          cues: ["Si hay hinchazón o bloqueo, re-evaluar."]
+        },
+        "Pantorrilla": {
+          focus: ["Fuerza progresiva de pantorrilla (control).", "Dosificar carrera/saltos si irritan.", "Movilidad de tobillo como apoyo, no como única solución."],
+          cues: ["Sube volumen antes de subir velocidad o pliometría."]
+        },
+        "Tobillo/Pie": {
+          focus: ["Movilidad de tobillo + control en apoyo.", "Fuerza progresiva (gemelo/soléo) + equilibrio.", "Volver al impacto de manera gradual si aplica."],
+          cues: ["Si el dolor cambia mucho o hay inestabilidad marcada, ajustar."]
+        },
+        "Tendón de Aquiles": {
+          focus: ["Fuerza progresiva de elevación de talón (clave).", "Reducir picos de salto/sprint si irrita, manteniendo actividad tolerable.", "Monitoreo de respuesta 24h para ajustar."],
+          cues: ["La progresión consistente por semanas suele ser la clave (sin apuro)."]
+        },
+        "Otra": {
+          focus: ["Mantener movimiento tolerable.", "Progresión de fuerza/control según el patrón que más importa.", "Gestionar carga para evitar picos."],
+          cues: ["Si cambian síntomas de forma importante, conviene re-evaluar."]
+        }
+      };
+      return map[zone] || map["Otra"];
+    }
+
+    function loadRules(irrit, tono) {
+      const tu = (tono === "tu");
+      if (irrit === "Alta") {
+        return tu
+          ? "Regla de carga: mantén el trabajo en molestia baja. Si sube claramente, baja rango/volumen y prioriza control."
+          : "Regla de carga: mantenga el trabajo en molestia baja. Si sube claramente, baje rango/volumen y priorice control.";
+      }
+      if (irrit === "Baja") {
+        return tu
+          ? "Regla de carga: molestia leve puede ser aceptable si no te deja peor al día siguiente y la técnica se mantiene."
+          : "Regla de carga: molestia leve puede ser aceptable si no le deja peor al día siguiente y la técnica se mantiene.";
+      }
+      return tu
+        ? "Regla de carga: busca molestia leve y respuesta estable en 24h. Si al día siguiente estás más reactivo(a), baja volumen o intensidad."
+        : "Regla de carga: busque molestia leve y respuesta estable en 24h. Si al día siguiente está más reactivo(a), baje volumen o intensidad.";
+    }
+
+    function segmentLine(seg, tono) {
+      const tu = (tono === "tu");
+      if (seg === "inicio") {
+        return tu
+          ? "En este inicio, el foco es bajar irritación sin dejar de moverte, y reintroducir carga de forma gradual."
+          : "En este inicio, el foco es bajar irritación sin dejar de moverse, y reintroducir carga de forma gradual.";
+      }
+      if (seg === "encurso") {
+        return tu
+          ? "Al llevar más tiempo, el foco es mejorar tolerancia a carga y confianza con una progresión ordenada."
+          : "Al llevar más tiempo, el foco es mejorar tolerancia a carga y confianza con una progresión ordenada.";
+      }
+      return tu
+        ? "En performance, el foco es ajustar carga, reforzar patrones y reducir factores que te hacen recaer."
+        : "En performance, el foco es ajustar carga, reforzar patrones y reducir factores que le hacen recaer.";
+    }
+
+    function buildActivities() {
+      const items = [];
+      const t1 = safe($("act1_txt").value); if (t1) items.push({ a: t1, s: +$("act1_val").value });
+      const t2 = safe($("act2_txt").value); if (t2) items.push({ a: t2, s: +$("act2_val").value });
+      const t3 = safe($("act3_txt").value); if (t3) items.push({ a: t3, s: +$("act3_val").value });
+
+      let avg = null;
+      if (items.length) {
+        avg = Math.round((items.reduce((acc, x) => acc + x.s, 0) / items.length) * 10) / 10;
+      }
+      return { items, avg };
+    }
+
+    function buildFindings() {
+      const f = [];
+      if ($("f_dolorCarga").checked) f.push("molestia al cargar/esforzar");
+      if ($("f_rigidez").checked) f.push("rigidez o rango limitado");
+      if ($("f_debilidad").checked) f.push("baja fuerza/control");
+      if ($("f_fatiga").checked) f.push("fatiga rápida");
+      if ($("f_sensibilidad").checked) f.push("sensibilidad al mover");
+      if ($("f_inestabilidad").checked) f.push("sensación de inestabilidad");
+      return f;
+    }
+
+    function resolveZone() {
+      const z = $("zona").value;
+      if (z === "Otra") return safe($("zonaOtra").value) || "Otra";
+      return safe(z);
+    }
+
+    function buildDraft() {
+      const tono = getRadioValue("tono") || "tu";
+      const tu = (tono === "tu");
+
+      const nombre = safe($("nombre").value);
+      const actividad = safe($("actividad").value);
+      const zona = resolveZone();
+      const lado = getRadioValue("lado") || "Bilateral";
+      const seg = getRadioValue("segmento") || "inicio";
+      const irrit = getRadioValue("irrit") || "Media";
+      const impresion = safe($("impresion").value);
+      const nota = safe($("notaCorta").value);
+      const objetivo = safe($("objetivo").value);
+      const nrs = +$("nrs").value;
+
+      const missing = [];
+      if (!nombre) missing.push("Nombre");
+      if (!zona) missing.push("Zona");
+      if (!impresion) missing.push("Impresión");
+      if (!objetivo) missing.push("Objetivo");
+
+      if (missing.length) {
+        return { ok: false, msg: `Falta: ${missing.join(", ")}.` , text: "" };
+      }
+
+      const zTxt = `${zona} (${lado.toLowerCase()})`;
+      const findings = buildFindings();
+      const act = buildActivities();
+
+      const plan = zonePlan(zona);
+      const focus = (irrit === "Alta") ? plan.focus.slice(0,2) : plan.focus.slice(0,3);
+      const cues = plan.cues.slice(0,2);
+
+      const hello = tu ? `Hola ${nombre}, gracias por evaluarte hoy.` : `Hola ${nombre}, gracias por evaluarse hoy.`;
+      const intro = tu
+        ? `Resumen breve de tu evaluación y en qué enfocarte:`
+        : `Resumen breve de su evaluación y en qué enfocarse:`;
+
+      const resumenLines = [
+        `- Usuario: ${nombre}`,
+        `- Zona: ${zTxt}`,
+        `- Molestia actual (0–10): ${nrs}/10`,
+        actividad ? `- Actividad: ${actividad}` : null
+      ].filter(Boolean);
+
+      const vimos = tu
+        ? `Lo principal de hoy: tu ${zona} muestra ${impresion}.`
+        : `Lo principal de hoy: su ${zona} muestra ${impresion}.`;
+
+      const hall = findings.length
+        ? `Se reporta/observa: ${findings.join(", ")}.`
+        : `Se reporta/observa: sin elementos adicionales marcados hoy.`;
+
+      const obj = tu ? `Objetivo inicial: ${objetivo}.` : `Objetivo inicial: ${objetivo}.`;
+      const segLine = segmentLine(seg, tono);
+
+      const enfoque = [
+        tu ? `Para tu entrenamiento, prioriza:` : `Para su entrenamiento, priorice:`,
+        `- ${focus.join("\n- ")}`
+      ].join("\n");
+
+      const rules = loadRules(irrit, tono);
+
+      const actBlock = (() => {
+        if (!act.items.length) return tu
+          ? "Actividades que hoy te cuestan: no registradas hoy."
+          : "Actividades que hoy le cuestan: no registradas hoy.";
+        const lines = act.items.map(x => `- ${x.a}: ${x.s}/10`);
+        const avg = (act.avg !== null) ? `Promedio: ${act.avg}/10.` : "";
+        return `${tu ? "Actividades que hoy te cuestan (0–10):" : "Actividades que hoy le cuestan (0–10):"}\n${lines.join("\n")}\n${avg}`.trim();
+      })();
+
+      const notaBlock = nota ? `Nota: ${nota}` : "";
+
+      const cierre = tu
+        ? "Guía educativa basada en una evaluación breve. La mejora suele venir de una progresión de carga y exposición gradual, ajustada a tu respuesta."
+        : "Guía educativa basada en una evaluación breve. La mejora suele venir de una progresión de carga y exposición gradual, ajustada a su respuesta.";
+
+      const cueBlock = cues.length
+        ? (tu ? `Puntos clave:\n- ${cues.join("\n- ")}` : `Puntos clave:\n- ${cues.join("\n- ")}`)
+        : "";
+
+      const text =
+`${hello}
+
+${intro}
+${resumenLines.join("\n")}
+
+${obj}
+
+${vimos}
+${hall}
+${notaBlock}
+
+En qué enfocarte:
+${segLine}
+${enfoque}
+
+Regla de carga:
+${rules}
+
+${actBlock}
+
+${cueBlock}
+
+${tu ? "— All U Moves" : "— All U Moves"}`;
+
+      return {
+        ok: true,
+        msg: "Borrador generado.",
+        text,
+        meta: { nombre, zona: zTxt, actividad, seg, irrit }
+      };
+    }
+
+    function updateMetaLine(meta) {
+      if (!meta) { $("metaLine").textContent = "—"; return; }
+      const parts = [];
+      parts.push(meta.zona ? meta.zona : "");
+      if (meta.actividad) parts.push(meta.actividad);
+      $("metaLine").textContent = parts.filter(Boolean).join(" • ") || "—";
+    }
+
+    function syncReady() {
+      const ok = !!safe($("editor").value);
+      setReady(ok);
+    }
+
+    function saveState() {
+      const state = {
+        nombre: $("nombre").value,
+        actividad: $("actividad").value,
+        tono: getRadioValue("tono"),
+        segmento: getRadioValue("segmento"),
+        zona: $("zona").value,
+        zonaOtra: $("zonaOtra").value,
+        lado: getRadioValue("lado"),
+        irrit: getRadioValue("irrit"),
+        impresion: $("impresion").value,
+        notaCorta: $("notaCorta").value,
+        nrs: $("nrs").value,
+        objetivo: $("objetivo").value,
+        act1_txt: $("act1_txt").value, act1_val: $("act1_val").value,
+        act2_txt: $("act2_txt").value, act2_val: $("act2_val").value,
+        act3_txt: $("act3_txt").value, act3_val: $("act3_val").value,
+        f: {
+          dolor: $("f_dolorCarga").checked,
+          rigidez: $("f_rigidez").checked,
+          debilidad: $("f_debilidad").checked,
+          fatiga: $("f_fatiga").checked,
+          sensibilidad: $("f_sensibilidad").checked,
+          inestabilidad: $("f_inestabilidad").checked
+        },
+        editor: $("editor").value,
+        editorDirty
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const s = JSON.parse(raw);
+
+        $("nombre").value = s.nombre || "";
+        $("actividad").value = s.actividad || "";
+
+        if (s.tono) document.querySelector(`input[name="tono"][value="${s.tono}"]`).checked = true;
+        if (s.segmento) document.querySelector(`input[name="segmento"][value="${s.segmento}"]`).checked = true;
+
+        $("zona").value = s.zona || "";
+        $("zonaOtra").value = s.zonaOtra || "";
+        $("zonaOtra").classList.toggle("hidden", $("zona").value !== "Otra");
+
+        if (s.lado) document.querySelector(`input[name="lado"][value="${s.lado}"]`).checked = true;
+        if (s.irrit) document.querySelector(`input[name="irrit"][value="${s.irrit}"]`).checked = true;
+
+        $("impresion").value = s.impresion || "";
+        $("notaCorta").value = s.notaCorta || "";
+        $("nrs").value = s.nrs ?? 0; $("nrsVal").textContent = String($("nrs").value);
+        $("objetivo").value = s.objetivo || "";
+
+        $("act1_txt").value = s.act1_txt || ""; $("act1_val").value = s.act1_val ?? 8; $("act1_show").textContent = String($("act1_val").value);
+        $("act2_txt").value = s.act2_txt || ""; $("act2_val").value = s.act2_val ?? 8; $("act2_show").textContent = String($("act2_val").value);
+        $("act3_txt").value = s.act3_txt || ""; $("act3_val").value = s.act3_val ?? 8; $("act3_show").textContent = String($("act3_val").value);
+
+        const f = s.f || {};
+        $("f_dolorCarga").checked = !!f.dolor;
+        $("f_rigidez").checked = !!f.rigidez;
+        $("f_debilidad").checked = !!f.debilidad;
+        $("f_fatiga").checked = !!f.fatiga;
+        $("f_sensibilidad").checked = !!f.sensibilidad;
+        $("f_inestabilidad").checked = !!f.inestabilidad;
+
+        $("editor").value = s.editor || "";
+        editorDirty = !!s.editorDirty;
+      } catch {}
+    }
+
+    function clearAll() {
+      localStorage.removeItem(STORAGE_KEY);
+      location.reload();
+    }
+
+    // ======== PDF ========
+    function wrapTextPreserveNewlines(doc, text, maxW) {
+      const out = [];
+      const parts = (text || "").split("\n");
+      for (const p of parts) {
+        if (p.trim() === "") { out.push(""); continue; }
+        out.push(...doc.splitTextToSize(p, maxW));
+      }
+      return out;
+    }
+
+    function exportPDF() {
+      const content = safe($("editor").value);
+      if (!content) return;
+
+      const draftMeta = buildDraft().meta || {};
+      const nombre = draftMeta.nombre || safe($("nombre").value) || "Usuario";
 
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ unit: "pt", format: "a4" });
@@ -944,143 +943,214 @@ ${cierre}`;
       const pageH = doc.internal.pageSize.getHeight();
       const margin = 44;
 
-      // Background cream
+      // Background
       doc.setFillColor(...palette.cream);
       doc.rect(0, 0, pageW, pageH, "F");
 
-      // Header band ink
+      // Header band
       doc.setFillColor(...palette.ink);
       doc.rect(0, 0, pageW, 96, "F");
 
-      // Logo area
-      const logoBoxX = margin;
-      const logoBoxY = 22;
-      const logoBoxW = 52;
-      const logoBoxH = 52;
-
-      if (logoDataUrl) {
-        // Fit logo into the box maintaining aspect ratio (simple approach)
-        // jsPDF needs format type: 'PNG' or 'JPEG'. We'll infer from data url.
-        const fmt = logoDataUrl.startsWith("data:image/png") ? "PNG" : "JPEG";
-        try {
-          // Draw subtle frame
-          doc.setDrawColor(...palette.sandstone);
-          doc.setLineWidth(1);
-          doc.roundedRect(logoBoxX, logoBoxY, logoBoxW, logoBoxH, 10, 10, "S");
-          // Insert image with some padding
-          doc.addImage(logoDataUrl, fmt, logoBoxX + 6, logoBoxY + 6, logoBoxW - 12, logoBoxH - 12);
-        } catch (e) {
-          // fallback to placeholder
-          doc.setDrawColor(...palette.sandstone);
-          doc.setLineWidth(1);
-          doc.roundedRect(logoBoxX, logoBoxY, logoBoxW, logoBoxH, 10, 10, "S");
-        }
-      } else {
+      // Logo
+      const logoX = margin, logoY = 22, logoS = 52;
+      try {
+        const fmt = (logoDataUrl || "").startsWith("data:image/png") ? "PNG" : "JPEG";
         doc.setDrawColor(...palette.sandstone);
         doc.setLineWidth(1);
-        doc.roundedRect(logoBoxX, logoBoxY, logoBoxW, logoBoxH, 10, 10, "S");
-        doc.setTextColor(...palette.cream);
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(10);
-        doc.text("LOGO", logoBoxX + 13, logoBoxY + 32);
-      }
+        doc.roundedRect(logoX, logoY, logoS, logoS, 12, 12, "S");
+        doc.addImage(logoDataUrl, fmt, logoX + 6, logoY + 6, logoS - 12, logoS - 12);
+      } catch {}
 
       // Header text
       doc.setTextColor(...palette.cream);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(16);
       doc.text("All U Moves", margin + 70, 46);
-
       doc.setFont("helvetica", "normal");
       doc.setFontSize(12);
-      doc.text("Informe Kinesiológico", margin + 70, 68);
+      doc.text("Informe de Bienestar y Movimiento", margin + 70, 68);
 
-      // Content card
+      // Card
       const cardX = margin;
       const cardY = 118;
       const cardW = pageW - margin * 2;
-      const cardH = pageH - cardY - 78;
+      const cardH = pageH - cardY - 92;
 
       doc.setFillColor(255, 255, 255);
       doc.setDrawColor(...palette.taupe);
       doc.setLineWidth(0.9);
       doc.roundedRect(cardX, cardY, cardW, cardH, 14, 14, "FD");
 
-      // Small meta line
-      const meta = r.meta;
-      const segTxt = meta.segmento === "agudo" ? "Agudo" : (meta.segmento === "persistente" ? "Persistente" : "Performance");
-      const tonoTxt = meta.tono === "usted" ? "Usted" : "Tú";
-
+      // Meta (sin “Tono: …”)
       doc.setTextColor(...palette.iron);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
-      doc.text(`Paciente: ${meta.nombre}`, cardX + 18, cardY + 28);
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      doc.text(`Zona: ${meta.zona}`, cardX + 18, cardY + 46);
-      doc.text(`Motivo: ${segTxt} • Irritabilidad: ${meta.irrit} • Tono: ${tonoTxt}`, cardX + 18, cardY + 62);
-
-      if (meta.actividad && meta.actividad.trim()) {
-        doc.text(`Actividad: ${meta.actividad.trim()}`, cardX + 18, cardY + 78);
-      }
+      doc.text(`Usuario: ${nombre}`, cardX + 18, cardY + 28);
 
       // Divider
-      const divY = cardY + (meta.actividad && meta.actividad.trim() ? 92 : 76);
+      const divY = cardY + 44;
       doc.setDrawColor(...palette.sandstone);
       doc.setLineWidth(1);
       doc.line(cardX + 18, divY, cardX + cardW - 18, divY);
 
-      // Body text, 1 page: shrink font if needed
+      // Body with fit-to-page
       const maxTextW = cardW - 36;
-      let fontSize = 10.8;
+      let fontSize = 10.6;
       let lineHeight = 1.35;
 
       doc.setFont("helvetica", "normal");
       doc.setTextColor(...palette.ink);
 
-      function splitWithSize(size) {
+      function fitLines(size) {
         doc.setFontSize(size);
-        return doc.splitTextToSize(r.text, maxTextW);
+        return wrapTextPreserveNewlines(doc, content, maxTextW);
       }
 
-      let lines = splitWithSize(fontSize);
+      let lines = fitLines(fontSize);
 
-      // Fit heuristic
-      const availableH = (cardY + cardH) - (divY + 22) - 18; // some padding
+      const availableH = (cardY + cardH) - (divY + 22) - 54; // deja espacio firma
       const approxLineH = (fontSize * lineHeight) + 2;
-      const maxLines = Math.floor(availableH / approxLineH);
+      let maxLines = Math.floor(availableH / approxLineH);
 
-      if (lines.length > maxLines) {
-        fontSize = 10.0;
-        lines = splitWithSize(fontSize);
-      }
-      if (lines.length > maxLines) {
-        fontSize = 9.4;
-        lines = splitWithSize(fontSize);
-      }
-      if (lines.length > maxLines) {
-        fontSize = 8.9;
-        lines = splitWithSize(fontSize);
-        lineHeight = 1.25;
-      }
+      if (lines.length > maxLines) { fontSize = 10.0; lines = fitLines(fontSize); }
+      if (lines.length > maxLines) { fontSize = 9.4;  lines = fitLines(fontSize); }
+      if (lines.length > maxLines) { fontSize = 8.9;  lineHeight = 1.25; lines = fitLines(fontSize); }
 
       doc.setFontSize(fontSize);
       doc.text(lines, cardX + 18, divY + 26, { lineHeightFactor: lineHeight });
 
-      // Footer note
+      // Signature area
+      const sigY = cardY + cardH - 34;
+      doc.setDrawColor(...palette.taupe);
+      doc.setLineWidth(0.8);
+      doc.line(cardX + 18, sigY, cardX + 220, sigY);
       doc.setTextColor(...palette.taupe);
-      doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
-      doc.text("Guía inicial (Flash) basada en lo observado hoy. No reemplaza una evaluación completa.", margin, pageH - 44);
+      doc.text("Firma / All U Moves", cardX + 18, sigY + 14);
 
-      const safeName = (meta.nombre || "Paciente").trim().replace(/[^\p{L}\p{N}\s_-]/gu, "");
-      doc.save(`AllU_Moves_Informe_Kinesiologico_${safeName}.pdf`);
+      // Footer
+      doc.setTextColor(...palette.taupe);
+      doc.setFontSize(9);
+      doc.text("Documento generado para uso interno y comunicación al usuario. Ajustable según evolución.", margin, pageH - 44);
+
+      const safeName = nombre.replace(/[^\p{L}\p{N}\s_-]/gu, "").trim() || "Usuario";
+      doc.save(`AllU_Moves_Informe_${safeName}.pdf`);
+    }
+
+    // ======== Wire up ========
+    function bindRange(rangeId, showId) {
+      $(rangeId).addEventListener("input", () => {
+        $(showId).textContent = $(rangeId).value;
+        saveState();
+      });
+    }
+
+    async function initLogo() {
+      // 1) intenta logo.png local (recomendado)
+      const fromPng = await tryFetchLogoPng();
+      logoDataUrl = fromPng || DEFAULT_LOGO_DATAURL;
+
+      $("brandLogo").src = logoDataUrl;
+      syncReady();
+    }
+
+    function handleZoneOther() {
+      const isOtra = $("zona").value === "Otra";
+      $("zonaOtra").classList.toggle("hidden", !isOtra);
+    }
+
+    function generateIntoEditor(forceReplace = true) {
+      const r = buildDraft();
+      $("status").textContent = r.ok ? r.msg : r.msg;
+
+      if (!r.ok) {
+        updateMetaLine(null);
+        if (forceReplace) $("editor").value = "";
+        editorDirty = false;
+        syncReady();
+        saveState();
+        return;
+      }
+
+      updateMetaLine(r.meta);
+
+      if (forceReplace || !editorDirty) {
+        $("editor").value = r.text;
+        editorDirty = false;
+      }
+
+      syncReady();
+      saveState();
+    }
+
+    function setToday() {
+      $("fechaHoy").textContent = todayStr();
+    }
+
+    function attachAutosave() {
+      const ids = ["nombre","actividad","zona","zonaOtra","impresion","notaCorta","objetivo","editor",
+                   "act1_txt","act2_txt","act3_txt"];
+      ids.forEach(id => $(id).addEventListener("input", () => {
+        if (id === "editor") editorDirty = true;
+        if (id === "zona") handleZoneOther();
+        syncReady();
+        saveState();
+      }));
+
+      document.querySelectorAll('input[name="tono"], input[name="segmento"], input[name="lado"], input[name="irrit"]').forEach(el => {
+        el.addEventListener("change", () => { syncReady(); saveState(); });
+      });
+
+      ["f_dolorCarga","f_rigidez","f_debilidad","f_fatiga","f_sensibilidad","f_inestabilidad"].forEach(id => {
+        $(id).addEventListener("change", () => { syncReady(); saveState(); });
+      });
+
+      $("nrs").addEventListener("input", () => { $("nrsVal").textContent = $("nrs").value; syncReady(); saveState(); });
+    }
+
+    // Buttons
+    $("btnGenerar").addEventListener("click", () => generateIntoEditor(false)); // no pisa si editaste
+    $("btnAplicar").addEventListener("click", () => generateIntoEditor(true));  // pisa siempre
+
+    $("btnPDF").addEventListener("click", exportPDF);
+
+    $("btnCopiar").addEventListener("click", async () => {
+      const content = safe($("editor").value);
+      if (!content) return;
+      try {
+        await navigator.clipboard.writeText(content);
+        $("status").textContent = "Texto copiado.";
+        setTimeout(() => $("status").textContent = "", 900);
+      } catch {
+        $("status").textContent = "No se pudo copiar (permiso del navegador).";
+      }
     });
 
+    $("btnLimpiar").addEventListener("click", clearAll);
+    $("btnLimpiarMobile").addEventListener("click", clearAll);
+
     // Init
-    setReady(false);
-    generateAndPreview();
+    (function init() {
+      setToday();
+      loadState();
+      handleZoneOther();
+
+      bindRange("act1_val","act1_show");
+      bindRange("act2_val","act2_show");
+      bindRange("act3_val","act3_show");
+      $("act1_val").addEventListener("input", saveState);
+      $("act2_val").addEventListener("input", saveState);
+      $("act3_val").addEventListener("input", saveState);
+
+      attachAutosave();
+      initLogo();
+
+      // si hay texto guardado, habilita export
+      syncReady();
+      // meta line si ya hay borrador (no “Tono: …”)
+      const r = buildDraft();
+      if (r.ok) updateMetaLine(r.meta);
+    })();
   </script>
 </body>
 </html>
