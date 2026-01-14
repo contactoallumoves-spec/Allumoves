@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Generador de Informe Kinesiológico Flash | All U Moves</title>
+
+  <!-- Tailwind via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ink: "#102024",        // Ink Blue
+            sandstone: "#D9CBB3",  // Sandstone
+            taupe: "#8C857F",      // Taupe Grey
+            iron: "#363636",       // Iron Grey
+            cream: "#F5EFE5"       // Cream Bone
+          },
+          boxShadow: {
+            soft: "0 10px 30px rgba(0,0,0,0.30)",
+            insetSoft: "inset 0 0 0 1px rgba(245,239,229,0.06)"
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- jsPDF via CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
+          integrity="sha512-qZvrmS2hQf4ZbGzqQv+vF0GmYh3b9u2P2Q5h6oQvYwWw3o8bQ0h0+o0m3G3r4d7bF5d7b3nqGz0Qm4mWm0g=="
+          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+  <style>
+    /* Sin degradados. Solo pequeñas mejoras de “feel” */
+    ::selection { background: rgba(217,203,179,0.35); }
+  </style>
+</head>
+
+<body class="min-h-screen bg-ink text-cream">
+  <div class="max-w-6xl mx-auto px-4 py-6 md:py-10">
+    <!-- Top bar -->
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-semibold tracking-tight">
+          Generador de Informe Kinesiológico Flash
+        </h1>
+        <p class="mt-1 text-sm text-cream/70">
+          Uso interno • tap-tap-tap • texto empático para paciente • PDF bonito
+        </p>
+      </div>
+      <div class="hidden md:flex items-center gap-2">
+        <div class="px-3 py-2 rounded-2xl bg-iron shadow-insetSoft">
+          <span class="text-xs text-cream/70">Paleta</span>
+          <div class="mt-2 flex items-center gap-2">
+            <span class="w-4 h-4 rounded-full" style="background:#102024; border:1px solid rgba(245,239,229,0.18)"></span>
+            <span class="w-4 h-4 rounded-full" style="background:#D9CBB3"></span>
+            <span class="w-4 h-4 rounded-full" style="background:#8C857F"></span>
+            <span class="w-4 h-4 rounded-full" style="background:#363636; border:1px solid rgba(245,239,229,0.18)"></span>
+            <span class="w-4 h-4 rounded-full" style="background:#F5EFE5"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main grid -->
+    <div class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+      <!-- Form card -->
+      <section class="rounded-3xl bg-iron shadow-soft shadow-insetSoft border border-cream/10 overflow-hidden">
+        <div class="px-5 py-4 border-b border-cream/10">
+          <h2 class="text-lg font-semibold">Formulario rápido</h2>
+          <p class="text-sm text-cream/70 mt-1">Selecciona y genera. La vista previa se actualiza al instante.</p>
+        </div>
+
+        <div class="p-5 space-y-5">
+          <!-- Nombre -->
+          <div>
+            <label class="block text-sm text-cream/80 mb-2" for="nombre">Nombre paciente</label>
+            <input id="nombre" type="text" placeholder="Ej: Emilie"
+              class="w-full rounded-2xl bg-ink/60 border border-cream/10 px-4 py-3 outline-none
+                     focus:border-sandstone/60 focus:ring-2 focus:ring-sandstone/20"
+              autocomplete="name" />
+          </div>
+
+          <!-- Zona -->
+          <div>
+            <label class="block text-sm text-cream/80 mb-2" for="zona">Zona molestia</label>
+            <select id="zona"
+              class="w-full rounded-2xl bg-ink/60 border border-cream/10 px-4 py-3 outline-none
+                     focus:border-sandstone/60 focus:ring-2 focus:ring-sandstone/20">
+              <option value="">Selecciona…</option>
+              <option>Cuello</option>
+              <option>Hombro</option>
+              <option>Lumbar</option>
+              <option>Rodilla</option>
+              <option>Tobillo</option>
+            </select>
+          </div>
+
+          <!-- Hallazgo -->
+          <div>
+            <div class="flex items-center justify-between gap-3 mb-2">
+              <label class="block text-sm text-cream/80">Hallazgo principal</label>
+              <span class="text-xs text-cream/50">1 toque</span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="hallazgoGroup">
+              <!-- Option template: input.peer + label card -->
+              <label class="cursor-pointer">
+                <input class="sr-only peer" type="radio" name="hallazgo" value="rango_limitado" />
+                <div class="rounded-2xl border border-cream/10 bg-ink/40 px-4 py-3
+                            peer-checked:border-sandstone/70 peer-checked:bg-ink/70
+                            hover:border-cream/20 transition">
+                  <div class="text-sm font-medium">Rango limitado</div>
+                  <div class="text-xs text-cream/60 mt-1">Menos movimiento del habitual</div>
+                </div>
+              </label>
+
+              <label class="cursor-pointer">
+                <input class="sr-only peer" type="radio" name="hallazgo" value="falta_fuerza" />
+                <div class="rounded-2xl border border-cream/10 bg-ink/40 px-4 py-3
+                            peer-checked:border-sandstone/70 peer-checked:bg-ink/70
+                            hover:border-cream/20 transition">
+                  <div class="text-sm font-medium">Falta de fuerza</div>
+                  <div class="text-xs text-cream/60 mt-1">Te cuesta sostener cargas</div>
+                </div>
+              </label>
+
+              <label class="cursor-pointer">
+                <input class="sr-only peer" type="radio" name="hallazgo" value="fatiga_muscular" />
+                <div class="rounded-2xl border border-cream/10 bg-ink/40 px-4 py-3
+                            peer-checked:border-sandstone/70 peer-checked:bg-ink/70
+                            hover:border-cream/20 transition">
+                  <div class="text-sm font-medium">Fatiga muscular</div>
+                  <div class="text-xs text-cream/60 mt-1">Se cansa rápido con repetición</div>
+                </div>
+              </label>
+
+              <label class="cursor-pointer">
+                <input class="sr-only peer" type="radio" name="hallazgo" value="buena_mov_sensibilidad" />
+                <div class="rounded-2xl border border-cream/10 bg-ink/40 px-4 py-3
+                            peer-checked:border-sandstone/70 peer-checked:bg-ink/70
+                            hover:border-cream/20 transition">
+                  <div class="text-sm font-medium">Buena movilidad, sensibilidad</div>
+                  <div class="text-xs text-cream/60 mt-1">Se mueve bien, molesta al exigir</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Recomendación -->
+          <div>
+            <div class="flex items-center justify-between gap-3 mb-2">
+              <label class="block text-sm text-cream/80">Recomendación clave</label>
+              <span class="text-xs text-cream/50">1 toque</span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="recoGroup">
+              <label class="cursor-pointer">
+                <input class="sr-only peer" type="radio" name="reco" value="movilidad_diaria" />
+                <div class="rounded-2xl border border-cream/10 bg-ink/40 px-4 py-3
+                            peer-checked:border-sandstone/70 peer-checked:bg-ink/70
+                            hover:border-cream/20 transition">
+                  <div class="text-sm font-medium">Movilidad diaria</div>
+                  <div class="text-xs text-cream/60 mt-1">Rutina corta y constante</div>
+                </div>
+              </label>
+
+              <label class="cursor-pointer">
+                <input class="sr-only peer" type="radio" name="reco" value="zona_media" />
+                <div class="rounded-2xl border border-cream/10 bg-ink/40 px-4 py-3
+                            peer-checked:border-sandstone/70 peer-checked:bg-ink/70
+                            hover:border-cream/20 transition">
+                  <div class="text-sm font-medium">Fortalecer zona media</div>
+                  <div class="text-xs text-cream/60 mt-1">Más soporte y control</div>
+                </div>
+              </label>
+
+              <label class="cursor-pointer">
+                <input class="sr-only peer" type="radio" name="reco" value="estabilidad" />
+                <div class="rounded-2xl border border-cream/10 bg-ink/40 px-4 py-3
+                            peer-checked:border-sandstone/70 peer-checked:bg-ink/70
+                            hover:border-cream/20 transition">
+                  <div class="text-sm font-medium">Ejercicios de estabilidad</div>
+                  <div class="text-xs text-cream/60 mt-1">Control + confianza</div>
+                </div>
+              </label>
+
+              <label class="cursor-pointer">
+                <input class="sr-only peer" type="radio" name="reco" value="descanso" />
+                <div class="rounded-2xl border border-cream/10 bg-ink/40 px-4 py-3
+                            peer-checked:border-sandstone/70 peer-checked:bg-ink/70
+                            hover:border-cream/20 transition">
+                  <div class="text-sm font-medium">Gestión de descanso</div>
+                  <div class="text-xs text-cream/60 mt-1">Sueño, pausas, progresión</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex flex-col sm:flex-row gap-3 pt-1">
+            <button id="btnGenerar"
+              class="w-full sm:w-auto inline-flex items-center justify-center gap-2
+                     rounded-2xl bg-sandstone text-ink font-semibold px-5 py-3
+                     hover:opacity-95 active:opacity-90 transition">
+              Generar informe
+              <span aria-hidden="true">→</span>
+            </button>
+
+            <button id="btnLimpiar"
+              class="w-full sm:w-auto inline-flex items-center justify-center
+                     rounded-2xl bg-ink/60 border border-cream/10 text-cream/90 px-5 py-3
+                     hover:border-cream/20 transition">
+              Limpiar
+            </button>
+
+            <div class="flex-1"></div>
+          </div>
+
+          <p id="status" class="text-xs text-cream/60"></p>
+        </div>
+      </section>
+
+      <!-- Preview / Output card -->
+      <section class="rounded-3xl bg-iron shadow-soft shadow-insetSoft border border-cream/10 overflow-hidden">
+        <div class="px-5 py-4 border-b border-cream/10 flex items-center justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-semibold">Vista previa</h2>
+            <p class="text-sm text-cream/70 mt-1">Esto es lo que verá el paciente (texto y PDF).</p>
+          </div>
+          <div class="hidden sm:flex items-center gap-2">
+            <span class="text-xs text-cream/50">Listo para PDF</span>
+            <span id="readyDot" class="w-2.5 h-2.5 rounded-full bg-cream/20"></span>
+          </div>
+        </div>
+
+        <div class="p-5 space-y-4">
+          <div class="rounded-2xl bg-ink/60 border border-cream/10 p-4">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <div class="text-xs text-cream/50">All U Moves</div>
+                <div class="text-sm font-semibold">Informe de Bienestar</div>
+              </div>
+              <div class="text-xs text-cream/50" id="previewDate"></div>
+            </div>
+
+            <div class="mt-4">
+              <p class="text-sm leading-relaxed text-cream/90 whitespace-pre-wrap" id="previewText">
+                Completa el formulario y presiona “Generar informe”.
+              </p>
+            </div>
+
+            <div class="mt-5 pt-4 border-t border-cream/10">
+              <div class="text-xs text-cream/60">Firma</div>
+              <div class="mt-2 h-10 rounded-2xl bg-ink/40 border border-cream/10"></div>
+            </div>
+          </div>
+
+          <div class="flex flex-col sm:flex-row gap-3">
+            <button id="btnPDF" disabled
+              class="w-full sm:w-auto inline-flex items-center justify-center gap-2
+                     rounded-2xl bg-sandstone text-ink font-semibold px-5 py-3
+                     disabled:opacity-40 disabled:cursor-not-allowed
+                     hover:opacity-95 active:opacity-90 transition">
+              Descargar PDF
+            </button>
+
+            <button id="btnCopiar" disabled
+              class="w-full sm:w-auto inline-flex items-center justify-center
+                     rounded-2xl bg-ink/60 border border-cream/10 text-cream/90 px-5 py-3
+                     disabled:opacity-40 disabled:cursor-not-allowed
+                     hover:border-cream/20 transition">
+              Copiar texto
+            </button>
+          </div>
+
+          <p class="text-xs text-cream/50">
+            Tip: en GitHub Pages esto funciona igual. Solo necesita internet para cargar Tailwind y jsPDF (CDN).
+          </p>
+        </div>
+      </section>
+    </div>
+
+    <div class="mt-6 text-xs text-cream/40">
+      Hecho para uso interno • sin jerga médica compleja • estilo wellness/medical minimalista • sin degradados
+    </div>
+  </div>
+
+  <script>
+    // --- Helpers
+    const $ = (id) => document.getElementById(id);
+
+    const palette = {
+      ink: [16, 32, 36],       // #102024
+      sandstone: [217, 203, 179], // #D9CBB3
+      taupe: [140, 133, 127],  // #8C857F
+      iron: [54, 54, 54],      // #363636
+      cream: [245, 239, 229]   // #F5EFE5
+    };
+
+    function todayLabel() {
+      const d = new Date();
+      // Formato amable: 14 ene 2026
+      const months = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+      return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+    }
+
+    const hallazgoMap = {
+      rango_limitado: "menos movilidad de lo habitual, lo que puede estar generando incomodidad o rigidez",
+      falta_fuerza: "una baja de fuerza en la zona, por eso algunos movimientos se sienten más demandantes",
+      fatiga_muscular: "fatiga muscular más rápida de lo esperable, sobre todo con esfuerzos repetidos",
+      buena_mov_sensibilidad: "buena movilidad, pero con sensibilidad/molestia al exigir la zona"
+    };
+
+    const recoMap = {
+      movilidad_diaria: "movilidad diaria suave y controlada",
+      zona_media: "fortalecer tu zona media para mejorar soporte y control",
+      estabilidad: "ejercicios de estabilidad y control para ganar confianza en el movimiento",
+      descanso: "gestión de descanso y carga (sueño, pausas y progresión gradual)"
+    };
+
+    function getRadioValue(name) {
+      const el = document.querySelector(`input[name="${name}"]:checked`);
+      return el ? el.value : "";
+    }
+
+    function buildReport() {
+      const nombre = ($("nombre").value || "").trim();
+      const zona = ($("zona").value || "").trim();
+      const hallazgoKey = getRadioValue("hallazgo");
+      const recoKey = getRadioValue("reco");
+
+      const missing = [];
+      if (!nombre) missing.push("Nombre");
+      if (!zona) missing.push("Zona");
+      if (!hallazgoKey) missing.push("Hallazgo");
+      if (!recoKey) missing.push("Recomendación");
+
+      if (missing.length) {
+        return {
+          ok: false,
+          message: `Falta: ${missing.join(", ")}.`,
+          text: ""
+        };
+      }
+
+      const hallazgoHuman = hallazgoMap[hallazgoKey] || "algunos factores que vale la pena trabajar";
+      const recoHuman = recoMap[recoKey] || "un enfoque simple y constante";
+
+      const text =
+`Hola ${nombre}, gracias por evaluarte hoy.
+
+Encontramos que tu ${zona} presenta ${hallazgoHuman}.
+Para tus entrenamientos, te sugerimos enfocarte en ${recoHuman}.
+
+Recuerda que esto es una guía inicial; para un plan detallado y progresivo, te esperamos en consulta.`;
+
+      return { ok: true, message: "Informe generado.", text, nombre, zona, hallazgoHuman, recoHuman };
+    }
+
+    function setReady(isReady) {
+      $("btnPDF").disabled = !isReady;
+      $("btnCopiar").disabled = !isReady;
+      $("readyDot").className = "w-2.5 h-2.5 rounded-full " + (isReady ? "bg-sandstone" : "bg-cream/20");
+    }
+
+    // --- Live preview date
+    $("previewDate").textContent = todayLabel();
+
+    // --- Actions
+    function renderPreview(result) {
+      if (!result.ok) {
+        $("previewText").textContent = "Completa el formulario y presiona “Generar informe”.";
+        $("status").textContent = result.message || "";
+        setReady(false);
+        return;
+      }
+      $("previewText").textContent = result.text;
+      $("status").textContent = result.message;
+      setReady(true);
+    }
+
+    function generateAndPreview() {
+      const r = buildReport();
+      renderPreview(r);
+      return r;
+    }
+
+    $("btnGenerar").addEventListener("click", () => generateAndPreview());
+
+    // Auto preview on change (tap-tap-tap)
+    ["nombre", "zona"].forEach(id => $(id).addEventListener("input", generateAndPreview));
+    document.querySelectorAll('input[name="hallazgo"], input[name="reco"]').forEach(el => {
+      el.addEventListener("change", generateAndPreview);
+    });
+
+    $("btnLimpiar").addEventListener("click", () => {
+      $("nombre").value = "";
+      $("zona").value = "";
+      document.querySelectorAll('input[name="hallazgo"], input[name="reco"]').forEach(el => el.checked = false);
+      $("status").textContent = "";
+      $("previewText").textContent = "Completa el formulario y presiona “Generar informe”.";
+      setReady(false);
+    });
+
+    $("btnCopiar").addEventListener("click", async () => {
+      const r = buildReport();
+      if (!r.ok) return renderPreview(r);
+      try {
+        await navigator.clipboard.writeText(r.text);
+        $("status").textContent = "Texto copiado al portapapeles.";
+        setTimeout(() => $("status").textContent = "Informe generado.", 1200);
+      } catch (e) {
+        $("status").textContent = "No se pudo copiar (permiso del navegador).";
+      }
+    });
+
+    $("btnPDF").addEventListener("click", () => {
+      const r = buildReport();
+      if (!r.ok) return renderPreview(r);
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ unit: "pt", format: "a4" });
+
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+      const margin = 48;
+
+      // Header block (solid Ink)
+      doc.setFillColor(...palette.ink);
+      doc.rect(0, 0, pageW, 90, "F");
+
+      // Header text (Cream)
+      doc.setTextColor(...palette.cream);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.text("All U Moves - Informe de Bienestar", margin, 38);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.text(`Fecha: ${todayLabel()}`, margin, 62);
+
+      // Body
+      doc.setTextColor(...palette.ink);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("Resumen", margin, 120);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+
+      const bodyText = r.text.replace(/\n\n/g, "\n");
+      const lines = doc.splitTextToSize(bodyText, pageW - margin * 2);
+      doc.text(lines, margin, 145, { lineHeightFactor: 1.35 });
+
+      // Separator
+      const afterTextY = 145 + (lines.length * 14.5);
+      const sepY = Math.min(afterTextY + 18, pageH - 150);
+      doc.setDrawColor(...palette.taupe);
+      doc.setLineWidth(1);
+      doc.line(margin, sepY, pageW - margin, sepY);
+
+      // Signature area
+      const sigY = Math.min(sepY + 55, pageH - 85);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(...palette.iron);
+      doc.text("Firma / Kinesiólogo(a):", margin, sigY);
+
+      // Signature line
+      doc.setDrawColor(...palette.iron);
+      doc.setLineWidth(1);
+      doc.line(margin + 120, sigY + 2, pageW - margin, sigY + 2);
+
+      // Footer
+      doc.setTextColor(...palette.taupe);
+      doc.setFontSize(9);
+      doc.text("Este informe es una guía inicial. Para un plan detallado y progresivo, agenda tu consulta.", margin, pageH - 48);
+
+      const safeName = (r.nombre || "Paciente").trim().replace(/[^\p{L}\p{N}\s_-]/gu, "");
+      doc.save(`AllUmoves_Informe_${safeName}.pdf`);
+    });
+
+    // Initial state
+    setReady(false);
+  </script>
+</body>
+</html>
