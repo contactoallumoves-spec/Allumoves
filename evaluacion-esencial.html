@@ -955,10 +955,13 @@ ${tu ? "— All U Moves" : "— All U Moves"}`;
       const logoX = margin, logoY = 22, logoS = 52;
       try {
         const fmt = (logoDataUrl || "").startsWith("data:image/png") ? "PNG" : "JPEG";
-        doc.setDrawColor(...palette.sandstone);
-        doc.setLineWidth(1);
-        doc.roundedRect(logoX, logoY, logoS, logoS, 12, 12, "S");
-        doc.addImage(logoDataUrl, fmt, logoX + 6, logoY + 6, logoS - 12, logoS - 12);
+        // fondo tipo "badge"
+doc.setFillColor(...palette.sandstone);
+doc.roundedRect(logoX, logoY, logoS, logoS, 12, 12, "F");
+
+// logo arriba (con padding)
+doc.addImage(logoDataUrl, fmt, logoX + 8, logoY + 8, logoS - 16, logoS - 16);
+
       } catch {}
 
       // Header text
@@ -970,9 +973,36 @@ ${tu ? "— All U Moves" : "— All U Moves"}`;
       doc.setFontSize(12);
       doc.text("Informe de Bienestar y Movimiento", margin + 70, 68);
 
+      // Chips (zona / actividad)
+function chip(x, y, text) {
+  const padX = 10;
+  const padY = 7;
+  doc.setFont("Montserrat", "bold");
+  doc.setFontSize(9.5);
+
+  const w = doc.getTextWidth(text) + padX * 2;
+  const h = 20;
+
+  doc.setFillColor(...palette.sandstone);
+  doc.roundedRect(x, y - 14, w, h, 10, 10, "F");
+
+  doc.setTextColor(...palette.ink);
+  doc.text(text, x + padX, y);
+  return w;
+}
+
+// Toma metadata sin imprimir "Tono:"
+const meta = buildDraft().meta || {};
+let chipX = margin + 70;
+const chipY = 90;
+
+if (meta.zona) chipX += chip(chipX, chipY, meta.zona) + 8;
+if (meta.actividad) chipX += chip(chipX, chipY, meta.actividad) + 8;
+
+
       // Card
       const cardX = margin;
-      const cardY = 118;
+      const cardY = 132;
       const cardW = pageW - margin * 2;
       const cardH = pageH - cardY - 92;
 
